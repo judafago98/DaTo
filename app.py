@@ -327,8 +327,8 @@ try:
             with tab_sim:
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # --- NUEVO: MODO PANTALLA CLIENTE ---
-                modo_cliente = st.toggle("👁️ Modo Pantalla Cliente (Ocultar parámetros de rentabilidad)")
+                # --- NUEVO: MODO PANTALLAZO ---
+                modo_cliente = st.toggle("📸 Activar Vista para Pantallazo")
                 if 'tasa_simulador' not in st.session_state:
                     st.session_state['tasa_simulador'] = 3.0
                     
