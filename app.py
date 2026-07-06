@@ -429,7 +429,7 @@ try:
             
             with tab_sim:
                 st.markdown("<br>", unsafe_allow_html=True)
-                modo_cliente = st.toggle("📸 Activar UI Pública (Vista Cliente)")
+                modo_cliente = st.toggle("📸 Activar Vista Cliente")
                 if 'tasa_simulador' not in st.session_state:
                     st.session_state['tasa_simulador'] = 3.0
                     
