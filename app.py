@@ -6,6 +6,7 @@ import datetime
 import time
 import uuid
 import calendar
+import os
 
 # --- EJECUCIÓN INVISIBLE: Autocorrección de la Base de Datos ---
 def auto_fix_db(cursor, conn):
@@ -17,6 +18,20 @@ def auto_fix_db(cursor, conn):
 # --- Configuración visual de la app ---
 st.set_page_config(page_title="DaTo Workspace", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
+# --- CINTURÓN DE SEGURIDAD PARA ASSETS VISUALES ---
+def renderizar_logo(es_sidebar=False):
+    # Si tienes tu archivo logo.png en la carpeta, lo usa. Si no, usa el escudo de código puro.
+    if os.path.exists("logo.png"):
+        st.image("logo.png")
+    else:
+        alto = "120px" if es_sidebar else "250px"
+        fuente = "2.5rem" if es_sidebar else "4.5rem"
+        st.markdown(f"""
+        <div style='display: flex; align-items: center; justify-content: center; height: {alto}; background: linear-gradient(135deg, rgba(0, 30, 60, 0.8), rgba(0, 0, 0, 0.9)); border-radius: 20px; border: 2px solid rgba(0, 198, 255, 0.6); box-shadow: 0 0 35px rgba(0, 198, 255, 0.2), inset 0 0 15px rgba(0, 198, 255, 0.1); margin-bottom: 15px; transition: all 0.4s ease;'>
+            <h1 style='color: #00C6FF; font-size: {fuente}; font-weight: 700; text-transform: uppercase; letter-spacing: 4px; margin:0; text-shadow: 0 0 20px rgba(0, 198, 255, 0.8);'>⚡ DaTo</h1>
+        </div>
+        """, unsafe_allow_html=True)
+
 # --- DISEÑO ULTRA PREMIUM Y RESPONSIVO (BLACK & BLUE EDITION) ---
 st.markdown("""
     <style>
@@ -27,10 +42,10 @@ st.markdown("""
         .stApp {
             background-color: #000000;
             background-image: 
-                linear-gradient(rgba(0, 198, 255, 0.07) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 198, 255, 0.07) 1px, transparent 1px),
-                radial-gradient(circle at 50% 50%, rgba(0, 30, 60, 0.6), #000000);
-            background-size: 35px 35px, 35px 35px, 100% 100%;
+                linear-gradient(rgba(0, 198, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 198, 255, 0.05) 1px, transparent 1px),
+                radial-gradient(circle at 50% 50%, rgba(0, 20, 40, 0.8), #000000);
+            background-size: 40px 40px, 40px 40px, 100% 100%;
             background-position: center center;
             background-attachment: fixed;
             color: #F8FAFC;
@@ -46,7 +61,7 @@ st.markdown("""
 
         [data-testid="stImage"] { display: flex; align-items: center; justify-content: center; }
         [data-testid="stImage"] img {
-            border-radius: 24px !important;
+            border-radius: 20px !important;
             box-shadow: 0 0 35px rgba(0, 198, 255, 0.3), inset 0 0 15px rgba(0, 198, 255, 0.2) !important;
             border: 2px solid #00C6FF !important; transition: all 0.4s ease !important;
             max-height: 400px; object-fit: cover; width: 100% !important; max-width: 400px;
@@ -54,7 +69,7 @@ st.markdown("""
         [data-testid="stImage"] img:hover { box-shadow: 0 0 50px rgba(0, 198, 255, 0.6) !important; transform: scale(1.02) !important; }
 
         [data-testid="stSidebar"] {
-            background-color: rgba(2, 6, 23, 0.95) !important; backdrop-filter: blur(20px);
+            background-color: rgba(2, 6, 15, 0.95) !important; backdrop-filter: blur(20px);
             border-right: 1px solid rgba(0, 198, 255, 0.15);
         }
         
@@ -77,7 +92,7 @@ st.markdown("""
         .login-wrapper { display: flex; align-items: center; justify-content: center; height: 100%; }
 
         [data-testid="stForm"] {
-            background: rgba(4, 13, 30, 0.7) !important; backdrop-filter: blur(25px) !important;
+            background: rgba(4, 10, 20, 0.7) !important; backdrop-filter: blur(25px) !important;
             border: 1px solid rgba(0, 198, 255, 0.2) !important; border-radius: 20px !important;
             padding: 40px 30px !important; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
             display: flex; flex-direction: column; justify-content: center; height: 100%;
@@ -141,7 +156,6 @@ st.markdown("""
 
         @media (max-width: 768px) {
             .login-wrapper { flex-direction: column !important; gap: 20px !important; margin-top: 2vh !important; }
-            [data-testid="stImage"] img { max-height: 180px !important; border-radius: 15px !important; }
             [data-testid="stForm"] { padding: 25px 20px !important; }
             h1 { font-size: 2.2rem !important; }
             .kpi-card h1 { font-size: 2.5rem !important; }
@@ -273,8 +287,8 @@ try:
         col_espacio1, col_izq, col_der, col_espacio2 = st.columns([0.5, 4, 4, 0.5], gap="large", vertical_alignment="center")
         
         with col_izq:
-            st.markdown("<div class='login-wrapper fade-in'>", unsafe_allow_html=True)
-            st.image("image_b3d241.jpg")
+            st.markdown("<div class='login-wrapper fade-in' style='width: 100%;'>", unsafe_allow_html=True)
+            renderizar_logo(es_sidebar=False)
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col_der:
@@ -318,9 +332,8 @@ try:
         }
 
         st.sidebar.markdown("<br>", unsafe_allow_html=True)
-        st.sidebar.markdown("<div style='text-align: center; margin-bottom: 20px;'>", unsafe_allow_html=True)
-        st.sidebar.image("image_b3d241.jpg")
-        st.sidebar.markdown("</div>", unsafe_allow_html=True)
+        with st.sidebar:
+            renderizar_logo(es_sidebar=True)
         
         st.sidebar.markdown(f"""
             <div style='padding: 12px; background: rgba(0, 198, 255, 0.03); border-radius: 12px; border: 1px solid rgba(0,198,255,0.1); margin-bottom: 15px; text-align: center;'>
@@ -349,7 +362,7 @@ try:
             st.markdown("<div style='height: 5vh;'></div>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                st.image("image_b3d241.jpg")
+                renderizar_logo(es_sidebar=False)
                 st.markdown(f"""
                 <div class="fade-in" style="text-align: center; margin-top: 20px;">
                     <h1 style='font-size: 3.5rem; font-weight: 700; margin-bottom: 0;'>Bienvenido a <span style='color: #00C6FF;'>DaTo</span></h1>
@@ -424,7 +437,7 @@ try:
             
             with tab_inv1:
                 st.markdown("<br>", unsafe_allow_html=True)
-                cursor.execute("SELECT imei AS 'Serial/IMEI', categoria AS 'Tipo', marca AS 'Marca', modelo AS 'Modelo', tipo_ingreso AS 'Condición', costo_adquisicion AS 'Costo Compra', precio_venta_contado AS 'Precio Sugerido' FROM Inventario WHERE estado = 'Disponible'")
+                cursor.execute("SELECT imei AS 'Serial/IMEI', categoria AS 'Tipo', marca AS 'Modelo/Marca', modelo AS 'Detalle', tipo_ingreso AS 'Condición', costo_adquisicion AS 'Costo Compra', precio_venta_contado AS 'Precio Sugerido' FROM Inventario WHERE estado = 'Disponible'")
                 df_inventario = pd.DataFrame(cursor.fetchall())
                 
                 c1, c2, c3 = st.columns(3)
@@ -808,7 +821,7 @@ try:
                     else: st.info("Facturación limpia.")
                     
                 with c3:
-                    st.markdown("<h4 style='color:#0099FF;'>📦 Eliminar Hardware de Bodega</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0066FF;'>📦 Eliminar Hardware de Bodega</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT imei, marca, modelo, costo_adquisicion, id_bolsa FROM Inventario WHERE estado = 'Disponible'")
                     inv_db = cursor.fetchall()
                     if inv_db:
