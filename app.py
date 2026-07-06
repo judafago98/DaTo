@@ -622,7 +622,7 @@ try:
                     with c2: eq_sel = st.selectbox("Extracción de Stock", list(opc_eq.keys()), index=None, placeholder="Seleccionar Hardware a despachar...")
                     
                     if cli_sel and eq_sel:
-                        st.markdown("<div style='background: rgba(0, 102, 255, 0.2); padding: 15px; border-radius: 12px; border-left: 3px solid #00E5FF; margin: 20px 0;'><p style='color:#00E5FF; font-size:14px; margin-bottom:10px; font-weight: 700;'>TIMELINE CONTRACTUAL</p>", unsafe_allow_html=True)
+                        st.markdown("<div style='background: rgba(0, 229, 255, 0.1); padding: 15px; border-radius: 12px; border-left: 4px solid #00E5FF; margin: 20px 0;'><p style='color:#00E5FF; font-size:14px; margin-bottom:10px; font-weight: 700;'>TIMELINE CONTRACTUAL</p>", unsafe_allow_html=True)
                         c_f1, c_f2 = st.columns(2)
                         with c_f1: fecha_venta = st.date_input("Día 0 (Apertura de Operación)", value=datetime.date.today())
                         with c_f2: f_cuota = st.date_input("Proyección de Primera Facturación", value=sumar_meses_exactos(fecha_venta, 1))
@@ -713,6 +713,7 @@ try:
                 
                 if sel_titular:
                     dat = opc_c[sel_titular]
+                    
                     cursor.execute("SELECT id_pago, monto_recibido, fecha_pago, tipo_pago, capital_abonado, interes_cobrado FROM Pagos WHERE id_credito = %s ORDER BY fecha_pago DESC", (dat['id_credito'],))
                     hist = cursor.fetchall()
                     
@@ -806,7 +807,7 @@ try:
                     cursor.execute("SELECT SUM(capital_abonado) as cap, MAX(monto_recibido) as last_val, MAX(fecha_pago) as last_date FROM Pagos WHERE id_credito = %s", (dat['id_credito'],))
                     res_pag = cursor.fetchone()
                     cap_pag = float(res_pag['cap']) if res_pag and res_pag['cap'] else 0
-                    last_val = float(res_pag['last_val']) if res_pag Imageres_pag and res_pag['last_val'] else 0
+                    last_val = float(res_pag['last_val']) if res_pag and res_pag['last_val'] else 0
                     last_date = res_pag['last_date'] if res_pag and res_pag['last_date'] else None
 
                     s_act = float(dat['monto_financiado']) - cap_pag
@@ -959,6 +960,7 @@ try:
                 cursor.execute("SELECT SUM(saldo_actual) as cap FROM Bolsas_Capital")
                 res_cap = cursor.fetchone()
                 cap = float(res_cap['cap']) if res_cap and res_cap['cap'] else 0
+                
                 deuda = df_inversores['Saldo Vivo Exigible'].sum() if not df_inversores.empty else 0
                 
                 c1, c2 = st.columns(2)
@@ -1067,7 +1069,7 @@ try:
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-bottom: 20px;">
+                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-bottom: 20px;">
                     <h3 style="color:#00E5FF; margin:0; font-weight: 700; letter-spacing: 2.5px;">EVALUACIÓN PATRIMONIAL DEL ECOSISTEMA</h3>
                     <h1 style="color:white; font-size: 4.5rem; font-weight: 800; margin: 10px 0; text-shadow: 0 0 25px rgba(0, 229, 255, 0.4);">{fmt_cop(patrimonio_neto)}</h1>
                     <p style="color:#8B9BB4; font-size: 15px; margin:0;">Base Líquida Local ({fmt_cop(cap)}) + Capital Expuesto en Nodos ({fmt_cop(cartera_neta_calle)}) - Fondeo Externo Exigible ({fmt_cop(deuda)})</p>
@@ -1154,7 +1156,7 @@ try:
                         st.bar_chart(df_egresos, color="#0066FF")
                         
                 st.markdown(f"""
-                <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-top: 30px;">
+                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-top: 30px;">
                     <h4 style="color:#00E5FF; margin:0; font-weight: 600; letter-spacing: 1.5px;">PROYECCIÓN DE RENDIMIENTO (ROI) GLOBAL</h4>
                     <h1 style="color:white; font-size: 3.5rem; font-weight: 800; margin: 10px 0; text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);">{((ganancia_por_venta + ganancia_por_interes) / (total_costo_equipos if total_costo_equipos > 0 else 1) * 100):.1f}%</h1>
                     <p style="color:#8B9BB4; font-size: 15px; margin:0;">Métrica predictiva de retorno de inversión por cada punto de liquidez convertido en hardware.</p>
