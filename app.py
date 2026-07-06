@@ -1,5 +1,6 @@
 import streamlit as st
 import mysql.connector
+from mysql.connector import pooling
 import pandas as pd
 import datetime
 import time
@@ -16,57 +17,104 @@ def auto_fix_db(cursor, conn):
 # --- Configuración visual de la app ---
 st.set_page_config(page_title="DaTo Workspace", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
-# --- DISEÑO ULTRA PREMIUM ---
+# --- DISEÑO ULTRA PREMIUM (Sidebar de Cristal, Animaciones, Aislamiento de Formularios) ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
         html, body, [class*="css"] { font-family: 'Outfit', sans-serif; }
 
+        /* MOTOR DE FONDO ANIMADO FINTECH */
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         .stApp { background: linear-gradient(-45deg, #020617, #0A192F, #020813, #001E3C); background-size: 300% 300%; animation: gradientBG 25s ease infinite; color: #F8FAFC; }
         
+        /* OCULTAR ELEMENTOS NATIVOS */
         #MainMenu, footer, header, [data-testid="stHeader"], [data-testid="collapsedControl"] {display: none !important;}
+        
+        /* SCROLLBAR NEÓN */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(0, 198, 255, 0.3); border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(0, 198, 255, 0.8); }
 
+        /* CONTENEDOR DE NUESTRO LOGO PREMIUM */
         [data-testid="stImage"] { display: flex; align-items: center; justify-content: center; }
         [data-testid="stImage"] img {
-            border-radius: 24px !important; box-shadow: 0 0 25px rgba(0, 198, 255, 0.4), inset 0 0 10px rgba(0, 198, 255, 0.2) !important;
-            border: 2px solid #00C6FF !important; transition: all 0.4s ease !important; max-height: 400px; object-fit: cover;
+            border-radius: 24px !important;
+            box-shadow: 0 0 25px rgba(0, 198, 255, 0.4), inset 0 0 10px rgba(0, 198, 255, 0.2) !important;
+            border: 2px solid #00C6FF !important; transition: all 0.4s ease !important;
+            max-height: 400px; object-fit: cover;
         }
         [data-testid="stImage"] img:hover { box-shadow: 0 0 50px rgba(0, 198, 255, 0.8) !important; transform: scale(1.02) !important; }
 
-        [data-testid="stSidebar"] { background-color: rgba(2, 6, 23, 0.85) !important; backdrop-filter: blur(20px); border-right: 1px solid rgba(0, 198, 255, 0.15); }
+        /* SIDEBAR DE CRISTAL LÍQUIDO */
+        [data-testid="stSidebar"] {
+            background-color: rgba(2, 6, 23, 0.85) !important; backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(0, 198, 255, 0.15);
+        }
+        
+        /* AISLAMIENTO DE ESTILOS: Menú del Sidebar */
         [data-testid="stSidebar"] div[role="radiogroup"] { gap: 6px; padding: 10px 0; }
         [data-testid="stSidebar"] div[role="radiogroup"] label > div:first-child { display: none !important; }
         [data-testid="stSidebar"] div[role="radiogroup"] label {
-            background: transparent !important; border: 1px solid transparent !important; border-radius: 10px !important; padding: 12px 16px !important; margin: 2px 8px !important;
+            background: transparent !important; border: 1px solid transparent !important;
+            border-radius: 10px !important; padding: 12px 16px !important; margin: 2px 8px !important;
             transition: all 0.2s ease !important; cursor: pointer !important; display: flex !important;
         }
         [data-testid="stSidebar"] div[role="radiogroup"] label p { color: #94A3B8 !important; font-size: 14.5px !important; font-weight: 500 !important; margin: 0 !important; }
         [data-testid="stSidebar"] div[role="radiogroup"] label:hover { background: rgba(0, 198, 255, 0.05) !important; transform: translateX(4px); }
         [data-testid="stSidebar"] div[role="radiogroup"] label:hover p { color: #FFFFFF !important; }
-        [data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] { background: linear-gradient(90deg, rgba(0,198,255,0.15) 0%, transparent 100%) !important; border-left: 4px solid #00C6FF !important; border-radius: 4px 10px 10px 4px !important; }
+        [data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] {
+            background: linear-gradient(90deg, rgba(0,198,255,0.15) 0%, transparent 100%) !important;
+            border-left: 4px solid #00C6FF !important; border-radius: 4px 10px 10px 4px !important;
+        }
         [data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] p { color: #00C6FF !important; font-weight: 700 !important; }
 
+        /* LOGIN SIDE-BY-SIDE PERFECTO */
         .login-wrapper { display: flex; align-items: stretch; justify-content: center; min-height: 50vh; gap: 40px; margin-top: 8vh; }
-        [data-testid="stForm"] { background: rgba(4, 13, 30, 0.5) !important; backdrop-filter: blur(25px) !important; border: 1px solid rgba(0, 198, 255, 0.15) !important; border-radius: 20px !important; padding: 40px 30px !important; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; justify-content: center; height: 100%; }
-        [data-testid="stMetric"] { background: rgba(10, 20, 40, 0.6); backdrop-filter: blur(15px); border: 1px solid rgba(0, 198, 255, 0.1); border-radius: 16px; padding: 24px; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); border-top: 3px solid #00C6FF; transition: all 0.3s ease; }
+
+        /* FORMULARIOS DE CRISTAL AZUL */
+        [data-testid="stForm"] {
+            background: rgba(4, 13, 30, 0.5) !important; backdrop-filter: blur(25px) !important;
+            border: 1px solid rgba(0, 198, 255, 0.15) !important; border-radius: 20px !important;
+            padding: 40px 30px !important; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            display: flex; flex-direction: column; justify-content: center; height: 100%;
+        }
+
+        /* TARJETAS MÉTRICAS DE REPORTES */
+        [data-testid="stMetric"] {
+            background: rgba(10, 20, 40, 0.6); backdrop-filter: blur(15px);
+            border: 1px solid rgba(0, 198, 255, 0.1); border-radius: 16px; padding: 24px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); border-top: 3px solid #00C6FF; transition: all 0.3s ease;
+        }
         [data-testid="stMetric"]:hover { border-top: 3px solid #00E5FF; transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0, 198, 255, 0.15); }
-        .stButton>button { background: linear-gradient(135deg, #0066FF 0%, #00C6FF 100%); color: #FFFFFF !important; border: none; border-radius: 10px; font-weight: 600; padding: 0.6rem 1.5rem; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 102, 255, 0.3); }
+        
+        /* BOTONES */
+        .stButton>button {
+            background: linear-gradient(135deg, #0066FF 0%, #00C6FF 100%);
+            color: #FFFFFF !important; border: none; border-radius: 10px; font-weight: 600; padding: 0.6rem 1.5rem; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 102, 255, 0.3);
+        }
         .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 198, 255, 0.5); background: linear-gradient(135deg, #00C6FF 0%, #0066FF 100%); }
-        input, select, textarea { background-color: rgba(4, 13, 30, 0.7) !important; color: white !important; border: 1px solid rgba(0, 198, 255, 0.2) !important; border-radius: 10px !important; padding: 12px !important; }
+        
+        input, select, textarea {
+            background-color: rgba(4, 13, 30, 0.7) !important; color: white !important;
+            border: 1px solid rgba(0, 198, 255, 0.2) !important; border-radius: 10px !important; padding: 12px !important;
+        }
         input:focus, select:focus, textarea:focus { border-color: #00E5FF !important; box-shadow: 0 0 12px rgba(0, 198, 255, 0.3) !important; background-color: rgba(10, 25, 50, 0.9) !important; }
+
         h1, h2, h3 { color: #FFFFFF !important; font-weight: 600 !important; }
         .fade-in { animation: fadeIn 0.6s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .kpi-card {
+            background: linear-gradient(135deg, rgba(0,198,255,0.05) 0%, rgba(0,102,255,0.15) 100%);
+            border: 1px solid rgba(0, 198, 255, 0.3); border-radius: 16px; padding: 25px;
+            text-align: center; box-shadow: 0 10px 30px rgba(0,198,255,0.1); margin-bottom: 20px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🛡️ FUNCIONES GLOBALES
+# 🛡️ SISTEMA DE COLORES Y FORMATOS GLOBALES 🛡️
 # ==========================================
 def fmt_cop(val):
     try: val_int = int(float(val))
@@ -108,6 +156,7 @@ def generar_plan_pagos_real(id_credito, cursor):
     cred = cursor.fetchone()
     cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito=%s ORDER BY fecha_pago ASC", (id_credito,))
     pagos_hist = cursor.fetchall()
+    
     pagado_total = sum([float(p['monto_recibido']) for p in pagos_hist])
     
     cursor.execute("SELECT * FROM Cuotas_Programadas WHERE id_credito=%s ORDER BY numero_cuota ASC", (id_credito,))
@@ -117,14 +166,15 @@ def generar_plan_pagos_real(id_credito, cursor):
     if cuotas_fijas:
         for idx, c in enumerate(cuotas_fijas):
             esperado = float(c['monto_esperado'])
+            f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             if pagado_acum >= esperado: 
                 est, pagado_acum = '✅ Pagada', pagado_acum - esperado
-                f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
                 est, pagado_acum = f'⚠️ Parcial (Abonó {fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             else: 
-                est, f_pago_mostrar = '🔸 Pendiente', '---'
+                est = '🔸 Pendiente'
+                f_pago_mostrar = '---'
             plan.append({'Cuota': f"Número {c['numero_cuota']}", 'Vencimiento Límite': c['fecha_vencimiento'], 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
     else:
         plazo, valor, f_base = int(cred['plazo_meses']), float(cred['valor_cuota'] or 0), cred['fecha_primera_cuota']
@@ -132,14 +182,15 @@ def generar_plan_pagos_real(id_credito, cursor):
             if not f_base: break
             f_venc = sumar_meses_exactos(f_base, i - 1)
             esperado = valor
+            f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             if pagado_acum >= esperado: 
                 est, pagado_acum = '✅ Pagada', pagado_acum - esperado
-                f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
                 est, pagado_acum = f'⚠️ Parcial (Abonó {fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             else: 
-                est, f_pago_mostrar = '🔸 Pendiente', '---'
+                est = '🔸 Pendiente'
+                f_pago_mostrar = '---'
             plan.append({'Cuota': f"Mes {i}", 'Vencimiento Límite': f_venc.strftime('%Y-%m-%d'), 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
     return pd.DataFrame(plan)
 
@@ -157,31 +208,32 @@ CAPACIDADES_MOVILES = ["64GB", "128GB", "256GB", "512GB", "1TB", "Otra..."]
 CAPACIDADES_PC = ["8GB RAM / 256GB SSD", "16GB RAM / 512GB SSD", "16GB RAM / 1TB SSD", "32GB RAM / 1TB SSD", "Otra..."]
 CAPACIDADES_ELECTRO = ["No Aplica", "32 Pulgadas", "50 Pulgadas", "65 Pulgadas", "Escribir manual..."]
 
-# --- Conexión Silenciosa BLINDADA Y PURA (Arreglo de Malloc) ---
-@st.cache_resource(ttl=60)
-def init_connection():
-    try: return mysql.connector.connect(
-        host="gateway01.us-east-1.prod.aws.tidbcloud.com", 
-        port=4000, 
-        user="2xRKoKTDAr4tRLF.root", 
-        password="7KGQVtKygobgy311", 
-        database="sistema_creditos", 
-        ssl_verify_cert=False, 
-        autocommit=True, 
+# --- CONEXIÓN BLINDADA POR POOL DE CONEXIONES (ADIÓS MALLOC ERROR) ---
+@st.cache_resource
+def get_connection_pool():
+    return pooling.MySQLConnectionPool(
+        pool_name="dato_pool",
+        pool_size=10,
+        pool_reset_session=True,
+        host="gateway01.us-east-1.prod.aws.tidbcloud.com",
+        port=4000,
+        user="2xRKoKTDAr4tRLF.root",
+        password="7KGQVtKygobgy311",
+        database="sistema_creditos",
+        ssl_verify_cert=False,
+        autocommit=True,
         connection_timeout=15,
-        use_pure=True # <- ESCUDO CONTRA EL ERROR DE MEMORIA "MALLOC"
+        use_pure=True # Obliga a usar Python puro en la nube
     )
-    except Exception: return None
 
-conn = init_connection()
-if conn is None or not conn.is_connected():
-    st.cache_resource.clear(); conn = init_connection()
-    if conn is None:
-        st.error("🚨 El servidor de base de datos está hibernando. Espera 30 segundos y recarga la página (F5).")
-        st.stop()
-
-cursor = conn.cursor(dictionary=True, buffered=True)
-auto_fix_db(cursor, conn)
+try:
+    pool = get_connection_pool()
+    conn = pool.get_connection()
+    cursor = conn.cursor(dictionary=True, buffered=True)
+    auto_fix_db(cursor, conn)
+except Exception as e:
+    st.error(f"🚨 El servidor de base de datos está hibernando o inalcanzable. Espera 30 segundos y recarga la página (F5). Detalles: {e}")
+    st.stop()
 
 if 'logeado' not in st.session_state: st.session_state['logeado'] = False
 if 'id_usuario' not in st.session_state: st.session_state['id_usuario'] = None
@@ -189,7 +241,7 @@ if 'nombre_usuario' not in st.session_state: st.session_state['nombre_usuario'] 
 if 'rol' not in st.session_state: st.session_state['rol'] = None
 
 # ==========================================
-# PANTALLA DE LOGIN 
+# PANTALLA DE LOGIN
 # ==========================================
 if not st.session_state['logeado']:
     st.markdown("<div style='height: 12vh;'></div>", unsafe_allow_html=True)
@@ -197,7 +249,7 @@ if not st.session_state['logeado']:
     
     with col_izq:
         st.markdown("<div class='fade-in'>", unsafe_allow_html=True)
-        st.image("logo.png", width='stretch')
+        st.image("logo.png", use_container_width=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_der:
@@ -208,8 +260,7 @@ if not st.session_state['logeado']:
             usuario_input = st.text_input("👤 Usuario Corporativo")
             password_input = st.text_input("🔒 Clave de Seguridad", type="password")
             st.markdown("<br>", unsafe_allow_html=True)
-            # Reemplazo de use_container_width por width='stretch'
-            if st.form_submit_button("Ingresar al Sistema", width='stretch'):
+            if st.form_submit_button("Ingresar al Sistema", use_container_width=True):
                 try:
                     cursor.execute("SELECT id_usuario, nombre_completo, rol FROM Usuarios WHERE username = %s AND password_hash = %s", (usuario_input, password_input))
                     usuario_db = cursor.fetchone()
@@ -221,14 +272,12 @@ if not st.session_state['logeado']:
         st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
-# APLICACIÓN PRINCIPAL
+# APLICACIÓN PRINCIPAL (NÚCLEO FINANCIERO)
 # ==========================================
 else:
-    try: conn.ping(reconnect=True, attempts=1, delay=0)
-    except: pass
-    
     es_admin = st.session_state['rol'] in ['Admin', 'Administrador']
     
+    # NOMBRES PROFESIONALES E INTUITIVOS
     MODULOS_TOTALES = {
         "🔮 Cotizador y Simulación": "simulador",
         "📦 Gestión de Inventario": "inventario",
@@ -244,10 +293,10 @@ else:
         "⚙️ Configuración y Seguridad": "config_roles"
     }
 
-    # Sidebar UI 
+    # Sidebar UI
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
     st.sidebar.markdown("<div style='text-align: center; margin-bottom: 20px;'>", unsafe_allow_html=True)
-    st.sidebar.image("logo.png", width='stretch')
+    st.sidebar.image("logo.png", use_container_width=True)
     st.sidebar.markdown("</div>", unsafe_allow_html=True)
     
     st.sidebar.markdown(f"""
@@ -258,7 +307,8 @@ else:
     """, unsafe_allow_html=True)
     
     menu_map = {"🏠 Panel de Inicio": "inicio"} 
-    if es_admin: menu_map.update(MODULOS_TOTALES)
+    if es_admin:
+        menu_map.update(MODULOS_TOTALES)
     else:
         cursor.execute("SELECT m.nombre_interno FROM Modulos_Sistema m JOIN Permisos_Rol p ON m.id_modulo = p.id_modulo JOIN Roles r ON p.id_role = r.id_role WHERE r.nombre_rol = %s", (st.session_state['rol'],))
         for m in cursor.fetchall(): 
@@ -269,7 +319,7 @@ else:
     menu_seleccionado = menu_map[menu_seleccionado_texto]
     
     st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-    if st.sidebar.button("🚪 Cerrar Sesión", width='stretch'):
+    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
         st.session_state['logeado'] = False; st.rerun()
 
     # --- PANTALLAS ---
@@ -277,7 +327,7 @@ else:
         st.markdown("<div style='height: 5vh;'></div>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.image("logo.png", width='stretch')
+            st.image("logo.png", use_container_width=True)
             st.markdown(f"""
             <div class="fade-in" style="text-align: center; margin-top: 20px;">
                 <h1 style='font-size: 3.5rem; font-weight: 700; margin-bottom: 0;'>Bienvenido a <span style='color: #00C6FF;'>DaTo</span></h1>
@@ -325,7 +375,7 @@ else:
                     interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
                     
                     st.markdown(f"""
-                    <div style="background: rgba(0,198,255,0.03); border: 1px solid rgba(0,198,255,0.2); border-radius: 16px; padding: 30px; text-align: center; margin-top: 10px;">
+                    <div class="kpi-card">
                         <h3 style="color:#00C6FF; margin:0; font-weight: 500; font-size: 1.1rem;">LIQUIDACIÓN TOTAL CON DESCUENTO (PAZ Y SALVO)</h3>
                         <h1 style="color:white; font-size: 3.5rem; margin: 0;">{fmt_cop(saldo_capital + interes_mes)}</h1>
                         <p style="color:#94A3B8; font-size: 14px; margin-top: 5px;">Capital restante ({fmt_cop(saldo_capital)}) + Interés de este mes ({fmt_cop(interes_mes)}).</p>
@@ -333,7 +383,7 @@ else:
                     """, unsafe_allow_html=True)
                     
                     df_plan = generar_plan_pagos_real(datos_paz['id_credito'], cursor)
-                    st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), width='stretch')
+                    st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), use_container_width=True)
 
     elif menu_seleccionado == "inventario":
         st.markdown("<h2 class='fade-in'>Gestión de Inventario 📦</h2>", unsafe_allow_html=True)
@@ -351,7 +401,7 @@ else:
                 c3.metric("💎 Proyección si se vende", fmt_cop(df_inventario['Precio Sugerido'].sum()))
                 df_inventario['Costo Compra'] = df_inventario['Costo Compra'].apply(fmt_cop)
                 df_inventario['Precio Sugerido'] = df_inventario['Precio Sugerido'].apply(fmt_cop)
-                st.dataframe(df_inventario, width='stretch')
+                st.dataframe(df_inventario, use_container_width=True)
             else: st.info("No hay equipos en bodega.")
 
         with tab_inv2:
@@ -412,11 +462,11 @@ else:
             if not df_hist.empty:
                 df_hist['Costo Real'] = df_hist['Costo Real'].apply(fmt_cop)
                 df_hist['Precio de Venta (Final)'] = df_hist['Precio de Venta (Final)'].apply(lambda x: fmt_cop(x) if x > 0 else 'N/A')
-                st.dataframe(df_hist.style.applymap(color_estado, subset=['Estado Físico']), width='stretch')
+                st.dataframe(df_hist.style.applymap(color_estado, subset=['Estado Físico']), use_container_width=True)
             else: st.info("Ningún movimiento registrado.")
 
     elif menu_seleccionado == "clientes":
-        st.markdown("<h2 class='fade-in'>Registro de Clientes 👥</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='fade-in'>Directorio de Clientes 👥</h2>", unsafe_allow_html=True)
         with st.form("f_cli"):
             doc = st.text_input("Cédula de Ciudadanía")
             nom = st.text_input("Nombre y Apellido Completo")
@@ -432,7 +482,7 @@ else:
         st.divider()
         cursor.execute("SELECT documento AS 'Cédula', nombre_completo AS 'Nombre Registrado', telefono AS 'Línea Celular' FROM Clientes")
         df_clientes = pd.DataFrame(cursor.fetchall())
-        if not df_clientes.empty: st.dataframe(df_clientes, width='stretch')
+        if not df_clientes.empty: st.dataframe(df_clientes, use_container_width=True)
 
     elif menu_seleccionado == "ventas":
         st.markdown("<h2 class='fade-in'>Originación de Créditos 📝</h2>", unsafe_allow_html=True)
@@ -596,19 +646,18 @@ else:
                             
                             conn.commit(); st.toast("Recaudo indexado con éxito.", icon='✅'); time.sleep(1.5); st.rerun()
 
-                # --- HISTORIAL TRANSACCIONAL FÍSICO ---
                 st.markdown("<br>### 💸 Historial de Transacciones Físicas", unsafe_allow_html=True)
                 if hist:
                     df_trans = pd.DataFrame(hist)
                     df_trans.rename(columns={'fecha_pago': 'Fecha', 'tipo_pago': 'Concepto', 'monto_recibido': 'Monto Recibido', 'capital_abonado': 'Al Capital', 'interes_cobrado': 'A Intereses'}, inplace=True)
                     for col in ['Monto Recibido', 'Al Capital', 'A Intereses']: df_trans[col] = df_trans[col].apply(fmt_cop)
-                    st.dataframe(df_trans[['Fecha', 'Concepto', 'Monto Recibido', 'Al Capital', 'A Intereses']], width='stretch')
+                    st.dataframe(df_trans[['Fecha', 'Concepto', 'Monto Recibido', 'Al Capital', 'A Intereses']], use_container_width=True)
                 else:
                     st.info("Sin registros físicos.")
 
                 st.markdown("<br>### 🧾 Plan de Amortización Teórico", unsafe_allow_html=True)
                 df_plan = generar_plan_pagos_real(dat['id_credito'], cursor)
-                st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), width='stretch')
+                st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), use_container_width=True)
 
     elif menu_seleccionado == "vencimientos":
         st.markdown("<h2 class='fade-in'>Control de Cartera y Mora ⏰</h2>", unsafe_allow_html=True)
@@ -624,7 +673,7 @@ else:
             df['Liquidación Inmediata (Paz y Salvo)'] = df.apply(lambda r: float(r['Capital Pendiente']) + (float(r['Capital Pendiente']) * float(r['tasa_interes_mensual'])), axis=1)
             for c in ['Mensualidad', 'Capital Pendiente', 'Liquidación Inmediata (Paz y Salvo)']: df[c] = df[c].apply(fmt_cop)
             df = df.drop(columns=['tasa_interes_mensual'])
-            st.dataframe(df.style.applymap(color_estado, subset=['Estatus']), width='stretch')
+            st.dataframe(df.style.applymap(color_estado, subset=['Estatus']), use_container_width=True)
 
     elif menu_seleccionado == "notificar":
         st.markdown("<h2 class='fade-in'>Estados de Cuenta Mensuales 📱</h2>", unsafe_allow_html=True)
@@ -647,20 +696,20 @@ else:
                 s_act = float(dat['monto_financiado']) - cap_pag
                 paz_y_salvo = s_act + (s_act * float(dat['tasa_interes_mensual']))
                 
-                msg = f"Hola {dat['nombre_completo']}. Resumen de tu saldo en DaTo:\n\n💵 *Cuota del Mes:* {fmt_cop(dat['valor_cuota'])}\n📉 *Saldo Neto a Capital:* {fmt_cop(s_act)}\n💳 *Último Abono Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Cancelación Total Hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nDía límite de pago: {str(dat['fecha_primera_cuota'].day)}. ¡Muchas gracias!"
+                msg = f"Buen día {dat['nombre_completo']}. Resumen de tu obligación con DaTo:\n\n💵 *Mensualidad Ordinaria:* {fmt_cop(dat['valor_cuota'])}\n📉 *Saldo Neto Pendiente:* {fmt_cop(s_act)}\n💳 *Última Tranascción:* {fmt_cop(last_val) if last_val else '$0'} el día {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar tu equipo en su totalidad (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nTe recordamos que tu fecha límite son los {str(dat['fecha_primera_cuota'].day)} de cada mes. ¡Muchas gracias!"
                 
                 c1, c2 = st.columns([1, 1])
                 with c1: st.text_area("Texto para WhatsApp Comercial", value=msg, height=300)
                 with c2:
-                    st.subheader("Cobertura de Tramos")
+                    st.subheader("Verificación Visual del Crédito")
                     df_plan = generar_plan_pagos_real(dat['id_credito'], cursor)
-                    st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), width='stretch')
+                    st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), use_container_width=True)
 
     elif menu_seleccionado == "historial":
-        st.markdown("<h2 class='fade-in'>Auditoría y Anulaciones del Sistema 📜</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='fade-in'>Auditoría de Operaciones 📜</h2>", unsafe_allow_html=True)
         if not es_admin: st.error("🔒 Privilegio directivo requerido."); st.stop()
         
-        tab_v, tab_r = st.tabs(["📋 Libro Mayor de Operaciones (Ganancias)", "⚠️ Módulo de Corrección (Zona Roja)"])
+        tab_v, tab_r = st.tabs(["📋 Libro Mayor de Operaciones", "⚠️ Módulo de Corrección (Zona Roja)"])
         
         with tab_v:
             st.markdown("<br>", unsafe_allow_html=True)
@@ -677,7 +726,7 @@ else:
             if not df_cart.empty:
                 for col in ['Costo Hardware', 'Precio Acordado', 'Recaudo Acumulado', 'Capital en la Calle', 'Comisión Emitida', 'GANANCIA NETA EN EFECTIVO']: 
                     df_cart[col] = df_cart[col].apply(fmt_cop)
-                st.dataframe(df_cart.style.applymap(color_estado, subset=['Calificación']).applymap(color_ganancia_real, subset=['GANANCIA NETA EN EFECTIVO']), width='stretch')
+                st.dataframe(df_cart.style.applymap(color_estado, subset=['Calificación']).applymap(color_ganancia_real, subset=['GANANCIA NETA EN EFECTIVO']), use_container_width=True)
             else: st.info("El log de auditoría no arroja resultados.")
 
         with tab_r:
@@ -752,7 +801,7 @@ else:
             if pends:
                 df_p = pd.DataFrame(pends)
                 df_p['Bono a Pagar'] = df_p['Bono a Pagar'].apply(fmt_cop)
-                st.dataframe(df_p, width='stretch')
+                st.dataframe(df_p, use_container_width=True)
                 with st.form("f_com"):
                     sel = st.selectbox("Seleccionar liquidación de Asesor", list({f"[{x['Asesor Comercial']}] Venta a: {x['Titular']} ({x['Celular']}) -> {fmt_cop(x['Bono a Pagar'])}": x['id_credito'] for x in pends}.keys()), index=None, placeholder="Seleccione Pase...")
                     if st.form_submit_button("Aprobar Desembolso de Caja") and sel:
@@ -780,7 +829,7 @@ else:
                     conn.commit(); st.toast("Gasto debitado de caja matriz.", icon='✅'); time.sleep(1); st.rerun()
 
     elif menu_seleccionado == "flujo":
-        st.markdown("<h2 class='fade-in'>Tesorería Central Institucional 📈</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='fade-in'>Fondeo y Socios 📈</h2>", unsafe_allow_html=True)
         if not es_admin: st.error("🔒 Área Confidencial."); st.stop()
         
         tab_dash, tab_in, tab_out = st.tabs(["📊 Libro Mayor de Inversionistas", "📥 Recibir Inyección de Fondeo", "📤 Realizar Pago a Socios"])
@@ -803,7 +852,7 @@ else:
             st.markdown("<br><h4 style='color:#E2E8F0; font-size: 1.1rem;'>📜 Estado de Cuenta General de Socios</h4>", unsafe_allow_html=True)
             if not df_inversores.empty:
                 for c in ['Capital Inyectado', 'Rendimiento Acordado', 'Retorno Ejecutado', 'Saldo Vivo Exigible']: df_inversores[c] = df_inversores[c].apply(fmt_cop)
-                st.dataframe(df_inversores, width='stretch')
+                st.dataframe(df_inversores, use_container_width=True)
             else: st.info("Registro institucional en blanco.")
 
             st.markdown("<br><h4 style='color:#E2E8F0; font-size: 1.1rem;'>🧾 Registro de Dispersiones</h4>", unsafe_allow_html=True)
@@ -811,7 +860,7 @@ else:
             df_hist_deuda = pd.DataFrame(cursor.fetchall())
             if not df_hist_deuda.empty:
                 df_hist_deuda['Valor Desembolsado'] = df_hist_deuda['Valor Desembolsado'].apply(fmt_cop)
-                st.dataframe(df_hist_deuda, width='stretch')
+                st.dataframe(df_hist_deuda, use_container_width=True)
 
         with tab_in:
             st.markdown("<br>", unsafe_allow_html=True)
@@ -846,7 +895,7 @@ else:
             else: st.info("Estructura libre de pasivos.")
 
     elif menu_seleccionado == "reportes":
-        st.markdown("<h2 class='fade-in'>Inteligencia Financiera (BI) 📊</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='fade-in'>Inteligencia de Negocios (BI) 📊</h2>", unsafe_allow_html=True)
         if not es_admin: st.error("🔒 Sistema Exclusivo."); st.stop()
         
         tab_bi, tab_graf, tab_riesgo, tab_eficiencia = st.tabs(["🌐 Resumen Ejecutivo", "📈 Dinámica de Flujo", "⚖️ Riesgo de Cartera", "💸 ROI y Eficiencia"])
@@ -1075,3 +1124,10 @@ else:
                                 cursor.execute("INSERT INTO Roles (nombre_rol) VALUES (%s)", (nuevo_rol_nombre.strip(),))
                                 conn.commit(); st.toast("Clasificación registrada."); time.sleep(1); st.rerun()
                         except Exception as e: st.error(f"Falla Crítica de Base de Datos: {e}")
+
+# === CIERRE DE CONEXIÓN AL POOL ===
+try:
+    if 'cursor' in locals(): cursor.close()
+    if 'conn' in locals() and conn.is_connected(): conn.close()
+except Exception:
+    pass
