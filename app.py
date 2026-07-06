@@ -23,221 +23,223 @@ def renderizar_logo(es_sidebar=False):
     if os.path.exists("logo.png"):
         st.image("logo.png")
     else:
-        alto = "100px" if es_sidebar else "200px"
-        fuente = "2.5rem" if es_sidebar else "4.5rem"
+        alto = "90px" if es_sidebar else "180px"
+        fuente = "2.2rem" if es_sidebar else "4rem"
         st.markdown(f"""
-        <div style='display: flex; align-items: center; justify-content: center; height: {alto}; background: linear-gradient(135deg, rgba(0, 30, 60, 0.6), rgba(0, 5, 15, 0.9)); border-radius: 20px; border: 1px solid rgba(0, 229, 255, 0.4); box-shadow: 0 0 40px rgba(0, 229, 255, 0.2), inset 0 0 20px rgba(0, 229, 255, 0.1); margin-bottom: 20px; backdrop-filter: blur(15px);'>
-            <h1 style='color: #FFFFFF; font-size: {fuente}; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin:0; text-shadow: 0px 0px 20px rgba(0, 229, 255, 0.8);'>⚡ DaTo</h1>
+        <div style='display: flex; align-items: center; justify-content: center; height: {alto}; background: linear-gradient(135deg, rgba(2, 6, 23, 0.8), rgba(0, 10, 30, 0.6)); border-radius: 16px; border: 1px solid rgba(0, 229, 255, 0.4); box-shadow: 0 0 30px rgba(0, 229, 255, 0.15), inset 0 0 15px rgba(0, 229, 255, 0.05); margin-bottom: 20px; backdrop-filter: blur(12px);'>
+            <h1 style='color: #FFFFFF; font-size: {fuente}; font-weight: 800; text-transform: uppercase; letter-spacing: 3px; margin:0; text-shadow: 0px 0px 15px rgba(0, 229, 255, 0.7);'>⚡ DaTo</h1>
         </div>
         """, unsafe_allow_html=True)
 
-# --- DISEÑO ULTRA PREMIUM Y RESPONSIVO (NIVEL DIOS - NEON GLASSMORPHISM) ---
+# --- ANULACIÓN GLOBAL ABSOLUTA (BLACK & NEON CYAN ENGINE) ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
-        html, body, [class*="css"] { font-family: 'Outfit', sans-serif; }
+        /* 1. SOBREESCRITURA TOTAL DE INYECCIONES INTERNAS DE STREAMLIT */
+        :root {
+            --primary-color: #00E5FF !important;
+            --background-color: #010409 !important;
+            --secondary-background-color: rgba(10, 25, 50, 0.5) !important;
+            --text-color: #FFFFFF !important;
+            --font: 'Outfit', sans-serif !important;
+        }
 
-        /* ==============================================================
-           FONDO MATRIZ CIBERNÉTICA (GRID AZUL NEÓN)
-           ============================================================== */
+        html, body, [class*="css"] { 
+            font-family: 'Outfit', sans-serif !important; 
+        }
+
+        /* 2. DISEÑO DEL LIQUID NET DE REDES NEURONALES */
         .stApp {
-            background-color: #010409 !important;
+            background-color: #020617 !important;
             background-image: 
-                linear-gradient(rgba(0, 229, 255, 0.08) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 229, 255, 0.08) 1px, transparent 1px),
-                radial-gradient(circle at 50% 30%, rgba(0, 102, 255, 0.15) 0%, transparent 60%) !important;
-            background-size: 35px 35px, 35px 35px, 100% 100% !important;
+                linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px),
+                radial-gradient(circle at 50% 30%, rgba(0, 102, 255, 0.12) 0%, #020617 70%) !important;
+            background-size: 40px 40px, 40px 40px, 100% 100% !important;
             background-attachment: fixed !important;
-            color: #F8FAFC;
+            color: #F8FAFC !important;
         }
-        
-        #MainMenu, footer {display: none !important;}
-        header, [data-testid="stHeader"] {background: transparent !important;}
-        
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.3); border-radius: 20px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 0.8); }
 
-        /* ==============================================================
-           SIDEBAR NEON PREMIUM (SIN CÍRCULOS ROJOS)
-           ============================================================== */
-        [data-testid="stSidebar"] {
-            background-color: rgba(2, 6, 15, 0.85) !important; 
-            backdrop-filter: blur(30px);
-            border-right: 1px solid rgba(0, 229, 255, 0.15);
+        /* 3. ERRADICACIÓN RADICAL DEL COLOR ROJO EN ENFOQUES Y BORDES */
+        input:focus, select:focus, textarea:focus, div:focus-within {
+            border-color: #00E5FF !important;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3) !important;
+            outline: none !important;
         }
         
-        /* 1. Asesinato del círculo de radio nativo */
-        [data-testid="stSidebar"] [role="radiogroup"] label [data-baseweb="radio"] > div:first-child {
-            display: none !important;
-        }
-        
-        /* 2. Estado Neutro del Botón de Menú */
-        [data-testid="stSidebar"] [role="radiogroup"] label {
-            background: rgba(10, 20, 40, 0.4) !important;
-            border: 1px solid rgba(255, 255, 255, 0.03) !important;
-            border-radius: 12px !important;
-            padding: 12px 16px !important;
-            margin-bottom: 8px !important;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            cursor: pointer !important;
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] label div[dir="auto"] {
-            color: #8B9BB4 !important;
-            font-size: 15px !important;
-            font-weight: 500 !important;
-            transition: all 0.3s ease;
-        }
-        
-        /* 3. Estado Hover (Interacción suave) */
-        [data-testid="stSidebar"] [role="radiogroup"] label:hover {
-            background: rgba(0, 229, 255, 0.08) !important;
+        /* Anulación de anillos de selección BaseWeb nativos */
+        [data-baseweb="input"] {
             border-color: rgba(0, 229, 255, 0.2) !important;
-            transform: translateX(4px);
         }
-        [data-testid="stSidebar"] [role="radiogroup"] label:hover div[dir="auto"] {
-            color: #FFFFFF !important;
-        }
-
-        /* 4. Estado Seleccionado (NEÓN ENCENDIDO) */
-        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"],
-        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
-            background: linear-gradient(90deg, rgba(0, 229, 255, 0.2) 0%, rgba(0, 102, 255, 0.05) 100%) !important;
-            border-left: 4px solid #00E5FF !important;
-            border-top: 1px solid rgba(0, 229, 255, 0.4) !important;
-            border-bottom: 1px solid rgba(0, 229, 255, 0.4) !important;
-            border-right: 1px solid rgba(0, 229, 255, 0.1) !important;
-            box-shadow: 0 0 20px rgba(0, 229, 255, 0.25), inset 0 0 10px rgba(0, 229, 255, 0.1) !important;
-            transform: translateX(4px);
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] div[dir="auto"],
-        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) div[dir="auto"] {
-            color: #FFFFFF !important;
-            font-weight: 800 !important;
-            letter-spacing: 0.5px;
-            text-shadow: 0 0 12px rgba(0, 229, 255, 0.9) !important;
+        [data-baseweb="input"]:focus-within {
+            border-color: #00E5FF !important;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3) !important;
         }
 
-        /* ==============================================================
-           MUERTE AL ROJO DEL TOGGLE (Activar UI Pública)
-           ============================================================== */
-        [data-testid="stToggle"] [data-baseweb="checkbox"] > div[data-checked="true"] {
-            background-color: #00E5FF !important;
-        }
-        [data-testid="stToggle"] [data-baseweb="checkbox"] > div[data-checked="true"] > div {
-            background-color: #FFFFFF !important;
-        }
-
-        /* BOTONES DE NUMBER_INPUT (Matando el rojo) */
+        /* 4. SECTORES NUMÉRICOS (Botones de +/- libres de rojo) */
         [data-testid="stNumberInput"] button {
-            background-color: rgba(10, 20, 40, 0.8) !important;
-            border: 1px solid rgba(0, 229, 255, 0.3) !important;
+            background-color: rgba(15, 23, 42, 0.8) !important;
+            border: 1px solid rgba(0, 229, 255, 0.2) !important;
             color: #00E5FF !important;
             border-radius: 8px !important;
         }
         [data-testid="stNumberInput"] button:hover {
-            background-color: rgba(0, 229, 255, 0.2) !important;
+            background-color: rgba(0, 229, 255, 0.15) !important;
             color: #FFFFFF !important;
             border-color: #00E5FF !important;
-            box-shadow: 0 0 10px rgba(0, 229, 255, 0.4) !important;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3) !important;
         }
 
-        /* ALERTAS / SUCCESS BOX (Cristal Ahumado Neón, cero verde/rojo sólido) */
-        [data-testid="stAlert"] {
-            background: rgba(4, 20, 40, 0.6) !important;
-            border: 1px solid rgba(0, 229, 255, 0.4) !important;
-            border-left: 5px solid #00E5FF !important;
+        /* 5. ERRADICACIÓN DE ROJO EN TOGGLES / INTERRUPTORES */
+        [data-testid="stToggle"] [data-baseweb="checkbox"] > div {
+            background-color: rgba(15, 23, 42, 0.8) !important;
+            border: 1px solid rgba(0, 229, 255, 0.3) !important;
+        }
+        [data-testid="stToggle"] [data-baseweb="checkbox"] > div[aria-checked="true"],
+        [data-testid="stToggle"] [data-baseweb="checkbox"] div[data-checked="true"] {
+            background-color: #00E5FF !important;
+            border-color: #00E5FF !important;
+        }
+
+        /* 6. BARRA DE MÓDULOS DE SIDEBAR ULTRA-PREMIUM (CERO PUNTOS ROJOS) */
+        [data-testid="stSidebar"] {
+            background-color: rgba(3, 7, 18, 0.9) !important;
+            backdrop-filter: blur(25px) !important;
+            border-right: 1px solid rgba(0, 229, 255, 0.15) !important;
+        }
+        
+        /* Forzar ocultación estricta de componentes gráficos circulares del st.radio */
+        [data-testid="stSidebar"] [role="radiogroup"] label div[data-baseweb="radio"],
+        [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child,
+        [data-testid="stSidebar"] [role="radiogroup"] label > span:first-child {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            width: 0 !important;
+        }
+
+        /* Estilo base tipo cápsula de cristal para el listado de módulos */
+        [data-testid="stSidebar"] [role="radiogroup"] label {
+            background: rgba(15, 23, 42, 0.4) !important;
+            border: 1px solid rgba(255, 255, 255, 0.02) !important;
             border-radius: 12px !important;
-            backdrop-filter: blur(15px) !important;
-            box-shadow: 0 5px 25px rgba(0, 229, 255, 0.15) !important;
-            padding: 1rem !important;
+            padding: 12px 16px !important;
+            margin: 4px 12px !important;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+            display: flex !important;
+            width: calc(100% - 24px) !important;
         }
-        [data-testid="stAlert"] [data-testid="stMarkdownContainer"] p {
-            color: #FFFFFF !important; font-weight: 600 !important; font-size: 1.05rem !important;
+        [data-testid="stSidebar"] [role="radiogroup"] label div[dir="auto"],
+        [data-testid="stSidebar"] [role="radiogroup"] label p {
+            color: #94A3B8 !important;
+            font-size: 14.5px !important;
+            font-weight: 500 !important;
+            margin: 0 !important;
         }
-        [data-testid="stAlert"] svg { fill: #00E5FF !important; }
 
-        /* TABS (PESTAÑAS) FLUIDAS */
+        /* Hover Dinámico */
+        [data-testid="stSidebar"] [role="radiogroup"] label:hover {
+            background: rgba(0, 229, 255, 0.06) !important;
+            border-color: rgba(0, 229, 255, 0.2) !important;
+            transform: translateX(4px);
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] label:hover div[dir="auto"] { color: #FFFFFF !important; }
+
+        /* Estado Activo Metálico de Neón */
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked),
+        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] {
+            background: linear-gradient(90deg, rgba(0, 229, 255, 0.15) 0%, rgba(0, 102, 255, 0.02) 100%) !important;
+            border-left: 4px solid #00E5FF !important;
+            border-top: 1px solid rgba(0, 229, 255, 0.3) !important;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.3) !important;
+            border-right: 1px solid rgba(0, 229, 255, 0.05) !important;
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.2) !important;
+            transform: translateX(4px) scale(1.01);
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) div[dir="auto"],
+        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] div[dir="auto"] {
+            color: #FFFFFF !important;
+            font-weight: 700 !important;
+            text-shadow: 0 0 10px rgba(0, 229, 255, 0.8) !important;
+        }
+
+        /* 7. AMORTIZACIÓN DE PESTAÑAS (TABS) */
         [data-baseweb="tab-list"] { gap: 12px; background: transparent !important; border-bottom: none !important; }
         [data-baseweb="tab"] {
-            background: rgba(4, 13, 30, 0.6) !important;
+            background: rgba(15, 23, 42, 0.6) !important;
             border: 1px solid rgba(0, 229, 255, 0.1) !important;
-            border-radius: 12px !important;
+            border-radius: 10px !important;
             padding: 10px 20px !important;
-            transition: all 0.3s ease !important;
+            transition: all 0.2s ease !important;
             color: #94A3B8 !important;
         }
-        [data-baseweb="tab"]:hover { background: rgba(0, 229, 255, 0.15) !important; color: #FFFFFF !important; }
+        [data-baseweb="tab"]:hover { background: rgba(0, 229, 255, 0.1) !important; color: #FFFFFF !important; }
         [data-baseweb="tab"][aria-selected="true"] {
-            background: linear-gradient(135deg, rgba(0, 102, 255, 0.4), rgba(0, 229, 255, 0.1)) !important;
-            border: 1px solid rgba(0, 229, 255, 0.5) !important;
+            background: linear-gradient(135deg, rgba(0, 102, 255, 0.3), rgba(0, 229, 255, 0.05)) !important;
+            border: 1px solid rgba(0, 229, 255, 0.4) !important;
             color: #00E5FF !important;
-            box-shadow: 0 5px 20px rgba(0, 229, 255, 0.25) !important;
+            box-shadow: 0 4px 15px rgba(0, 229, 255, 0.15) !important;
         }
         [data-baseweb="tab-highlight"] { display: none !important; }
 
-        /* INPUTS REDONDEADOS TIPO CRISTAL */
-        [data-testid="stTextInput"] div[data-baseweb="input"],
-        [data-testid="stSelectbox"] div[data-baseweb="select"],
-        [data-testid="stNumberInput"] div[data-baseweb="input"],
-        .stTextArea textarea {
-            background: rgba(10, 20, 40, 0.7) !important;
-            border: 1px solid rgba(0, 229, 255, 0.2) !important;
-            border-radius: 12px !important; 
-            backdrop-filter: blur(12px) !important;
-            color: #FFFFFF !important;
+        /* 8. PANELES DE NOTIFICACIÓN EN CRISTAL INTERNO (Adiós verde y rojo plano) */
+        [data-testid="stAlert"] {
+            background: rgba(15, 23, 42, 0.6) !important;
+            border: 1px solid rgba(0, 229, 255, 0.3) !important;
+            border-left: 5px solid #00E5FF !important;
+            border-radius: 12px !important;
+            backdrop-filter: blur(10px) !important;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
         }
-        [data-testid="stTextInput"] div[data-baseweb="input"]:focus-within,
-        [data-testid="stSelectbox"] div[data-baseweb="select"]:focus-within,
-        [data-testid="stNumberInput"] div[data-baseweb="input"]:focus-within,
-        .stTextArea textarea:focus {
-            border-color: #00E5FF !important;
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3) !important;
-            background: rgba(15, 30, 60, 0.95) !important;
-        }
+        [data-testid="stAlert"] * { color: #FFFFFF !important; font-weight: 600 !important; }
+        [data-testid="stAlert"] svg { fill: #00E5FF !important; }
 
-        /* BOTONES PRINCIPALES AZUL NEÓN */
+        /* 9. BOTONES COMERCIALES LÍQUIDOS */
         .stButton>button {
             background: linear-gradient(135deg, #0044BB 0%, #0099FF 100%) !important;
             color: #FFFFFF !important;
-            border: 1px solid rgba(0, 229, 255, 0.4) !important;
-            border-radius: 12px !important; 
+            border: 1px solid rgba(0, 229, 255, 0.3) !important;
+            border-radius: 10px !important;
             font-weight: 700 !important;
-            letter-spacing: 1.5px !important;
             text-transform: uppercase !important;
-            padding: 0.8rem 2rem !important;
-            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
-            box-shadow: 0 4px 15px rgba(0, 102, 255, 0.4) !important;
-            width: 100% !important;
+            letter-spacing: 1px !important;
+            padding: 0.7rem 2rem !important;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            box-shadow: 0 4px 15px rgba(0, 102, 255, 0.25) !important;
         }
         .stButton>button:hover {
-            transform: translateY(-3px) !important;
-            box-shadow: 0 8px 25px rgba(0, 229, 255, 0.5) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 10px 25px rgba(0, 229, 255, 0.4) !important;
             background: linear-gradient(135deg, #0066FF 0%, #00E5FF 100%) !important;
             border-color: #00E5FF !important;
         }
 
-        h1, h2, h3 { color: #FFFFFF !important; font-weight: 700 !important; }
-        .fade-in { animation: fadeIn 0.6s ease forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* KPIS METRICS EN CRISTAL */
+        /* 10. CONTENEDORES CORPORATIVOS MÁXIMO NIVEL */
+        [data-testid="stForm"] {
+            background: rgba(15, 23, 42, 0.6) !important;
+            backdrop-filter: blur(20px) !important;
+            border: 1px solid rgba(0, 229, 255, 0.2) !important;
+            border-radius: 16px !important;
+            padding: 35px !important;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+        }
         [data-testid="stMetric"] {
-            background: rgba(10, 20, 40, 0.5); backdrop-filter: blur(20px);
-            border: 1px solid rgba(0, 229, 255, 0.15); border-radius: 16px; padding: 20px;
-            border-left: 4px solid #0066FF; transition: all 0.3s ease;
+            background: rgba(15, 23, 42, 0.4) !important; backdrop-filter: blur(15px) !important;
+            border: 1px solid rgba(0, 229, 255, 0.1) !important; border-radius: 14px !important;
+            border-left: 4px solid #0066FF !important; transition: all 0.3s ease !important;
         }
-        [data-testid="stMetric"]:hover { 
-            border-left: 4px solid #00E5FF; transform: translateY(-5px); 
-            box-shadow: 0 10px 25px rgba(0, 102, 255, 0.2); 
+        [data-testid="stMetric"]:hover {
+            border-left: 4px solid #00E5FF !important; transform: translateX(3px) !important;
+            box-shadow: 0 8px 20px rgba(0, 102, 255, 0.15) !important;
         }
+        
+        #MainMenu, footer, [data-testid="stHeader"] { display: none !important; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🛡️ FUNCIONES GLOBALES Y FORMATOS
+# 🛡️ ALGORITMOS DE FORMATO Y CONVERSIÓN Financiera
 # ==========================================
 def fmt_cop(val):
     try: val_int = int(float(val))
@@ -252,10 +254,10 @@ def fmt_cop(val):
     return f"-${res}" if is_neg else f"${res}"
 
 def color_estado(val):
-    if val in ['Pagado', 'Pagada', 'Completado']: return 'background-color: rgba(0, 229, 255, 0.15); color: #00E5FF; font-weight: 600; border-radius: 8px;'
-    elif val in ['Activo', 'Pendiente']: return 'background-color: rgba(0, 102, 255, 0.15); color: #0066FF; font-weight: 600; border-radius: 8px;'
-    elif val in ['Disponible']: return 'background-color: rgba(0, 198, 255, 0.2); color: #00C6FF; font-weight: 600; border-radius: 8px;'
-    elif val in ['Vendido']: return 'background-color: rgba(255, 255, 255, 0.1); color: #94A3B8; font-weight: 600; border-radius: 8px;'
+    if val in ['Pagado', 'Pagada', 'Completado']: return 'background-color: rgba(0, 229, 255, 0.15); color: #00E5FF; font-weight: 600;'
+    elif val in ['Activo', 'Pendiente']: return 'background-color: rgba(0, 102, 255, 0.15); color: #0066FF; font-weight: 600;'
+    elif val in ['Disponible']: return 'background-color: rgba(0, 229, 255, 0.2); color: #00C6FF; font-weight: 600;'
+    elif val in ['Vendido']: return 'background-color: rgba(255, 255, 255, 0.05); color: #94A3B8; font-weight: 600;'
     return ''
 
 def color_estado_cuota(val):
@@ -279,7 +281,6 @@ def generar_plan_pagos_real(id_credito, cursor):
     cred = cursor.fetchone()
     cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito=%s ORDER BY fecha_pago ASC", (id_credito,))
     pagos_hist = cursor.fetchall()
-    
     pagado_total = sum([float(p['monto_recibido']) for p in pagos_hist])
     
     cursor.execute("SELECT * FROM Cuotas_Programadas WHERE id_credito=%s ORDER BY numero_cuota ASC", (id_credito,))
@@ -343,11 +344,11 @@ try:
     cursor = conn.cursor(dictionary=True, buffered=True)
     auto_fix_db(cursor, conn)
 except Exception as e:
-    st.error(f"🌐 El servidor de base de datos está inalcanzable. Espera 30 segundos y recarga (F5). Detalles: {e}")
+    st.error(f"🌐 Servidor de base de datos inalcanzable. Reintente en unos segundos. Detalle: {e}")
     st.stop()
 
 # ==========================================
-# CINTURÓN DE SEGURIDAD Y ENRUTADOR
+# SISTEMA DE CAPAS DE SEGURIDAD OPERATIVA
 # ==========================================
 try:
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
@@ -360,19 +361,16 @@ try:
         col_espacio1, col_izq, col_der, col_espacio2 = st.columns([0.5, 4, 4, 0.5], gap="large", vertical_alignment="center")
         
         with col_izq:
-            st.markdown("<div class='fade-in' style='width: 100%;'>", unsafe_allow_html=True)
             renderizar_logo(es_sidebar=False)
-            st.markdown("</div>", unsafe_allow_html=True)
 
         with col_der:
-            st.markdown("<div class='fade-in'>", unsafe_allow_html=True)
             with st.form("form_login"):
-                st.markdown("<h2 style='color: #00E5FF; font-weight: 800; margin-bottom: 5px; font-size: 2.2rem; letter-spacing: -0.5px;'>PORTAL CORPORATIVO</h2>", unsafe_allow_html=True)
-                st.markdown("<p style='color: #8B9BB4; margin-bottom: 30px; font-size: 1.05rem;'>Acceso exclusivo para personal operativo DaTo.</p>", unsafe_allow_html=True)
+                st.markdown("<h2 style='color: #00E5FF; font-weight: 800; margin-bottom: 5px; font-size: 2.2rem;'>Inicio de Sesión</h2>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #8B9BB4; margin-bottom: 30px; font-size: 1rem;'>Bienvenido. Ingrese sus credenciales corporativas.</p>", unsafe_allow_html=True)
                 usuario_input = st.text_input("Usuario")
                 password_input = st.text_input("Contraseña", type="password")
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.form_submit_button("INGRESAR", width='stretch'):
+                if st.form_submit_button("Ingresar", width='stretch'):
                     try:
                         cursor.execute("SELECT id_usuario, nombre_completo, rol FROM Usuarios WHERE username = %s AND password_hash = %s", (usuario_input, password_input))
                         usuario_db = cursor.fetchone()
@@ -382,9 +380,8 @@ try:
                             st.session_state['nombre_usuario'] = usuario_db['nombre_completo']
                             st.session_state['rol'] = usuario_db['rol']
                             st.rerun()
-                        else: st.error("Acceso denegado. Credenciales incorrectas.")
-                    except Exception as e: st.error(f"Falla de conexión a Base de Datos: {e}")
-            st.markdown("</div>", unsafe_allow_html=True)
+                        else: st.error("Usuario o contraseña incorrectos.")
+                    except Exception as e: st.error(f"Error de red central: {e}")
 
     else:
         es_admin = st.session_state['rol'] in ['Admin', 'Administrador']
@@ -404,14 +401,13 @@ try:
             "⚙️ Configuración y Seguridad": "config_roles"
         }
 
-        st.sidebar.markdown("<br>", unsafe_allow_html=True)
         with st.sidebar:
             renderizar_logo(es_sidebar=True)
         
         st.sidebar.markdown(f"""
-            <div style='padding: 15px; background: linear-gradient(135deg, rgba(0, 102, 255, 0.1), rgba(0, 229, 255, 0.05)); border-radius: 16px; border: 1px solid rgba(0,229,255,0.25); margin-bottom: 25px; text-align: center; backdrop-filter: blur(10px); box-shadow: 0 4px 15px rgba(0, 229, 255, 0.1);'>
-                <b style='color:#FFFFFF; font-size: 16px; letter-spacing: 0.5px;'>{st.session_state['nombre_usuario']}</b><br>
-                <span style='color:#00E5FF; font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase;'>{str(st.session_state['rol'])}</span>
+            <div style='padding: 15px; background: rgba(0, 102, 255, 0.1); border-radius: 12px; border: 1px solid rgba(0,229,255,0.2); margin-bottom: 20px; text-align: center;'>
+                <b style='color:#FFFFFF; font-size: 15px;'>{st.session_state['nombre_usuario']}</b><br>
+                <span style='color:#00E5FF; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;'>{str(st.session_state['rol'])}</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -428,20 +424,20 @@ try:
         menu_seleccionado = menu_map[menu_seleccionado_texto]
         
         st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-        if st.sidebar.button("CERRAR SESIÓN", width='stretch'):
+        if st.sidebar.button("Cerrar Sesión", width='stretch'):
             st.session_state['logeado'] = False; st.rerun()
 
         if menu_seleccionado == "inicio":
-            st.markdown("<div style='height: 6vh;'></div>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns([1, 2, 1])
+            st.markdown("<div style='height: 4vh;'></div>", unsafe_allow_html=True)
+            col1, col2, col3 = st.columns([1, 3, 1])
             with col2:
-                # Animación de Caricatura Divertida para el inicio (Gato Hacker en contenedor de cristal)
+                # Animación de Caricatura Divertida para el inicio (Gato Hacker)
                 url_gif_divertido = "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif"
                 st.markdown(f"""
-                <div class="fade-in" style="background: rgba(10, 20, 40, 0.6); backdrop-filter: blur(20px); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 24px; padding: 40px; text-align: center; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(0, 229, 255, 0.05);">
-                    <img src="{url_gif_divertido}" style="border-radius: 16px; width: 100%; max-width: 320px; border: 2px solid rgba(0, 229, 255, 0.4); box-shadow: 0 0 30px rgba(0, 229, 255, 0.3);">
-                    <h1 style='font-size: 3rem; font-weight: 800; margin-top: 30px; margin-bottom: 0; color: #FFFFFF;'>HOLA, <span style='color: #00E5FF;'>{st.session_state['nombre_usuario'].split(" ")[0].upper()}</span></h1>
-                    <p style='color: #8B9BB4; font-size: 1.2rem; font-weight: 400; margin-top: 10px;'>Es hora de poner a trabajar el ecosistema DaTo.</p>
+                <div class="fade-in" style="text-align: center; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 24px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
+                    <img src="{url_gif_divertido}" style="border-radius: 16px; width: 100%; max-width: 320px; border: 2px solid rgba(0, 229, 255, 0.3); box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);">
+                    <h1 style='font-size: 2.8rem; font-weight: 800; margin-top: 25px; margin-bottom: 0; color: #FFFFFF;'>HOLA, <span style='color: #00E5FF;'>{st.session_state['nombre_usuario'].split(" ")[0].upper()}</span></h1>
+                    <p style='color: #8B9BB4; font-size: 1.1rem; font-weight: 300; margin-top: 10px;'>Es hora de poner a trabajar el ecosistema DaTo.</p>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -451,7 +447,6 @@ try:
             
             with tab_sim:
                 st.markdown("<br>", unsafe_allow_html=True)
-                
                 modo_cliente = st.toggle("📸 Activar UI Pública (Vista Cliente)")
                 if 'tasa_simulador' not in st.session_state:
                     st.session_state['tasa_simulador'] = 3.0
@@ -476,7 +471,7 @@ try:
                 if sim_capital > 0:
                     i_m = sim_tasa / 100.0
                     sim_cuota = sim_capital * (i_m * (1 + i_m)**sim_plazo) / (((1 + i_m)**sim_plazo) - 1) if sim_tasa > 0 else sim_capital / sim_plazo
-                    st.success(f"🔹 **Proyección de Mensualidad:** {fmt_cop(int(round(sim_cuota)))}")
+                    st.success(f"🔹 **Proyección de Mensualidad Obligatoria:** {fmt_cop(int(round(sim_cuota)))}")
                 else: st.info("El capital inicial liquida el activo en su totalidad.")
 
             with tab_paz:
@@ -496,10 +491,10 @@ try:
                         interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
                         
                         st.markdown(f"""
-                        <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 229, 255, 0.1); backdrop-filter: blur(15px); margin-bottom: 20px; margin-top: 20px;">
+                        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-bottom: 20px; margin-top: 20px;">
                             <h3 style="color:#00E5FF; margin:0; font-weight: 600; letter-spacing: 1.5px; font-size: 1.1rem;">MONTO EXACTO DE REDENCIÓN (PAZ Y SALVO)</h3>
-                            <h1 style="color:white; font-size: 4rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1>
-                            <p style="color:#8B9BB4; font-size: 15px; margin:0;">Base Capital ({fmt_cop(saldo_capital)}) + Tasa del Periodo ({fmt_cop(interes_mes)})</p>
+                            <h1 style="color:white; font-size: 3.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1>
+                            <p style="color:#8B9BB4; font-size: 14px; margin:0;">Base Capital ({fmt_cop(saldo_capital)}) + Tasa del Periodo ({fmt_cop(interes_mes)})</p>
                         </div>
                         """, unsafe_allow_html=True)
                         
@@ -627,7 +622,7 @@ try:
                     with c2: eq_sel = st.selectbox("Extracción de Stock", list(opc_eq.keys()), index=None, placeholder="Seleccionar Hardware a despachar...")
                     
                     if cli_sel and eq_sel:
-                        st.markdown("<div style='background: rgba(0, 229, 255, 0.1); padding: 15px; border-radius: 12px; border-left: 4px solid #00E5FF; margin: 20px 0;'><p style='color:#00E5FF; font-size:14px; margin-bottom:10px; font-weight: 700;'>TIMELINE CONTRACTUAL</p>", unsafe_allow_html=True)
+                        st.markdown("<div style='background: rgba(0, 102, 255, 0.2); padding: 15px; border-radius: 12px; border-left: 3px solid #00E5FF; margin: 20px 0;'><p style='color:#00E5FF; font-size:14px; margin-bottom:10px; font-weight: 700;'>TIMELINE CONTRACTUAL</p>", unsafe_allow_html=True)
                         c_f1, c_f2 = st.columns(2)
                         with c_f1: fecha_venta = st.date_input("Día 0 (Apertura de Operación)", value=datetime.date.today())
                         with c_f2: f_cuota = st.date_input("Proyección de Primera Facturación", value=sumar_meses_exactos(fecha_venta, 1))
@@ -718,7 +713,6 @@ try:
                 
                 if sel_titular:
                     dat = opc_c[sel_titular]
-                    
                     cursor.execute("SELECT id_pago, monto_recibido, fecha_pago, tipo_pago, capital_abonado, interes_cobrado FROM Pagos WHERE id_credito = %s ORDER BY fecha_pago DESC", (dat['id_credito'],))
                     hist = cursor.fetchall()
                     
@@ -812,7 +806,7 @@ try:
                     cursor.execute("SELECT SUM(capital_abonado) as cap, MAX(monto_recibido) as last_val, MAX(fecha_pago) as last_date FROM Pagos WHERE id_credito = %s", (dat['id_credito'],))
                     res_pag = cursor.fetchone()
                     cap_pag = float(res_pag['cap']) if res_pag and res_pag['cap'] else 0
-                    last_val = float(res_pag['last_val']) if res_pag and res_pag['last_val'] else 0
+                    last_val = float(res_pag['last_val']) if res_pag Imageres_pag and res_pag['last_val'] else 0
                     last_date = res_pag['last_date'] if res_pag and res_pag['last_date'] else None
 
                     s_act = float(dat['monto_financiado']) - cap_pag
@@ -965,7 +959,6 @@ try:
                 cursor.execute("SELECT SUM(saldo_actual) as cap FROM Bolsas_Capital")
                 res_cap = cursor.fetchone()
                 cap = float(res_cap['cap']) if res_cap and res_cap['cap'] else 0
-                
                 deuda = df_inversores['Saldo Vivo Exigible'].sum() if not df_inversores.empty else 0
                 
                 c1, c2 = st.columns(2)
@@ -1074,7 +1067,7 @@ try:
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 229, 255, 0.1); backdrop-filter: blur(15px); margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-bottom: 20px;">
                     <h3 style="color:#00E5FF; margin:0; font-weight: 700; letter-spacing: 2.5px;">EVALUACIÓN PATRIMONIAL DEL ECOSISTEMA</h3>
                     <h1 style="color:white; font-size: 4.5rem; font-weight: 800; margin: 10px 0; text-shadow: 0 0 25px rgba(0, 229, 255, 0.4);">{fmt_cop(patrimonio_neto)}</h1>
                     <p style="color:#8B9BB4; font-size: 15px; margin:0;">Base Líquida Local ({fmt_cop(cap)}) + Capital Expuesto en Nodos ({fmt_cop(cartera_neta_calle)}) - Fondeo Externo Exigible ({fmt_cop(deuda)})</p>
@@ -1161,7 +1154,7 @@ try:
                         st.bar_chart(df_egresos, color="#0066FF")
                         
                 st.markdown(f"""
-                <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 229, 255, 0.1); backdrop-filter: blur(15px); margin-top: 30px;">
+                <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-top: 30px;">
                     <h4 style="color:#00E5FF; margin:0; font-weight: 600; letter-spacing: 1.5px;">PROYECCIÓN DE RENDIMIENTO (ROI) GLOBAL</h4>
                     <h1 style="color:white; font-size: 3.5rem; font-weight: 800; margin: 10px 0; text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);">{((ganancia_por_venta + ganancia_por_interes) / (total_costo_equipos if total_costo_equipos > 0 else 1) * 100):.1f}%</h1>
                     <p style="color:#8B9BB4; font-size: 15px; margin:0;">Métrica predictiva de retorno de inversión por cada punto de liquidez convertido en hardware.</p>
