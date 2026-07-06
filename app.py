@@ -165,9 +165,9 @@ def generar_plan_pagos_real(id_credito, cursor):
     if cuotas_fijas:
         for idx, c in enumerate(cuotas_fijas):
             esperado = float(c['monto_esperado'])
-            f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             if pagado_acum >= esperado: 
                 est, pagado_acum = '✅ Pagada', pagado_acum - esperado
+                f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
                 est, pagado_acum = f'⚠️ Parcial (Abonó {fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
@@ -180,9 +180,9 @@ def generar_plan_pagos_real(id_credito, cursor):
             if not f_base: break
             f_venc = sumar_meses_exactos(f_base, i - 1)
             esperado = valor
-            f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             if pagado_acum >= esperado: 
                 est, pagado_acum = '✅ Pagada', pagado_acum - esperado
+                f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
                 est, pagado_acum = f'⚠️ Parcial (Abonó {fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
@@ -326,6 +326,12 @@ try:
             
             with tab_sim:
                 st.markdown("<br>", unsafe_allow_html=True)
+                
+                # --- NUEVO: MODO PANTALLA CLIENTE ---
+                modo_cliente = st.toggle("👁️ Modo Pantalla Cliente (Ocultar parámetros de rentabilidad)")
+                if 'tasa_simulador' not in st.session_state:
+                    st.session_state['tasa_simulador'] = 3.0
+                    
                 col_s1, col_s2 = st.columns(2)
                 with col_s1:
                     sim_precio = st.number_input("Precio del Equipo ($)", min_value=0, step=10000, value=2000000)
@@ -334,7 +340,13 @@ try:
                     st.markdown(f"<div style='text-align: right; color: #00C6FF; font-weight: 600; margin-top: -15px;'>Visualización: {fmt_cop(sim_abono)}</div>", unsafe_allow_html=True)
                 with col_s2:
                     sim_plazo = st.number_input("Meses a Financiar", min_value=1, max_value=72, step=1, value=6)
-                    sim_tasa = st.selectbox("Tasa Efectiva Mensual (%)", [0.0, 1.0, 2.0, 3.0, 4.0, 5.0], index=3)
+                    
+                    if not modo_cliente:
+                        idx_tasa = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0].index(st.session_state['tasa_simulador']) if st.session_state['tasa_simulador'] in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0] else 3
+                        sim_tasa = st.selectbox("Tasa Efectiva Mensual (%)", [0.0, 1.0, 2.0, 3.0, 4.0, 5.0], index=idx_tasa)
+                        st.session_state['tasa_simulador'] = sim_tasa
+                    else:
+                        sim_tasa = st.session_state['tasa_simulador']
                     
                 sim_capital = sim_precio - sim_abono
                 if sim_capital > 0:
