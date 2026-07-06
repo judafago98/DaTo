@@ -38,11 +38,10 @@ st.markdown("""
         
         /* FORZAR VARIABLES GLOBALES DE STREAMLIT A LA PALETA AZUL/NEGRO */
         :root {
-            --primary-color: #00E5FF;
+            --primary-color: #00E5FF !important;
             --background-color: #020617;
             --secondary-background-color: rgba(10, 20, 40, 0.6);
             --text-color: #FFFFFF;
-            --font: 'Outfit', sans-serif;
         }
 
         html, body, [class*="css"] { font-family: 'Outfit', sans-serif; }
@@ -65,9 +64,22 @@ st.markdown("""
         ::-webkit-scrollbar-thumb:hover { background: rgba(0, 198, 255, 0.8); }
 
         /* ==============================================================
-           MUERTE A LOS ROJOS Y VERDES POR DEFECTO
+           MUERTE A LOS ROJOS Y VERDES POR DEFECTO (EXTREMO)
            ============================================================== */
            
+        /* ASESINATO DEL ROJO EN EL TOGGLE (Activar UI Pública) */
+        [data-testid="stCheckbox"] div[data-checked="true"] {
+            background-color: #00E5FF !important;
+        }
+        [data-testid="stCheckbox"] div[data-checked="true"] > div {
+            background-color: #FFFFFF !important;
+        }
+
+        /* ASESINATO DEL ROJO EN EL MENÚ LATERAL (Ocultando los círculos nativos) */
+        [data-testid="stSidebar"] div[role="radiogroup"] label div[data-baseweb="radio"] {
+            display: none !important;
+        }
+
         /* BOTONES DE INCREMENTO/DECREMENTO EN NUMBER_INPUT (Matando el rojo) */
         [data-testid="stNumberInput"] button {
             background-color: rgba(10, 20, 40, 0.8) !important;
@@ -168,6 +180,7 @@ st.markdown("""
         }
         [data-testid="stSidebar"] div[role="radiogroup"] label {
             border-radius: 10px !important; padding: 12px 16px !important; margin: 4px 8px !important;
+            background: transparent !important; border: 1px solid transparent !important;
         }
         [data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] {
             background: linear-gradient(90deg, rgba(0,102,255,0.2) 0%, transparent 100%) !important;
@@ -188,20 +201,11 @@ st.markdown("""
         h1, h2, h3 { color: #FFFFFF !important; font-weight: 700 !important; }
         .fade-in { animation: fadeIn 0.6s ease forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* CAJAS ESTILIZADAS HTML PURO (Solo para KPIs visuales) */
-        .neon-kpi-box {
-            background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9));
-            border: 1px solid rgba(0, 198, 255, 0.2);
-            border-radius: 16px; padding: 25px; text-align: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 198, 255, 0.05);
-            backdrop-filter: blur(15px); margin-bottom: 20px;
-        }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🛡️ FUNCIONES GLOBALES Y FORMATOS (ONLY BLUES)
+# 🛡️ FUNCIONES GLOBALES Y FORMATOS
 # ==========================================
 def fmt_cop(val):
     try: val_int = int(float(val))
@@ -324,19 +328,19 @@ try:
         col_espacio1, col_izq, col_der, col_espacio2 = st.columns([0.5, 4, 4, 0.5], gap="large", vertical_alignment="center")
         
         with col_izq:
-            st.markdown("<div class='fade-in'>", unsafe_allow_html=True)
+            st.markdown("<div class='fade-in' style='width: 100%;'>", unsafe_allow_html=True)
             renderizar_logo(es_sidebar=False)
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col_der:
             st.markdown("<div class='fade-in'>", unsafe_allow_html=True)
             with st.form("form_login"):
-                st.markdown("<h2 style='color: #00E5FF; font-weight: 800; margin-bottom: 5px; font-size: 2.2rem;'>ACCESO OPERATIVO</h2>", unsafe_allow_html=True)
-                st.markdown("<p style='color: #8B9BB4; margin-bottom: 30px; font-size: 1rem;'>Inicia sesión para sincronizar datos financieros.</p>", unsafe_allow_html=True)
-                usuario_input = st.text_input("👤 Credencial Corporativa")
-                password_input = st.text_input("🔒 Llave de Cifrado", type="password")
+                st.markdown("<h2 style='color: #00E5FF; font-weight: 800; margin-bottom: 5px; font-size: 2.2rem;'>Inicio de Sesión</h2>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #8B9BB4; margin-bottom: 30px; font-size: 1rem;'>Bienvenido. Ingrese sus credenciales corporativas.</p>", unsafe_allow_html=True)
+                usuario_input = st.text_input("Usuario")
+                password_input = st.text_input("Contraseña", type="password")
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.form_submit_button("INICIALIZAR SESIÓN", width='stretch'):
+                if st.form_submit_button("Ingresar", width='stretch'):
                     try:
                         cursor.execute("SELECT id_usuario, nombre_completo, rol FROM Usuarios WHERE username = %s AND password_hash = %s", (usuario_input, password_input))
                         usuario_db = cursor.fetchone()
@@ -346,8 +350,8 @@ try:
                             st.session_state['nombre_usuario'] = usuario_db['nombre_completo']
                             st.session_state['rol'] = usuario_db['rol']
                             st.rerun()
-                        else: st.error("Acceso denegado. Parámetros inválidos.")
-                    except Exception as e: st.error(f"Falla de nodo: {e}")
+                        else: st.error("Usuario o contraseña incorrectos.")
+                    except Exception as e: st.error(f"Error de conexión: {e}")
             st.markdown("</div>", unsafe_allow_html=True)
 
     else:
@@ -392,18 +396,20 @@ try:
         menu_seleccionado = menu_map[menu_seleccionado_texto]
         
         st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-        if st.sidebar.button("APAGAR SESIÓN", width='stretch'):
+        if st.sidebar.button("Cerrar Sesión", width='stretch'):
             st.session_state['logeado'] = False; st.rerun()
 
         if menu_seleccionado == "inicio":
-            st.markdown("<div style='height: 8vh;'></div>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns([1, 2, 1])
+            st.markdown("<div style='height: 4vh;'></div>", unsafe_allow_html=True)
+            col1, col2, col3 = st.columns([1, 3, 1])
             with col2:
-                renderizar_logo(es_sidebar=False)
+                # Animación de Caricatura Divertida para el inicio (Gato Hacker)
+                url_gif_divertido = "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif"
                 st.markdown(f"""
-                <div class="fade-in" style="text-align: center; margin-top: 20px;">
-                    <h1 style='font-size: 3rem; font-weight: 800; margin-bottom: 0; color: #FFFFFF;'>ESTADO: <span style='color: #00E5FF;'>OPERATIVO</span></h1>
-                    <p style='color: #8B9BB4; font-size: 1.2rem; font-weight: 300; margin-top: 10px;'>El ecosistema financiero está en línea.</p>
+                <div class="fade-in" style="text-align: center;">
+                    <img src="{url_gif_divertido}" style="border-radius: 24px; width: 100%; max-width: 450px; border: 2px solid rgba(0, 198, 255, 0.4); box-shadow: 0 10px 40px rgba(0, 198, 255, 0.2);">
+                    <h1 style='font-size: 3rem; font-weight: 800; margin-top: 30px; margin-bottom: 0; color: #FFFFFF;'>HOLA, <span style='color: #00E5FF;'>{st.session_state['nombre_usuario'].split(" ")[0].upper()}</span></h1>
+                    <p style='color: #8B9BB4; font-size: 1.2rem; font-weight: 300; margin-top: 10px;'>Es hora de poner a trabajar el ecosistema.</p>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -458,7 +464,7 @@ try:
                         interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
                         
                         st.markdown(f"""
-                        <div class="neon-kpi-box" style="margin-top: 20px;">
+                        <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 198, 255, 0.2); border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 198, 255, 0.05); backdrop-filter: blur(15px); margin-bottom: 20px; margin-top: 20px;">
                             <h3 style="color:#00E5FF; margin:0; font-weight: 600; letter-spacing: 1.5px; font-size: 1.1rem;">MONTO EXACTO DE REDENCIÓN (PAZ Y SALVO)</h3>
                             <h1 style="color:white; font-size: 3.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1>
                             <p style="color:#8B9BB4; font-size: 14px; margin:0;">Base Capital ({fmt_cop(saldo_capital)}) + Tasa del Periodo ({fmt_cop(interes_mes)})</p>
@@ -1036,7 +1042,7 @@ try:
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div class="neon-kpi-box">
+                <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 198, 255, 0.2); border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 198, 255, 0.05); backdrop-filter: blur(15px); margin-bottom: 20px;">
                     <h3 style="color:#00E5FF; margin:0; font-weight: 700; letter-spacing: 2.5px;">EVALUACIÓN PATRIMONIAL DEL ECOSISTEMA</h3>
                     <h1 style="color:white; font-size: 4.5rem; font-weight: 800; margin: 10px 0; text-shadow: 0 0 25px rgba(0, 198, 255, 0.4);">{fmt_cop(patrimonio_neto)}</h1>
                     <p style="color:#8B9BB4; font-size: 15px; margin:0;">Base Líquida Local ({fmt_cop(cap)}) + Capital Expuesto en Nodos ({fmt_cop(cartera_neta_calle)}) - Fondeo Externo Exigible ({fmt_cop(deuda)})</p>
@@ -1123,7 +1129,7 @@ try:
                         st.bar_chart(df_egresos, color="#0066FF")
                         
                 st.markdown(f"""
-                <div class="neon-kpi-box" style="margin-top: 30px;">
+                <div style="background: linear-gradient(135deg, rgba(4, 13, 30, 0.8), rgba(2, 6, 15, 0.9)); border: 1px solid rgba(0, 198, 255, 0.2); border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(0, 198, 255, 0.05); backdrop-filter: blur(15px); margin-top: 30px;">
                     <h4 style="color:#00E5FF; margin:0; font-weight: 600; letter-spacing: 1.5px;">PROYECCIÓN DE RENDIMIENTO (ROI) GLOBAL</h4>
                     <h1 style="color:white; font-size: 3.5rem; font-weight: 800; margin: 10px 0; text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);">{((ganancia_por_venta + ganancia_por_interes) / (total_costo_equipos if total_costo_equipos > 0 else 1) * 100):.1f}%</h1>
                     <p style="color:#8B9BB4; font-size: 15px; margin:0;">Métrica predictiva de retorno de inversión por cada punto de liquidez convertido en hardware.</p>
