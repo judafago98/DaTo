@@ -28,7 +28,8 @@ st.markdown("""
         .stApp { background: linear-gradient(-45deg, #020617, #0A192F, #020813, #001E3C); background-size: 300% 300%; animation: gradientBG 25s ease infinite; color: #F8FAFC; }
         
         /* OCULTAR ELEMENTOS NATIVOS */
-        #MainMenu, footer, header, [data-testid="stHeader"], [data-testid="collapsedControl"] {display: none !important;}
+        #MainMenu, footer {display: none !important;}
+        header, [data-testid="stHeader"] {background: transparent !important;}
         
         /* SCROLLBAR NEÓN */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
