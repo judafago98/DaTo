@@ -22,7 +22,6 @@ st.markdown("""
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
         html, body, [class*="css"] { font-family: 'Outfit', sans-serif; }
 
-        /* MOTOR DE FONDO ANIMADO FINTECH */
         @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
         .stApp { background: linear-gradient(-45deg, #020617, #0A192F, #020813, #001E3C); background-size: 300% 300%; animation: gradientBG 25s ease infinite; color: #F8FAFC; }
         
@@ -118,9 +117,9 @@ def generar_plan_pagos_real(id_credito, cursor):
     if cuotas_fijas:
         for idx, c in enumerate(cuotas_fijas):
             esperado = float(c['monto_esperado'])
-            f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             if pagado_acum >= esperado: 
                 est, pagado_acum = '✅ Pagada', pagado_acum - esperado
+                f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
                 est, pagado_acum = f'⚠️ Parcial (Abonó {fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
@@ -133,9 +132,9 @@ def generar_plan_pagos_real(id_credito, cursor):
             if not f_base: break
             f_venc = sumar_meses_exactos(f_base, i - 1)
             esperado = valor
-            f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             if pagado_acum >= esperado: 
                 est, pagado_acum = '✅ Pagada', pagado_acum - esperado
+                f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
                 est, pagado_acum = f'⚠️ Parcial (Abonó {fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
@@ -158,17 +157,20 @@ CAPACIDADES_MOVILES = ["64GB", "128GB", "256GB", "512GB", "1TB", "Otra..."]
 CAPACIDADES_PC = ["8GB RAM / 256GB SSD", "16GB RAM / 512GB SSD", "16GB RAM / 1TB SSD", "32GB RAM / 1TB SSD", "Otra..."]
 CAPACIDADES_ELECTRO = ["No Aplica", "32 Pulgadas", "50 Pulgadas", "65 Pulgadas", "Escribir manual..."]
 
-# --- Conexión Silenciosa BLINDADA ---
-# --- Conexión Silenciosa BLINDADA (CON SECRETOS) ---
+# --- Conexión Silenciosa BLINDADA Y PURA (Arreglo de Malloc) ---
 @st.cache_resource(ttl=60)
 def init_connection():
     try: return mysql.connector.connect(
-        host=st.secrets["DB_HOST"], 
-        port=st.secrets["DB_PORT"], 
-        user=st.secrets["DB_USER"], 
-        password=st.secrets["DB_PASS"], 
-        database=st.secrets["DB_NAME"], 
-        ssl_verify_cert=False, autocommit=True, connection_timeout=15)
+        host="gateway01.us-east-1.prod.aws.tidbcloud.com", 
+        port=4000, 
+        user="2xRKoKTDAr4tRLF.root", 
+        password="7KGQVtKygobgy311", 
+        database="sistema_creditos", 
+        ssl_verify_cert=False, 
+        autocommit=True, 
+        connection_timeout=15,
+        use_pure=True # <- ESCUDO CONTRA EL ERROR DE MEMORIA "MALLOC"
+    )
     except Exception: return None
 
 conn = init_connection()
@@ -187,7 +189,7 @@ if 'nombre_usuario' not in st.session_state: st.session_state['nombre_usuario'] 
 if 'rol' not in st.session_state: st.session_state['rol'] = None
 
 # ==========================================
-# PANTALLA DE LOGIN
+# PANTALLA DE LOGIN 
 # ==========================================
 if not st.session_state['logeado']:
     st.markdown("<div style='height: 12vh;'></div>", unsafe_allow_html=True)
@@ -195,7 +197,7 @@ if not st.session_state['logeado']:
     
     with col_izq:
         st.markdown("<div class='fade-in'>", unsafe_allow_html=True)
-        st.image("logo.png", use_container_width=True)
+        st.image("logo.png", width='stretch')
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col_der:
@@ -206,7 +208,8 @@ if not st.session_state['logeado']:
             usuario_input = st.text_input("👤 Usuario Corporativo")
             password_input = st.text_input("🔒 Clave de Seguridad", type="password")
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.form_submit_button("Ingresar al Sistema", use_container_width=True):
+            # Reemplazo de use_container_width por width='stretch'
+            if st.form_submit_button("Ingresar al Sistema", width='stretch'):
                 try:
                     cursor.execute("SELECT id_usuario, nombre_completo, rol FROM Usuarios WHERE username = %s AND password_hash = %s", (usuario_input, password_input))
                     usuario_db = cursor.fetchone()
@@ -244,7 +247,7 @@ else:
     # Sidebar UI 
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
     st.sidebar.markdown("<div style='text-align: center; margin-bottom: 20px;'>", unsafe_allow_html=True)
-    st.sidebar.image("logo.png", use_container_width=True)
+    st.sidebar.image("logo.png", width='stretch')
     st.sidebar.markdown("</div>", unsafe_allow_html=True)
     
     st.sidebar.markdown(f"""
@@ -266,7 +269,7 @@ else:
     menu_seleccionado = menu_map[menu_seleccionado_texto]
     
     st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-    if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
+    if st.sidebar.button("🚪 Cerrar Sesión", width='stretch'):
         st.session_state['logeado'] = False; st.rerun()
 
     # --- PANTALLAS ---
@@ -274,7 +277,7 @@ else:
         st.markdown("<div style='height: 5vh;'></div>", unsafe_allow_html=True)
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.image("logo.png", use_container_width=True)
+            st.image("logo.png", width='stretch')
             st.markdown(f"""
             <div class="fade-in" style="text-align: center; margin-top: 20px;">
                 <h1 style='font-size: 3.5rem; font-weight: 700; margin-bottom: 0;'>Bienvenido a <span style='color: #00C6FF;'>DaTo</span></h1>
@@ -311,7 +314,7 @@ else:
             creditos_act = cursor.fetchall()
             if not creditos_act: st.info("Ningún cliente debe dinero actualmente.")
             else:
-                opc_paz = {f"{c['documento']} | {c['nombre_completo']} ({c['modelo']})": c for c in creditos_act}
+                opc_paz = {f"{c['nombre_completo']} ({c['modelo']})": c for c in creditos_act}
                 sel_paz = st.selectbox("Seleccione el titular a consultar:", list(opc_paz.keys()), index=None, placeholder="Seleccione un cliente de la lista...")
                 
                 if sel_paz:
@@ -330,7 +333,7 @@ else:
                     """, unsafe_allow_html=True)
                     
                     df_plan = generar_plan_pagos_real(datos_paz['id_credito'], cursor)
-                    st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), use_container_width=True)
+                    st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), width='stretch')
 
     elif menu_seleccionado == "inventario":
         st.markdown("<h2 class='fade-in'>Gestión de Inventario 📦</h2>", unsafe_allow_html=True)
@@ -348,7 +351,7 @@ else:
                 c3.metric("💎 Proyección si se vende", fmt_cop(df_inventario['Precio Sugerido'].sum()))
                 df_inventario['Costo Compra'] = df_inventario['Costo Compra'].apply(fmt_cop)
                 df_inventario['Precio Sugerido'] = df_inventario['Precio Sugerido'].apply(fmt_cop)
-                st.dataframe(df_inventario, use_container_width=True)
+                st.dataframe(df_inventario, width='stretch')
             else: st.info("No hay equipos en bodega.")
 
         with tab_inv2:
@@ -409,7 +412,7 @@ else:
             if not df_hist.empty:
                 df_hist['Costo Real'] = df_hist['Costo Real'].apply(fmt_cop)
                 df_hist['Precio de Venta (Final)'] = df_hist['Precio de Venta (Final)'].apply(lambda x: fmt_cop(x) if x > 0 else 'N/A')
-                st.dataframe(df_hist.style.applymap(color_estado, subset=['Estado Físico']), use_container_width=True)
+                st.dataframe(df_hist.style.applymap(color_estado, subset=['Estado Físico']), width='stretch')
             else: st.info("Ningún movimiento registrado.")
 
     elif menu_seleccionado == "clientes":
@@ -429,10 +432,10 @@ else:
         st.divider()
         cursor.execute("SELECT documento AS 'Cédula', nombre_completo AS 'Nombre Registrado', telefono AS 'Línea Celular' FROM Clientes")
         df_clientes = pd.DataFrame(cursor.fetchall())
-        if not df_clientes.empty: st.dataframe(df_clientes, use_container_width=True)
+        if not df_clientes.empty: st.dataframe(df_clientes, width='stretch')
 
     elif menu_seleccionado == "ventas":
-        st.markdown("<h2 class='fade-in'>Originación de Ventas 📝</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='fade-in'>Originación de Créditos 📝</h2>", unsafe_allow_html=True)
         cursor.execute("SELECT id_cliente, documento, nombre_completo FROM Clientes")
         clientes = cursor.fetchall()
         cursor.execute("SELECT imei, categoria, marca, modelo FROM Inventario WHERE estado = 'Disponible'")
@@ -443,7 +446,7 @@ else:
             opc_cli = {f"{c['documento']} - {c['nombre_completo']}": c['id_cliente'] for c in clientes}
             opc_eq = {f"[{e['categoria']}] {e['marca']} {e['modelo']} (S/N: {e['imei']})": e for e in inventario}
             
-            tipo_v = st.selectbox("Seleccione la modalidad de pago de la venta:", ["Crédito Financiado (Amortización con Interés)", "Plan Separé / Cuotas Fijas (Sin Interés)", "Venta de Contado Directo"], index=None, placeholder="Seleccione modalidad...")
+            tipo_v = st.selectbox("Seleccione la modalidad de venta:", ["Crédito Financiado (Amortización con Interés)", "Plan Separé / Cuotas Fijas (Sin Interés)", "Venta de Contado Directo"], index=None, placeholder="Seleccione modalidad...")
             st.divider()
             
             if tipo_v:
@@ -599,13 +602,13 @@ else:
                     df_trans = pd.DataFrame(hist)
                     df_trans.rename(columns={'fecha_pago': 'Fecha', 'tipo_pago': 'Concepto', 'monto_recibido': 'Monto Recibido', 'capital_abonado': 'Al Capital', 'interes_cobrado': 'A Intereses'}, inplace=True)
                     for col in ['Monto Recibido', 'Al Capital', 'A Intereses']: df_trans[col] = df_trans[col].apply(fmt_cop)
-                    st.dataframe(df_trans[['Fecha', 'Concepto', 'Monto Recibido', 'Al Capital', 'A Intereses']], use_container_width=True)
+                    st.dataframe(df_trans[['Fecha', 'Concepto', 'Monto Recibido', 'Al Capital', 'A Intereses']], width='stretch')
                 else:
                     st.info("Sin registros físicos.")
 
                 st.markdown("<br>### 🧾 Plan de Amortización Teórico", unsafe_allow_html=True)
                 df_plan = generar_plan_pagos_real(dat['id_credito'], cursor)
-                st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), use_container_width=True)
+                st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), width='stretch')
 
     elif menu_seleccionado == "vencimientos":
         st.markdown("<h2 class='fade-in'>Control de Cartera y Mora ⏰</h2>", unsafe_allow_html=True)
@@ -621,7 +624,7 @@ else:
             df['Liquidación Inmediata (Paz y Salvo)'] = df.apply(lambda r: float(r['Capital Pendiente']) + (float(r['Capital Pendiente']) * float(r['tasa_interes_mensual'])), axis=1)
             for c in ['Mensualidad', 'Capital Pendiente', 'Liquidación Inmediata (Paz y Salvo)']: df[c] = df[c].apply(fmt_cop)
             df = df.drop(columns=['tasa_interes_mensual'])
-            st.dataframe(df.style.applymap(color_estado, subset=['Estatus']), use_container_width=True)
+            st.dataframe(df.style.applymap(color_estado, subset=['Estatus']), width='stretch')
 
     elif menu_seleccionado == "notificar":
         st.markdown("<h2 class='fade-in'>Estados de Cuenta Mensuales 📱</h2>", unsafe_allow_html=True)
@@ -651,7 +654,7 @@ else:
                 with c2:
                     st.subheader("Cobertura de Tramos")
                     df_plan = generar_plan_pagos_real(dat['id_credito'], cursor)
-                    st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), use_container_width=True)
+                    st.dataframe(df_plan.style.applymap(color_estado_cuota, subset=['Estado Actual']), width='stretch')
 
     elif menu_seleccionado == "historial":
         st.markdown("<h2 class='fade-in'>Auditoría y Anulaciones del Sistema 📜</h2>", unsafe_allow_html=True)
@@ -674,7 +677,7 @@ else:
             if not df_cart.empty:
                 for col in ['Costo Hardware', 'Precio Acordado', 'Recaudo Acumulado', 'Capital en la Calle', 'Comisión Emitida', 'GANANCIA NETA EN EFECTIVO']: 
                     df_cart[col] = df_cart[col].apply(fmt_cop)
-                st.dataframe(df_cart.style.applymap(color_estado, subset=['Calificación']).applymap(color_ganancia_real, subset=['GANANCIA NETA EN EFECTIVO']), use_container_width=True)
+                st.dataframe(df_cart.style.applymap(color_estado, subset=['Calificación']).applymap(color_ganancia_real, subset=['GANANCIA NETA EN EFECTIVO']), width='stretch')
             else: st.info("El log de auditoría no arroja resultados.")
 
         with tab_r:
@@ -738,7 +741,7 @@ else:
                 else: st.info("Sin inventario para anular.")
 
     elif menu_seleccionado == "egresos":
-        st.markdown("<h2 class='fade-in'>Control de Egresos Operativos 💸</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='fade-in'>Control de Gastos Operativos 💸</h2>", unsafe_allow_html=True)
         if not es_admin: st.error("🔒 Privilegio confidencial."); st.stop()
         
         tab_com, tab_gas = st.tabs(["🤝 Nómina Comercial (Asesores)", "🧾 Egresos del Negocio (Arriendos, Luz, etc)"])
@@ -749,7 +752,7 @@ else:
             if pends:
                 df_p = pd.DataFrame(pends)
                 df_p['Bono a Pagar'] = df_p['Bono a Pagar'].apply(fmt_cop)
-                st.dataframe(df_p, use_container_width=True)
+                st.dataframe(df_p, width='stretch')
                 with st.form("f_com"):
                     sel = st.selectbox("Seleccionar liquidación de Asesor", list({f"[{x['Asesor Comercial']}] Venta a: {x['Titular']} ({x['Celular']}) -> {fmt_cop(x['Bono a Pagar'])}": x['id_credito'] for x in pends}.keys()), index=None, placeholder="Seleccione Pase...")
                     if st.form_submit_button("Aprobar Desembolso de Caja") and sel:
@@ -777,7 +780,7 @@ else:
                     conn.commit(); st.toast("Gasto debitado de caja matriz.", icon='✅'); time.sleep(1); st.rerun()
 
     elif menu_seleccionado == "flujo":
-        st.markdown("<h2 class='fade-in'>Tesorería y Socios (Fondeo) 📈</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='fade-in'>Tesorería Central Institucional 📈</h2>", unsafe_allow_html=True)
         if not es_admin: st.error("🔒 Área Confidencial."); st.stop()
         
         tab_dash, tab_in, tab_out = st.tabs(["📊 Libro Mayor de Inversionistas", "📥 Recibir Inyección de Fondeo", "📤 Realizar Pago a Socios"])
@@ -800,7 +803,7 @@ else:
             st.markdown("<br><h4 style='color:#E2E8F0; font-size: 1.1rem;'>📜 Estado de Cuenta General de Socios</h4>", unsafe_allow_html=True)
             if not df_inversores.empty:
                 for c in ['Capital Inyectado', 'Rendimiento Acordado', 'Retorno Ejecutado', 'Saldo Vivo Exigible']: df_inversores[c] = df_inversores[c].apply(fmt_cop)
-                st.dataframe(df_inversores, use_container_width=True)
+                st.dataframe(df_inversores, width='stretch')
             else: st.info("Registro institucional en blanco.")
 
             st.markdown("<br><h4 style='color:#E2E8F0; font-size: 1.1rem;'>🧾 Registro de Dispersiones</h4>", unsafe_allow_html=True)
@@ -808,7 +811,7 @@ else:
             df_hist_deuda = pd.DataFrame(cursor.fetchall())
             if not df_hist_deuda.empty:
                 df_hist_deuda['Valor Desembolsado'] = df_hist_deuda['Valor Desembolsado'].apply(fmt_cop)
-                st.dataframe(df_hist_deuda, use_container_width=True)
+                st.dataframe(df_hist_deuda, width='stretch')
 
         with tab_in:
             st.markdown("<br>", unsafe_allow_html=True)
