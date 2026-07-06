@@ -26,17 +26,17 @@ def renderizar_logo(es_sidebar=False):
         alto = "90px" if es_sidebar else "180px"
         fuente = "2.2rem" if es_sidebar else "4rem"
         st.markdown(f"""
-        <div style='display: flex; align-items: center; justify-content: center; height: {alto}; background: linear-gradient(135deg, rgba(2, 6, 23, 0.8), rgba(0, 10, 30, 0.6)); border-radius: 16px; border: 1px solid rgba(0, 229, 255, 0.4); box-shadow: 0 0 30px rgba(0, 229, 255, 0.15), inset 0 0 15px rgba(0, 229, 255, 0.05); margin-bottom: 20px; backdrop-filter: blur(12px);'>
+        <div style='display: flex; align-items: center; justify-content: center; height: {alto}; background: linear-gradient(135deg, rgba(2, 6, 23, 0.8), rgba(0, 10, 30, 0.6)); border-radius: 16px; border: 1px solid rgba(0, 229, 255, 0.3); box-shadow: inset 0 0 15px rgba(0, 229, 255, 0.05); margin-bottom: 20px; backdrop-filter: blur(12px);'>
             <h1 style='color: #FFFFFF; font-size: {fuente}; font-weight: 800; text-transform: uppercase; letter-spacing: 3px; margin:0; text-shadow: 0px 0px 15px rgba(0, 229, 255, 0.7);'>⚡ DaTo</h1>
         </div>
         """, unsafe_allow_html=True)
 
-# --- ANULACIÓN GLOBAL ABSOLUTA (BLACK & NEON CYAN ENGINE) ---
+# --- DISEÑO ULTRA PREMIUM (ENFOQUE DETALLISTA Y COMPONENTE POR COMPONENTE) ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
-        /* 1. SOBREESCRITURA TOTAL DE INYECCIONES INTERNAS DE STREAMLIT */
+        /* 1. VARIABLES NATIVAS Y TIPOGRAFÍA */
         :root {
             --primary-color: #00E5FF !important;
             --background-color: #010409 !important;
@@ -44,197 +44,180 @@ st.markdown("""
             --text-color: #FFFFFF !important;
             --font: 'Outfit', sans-serif !important;
         }
+        html, body, [class*="css"] { font-family: 'Outfit', sans-serif !important; }
 
-        html, body, [class*="css"] { 
-            font-family: 'Outfit', sans-serif !important; 
-        }
-
-        /* 2. DISEÑO DEL LIQUID NET DE REDES NEURONALES */
+        /* 2. FONDO LIMPIO Y CIBERNÉTICO */
         .stApp {
             background-color: #020617 !important;
             background-image: 
-                linear-gradient(rgba(0, 229, 255, 0.05) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 229, 255, 0.05) 1px, transparent 1px),
-                radial-gradient(circle at 50% 30%, rgba(0, 102, 255, 0.12) 0%, #020617 70%) !important;
+                linear-gradient(rgba(0, 229, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 229, 255, 0.04) 1px, transparent 1px),
+                radial-gradient(circle at 50% 10%, rgba(0, 102, 255, 0.1) 0%, #020617 60%) !important;
             background-size: 40px 40px, 40px 40px, 100% 100% !important;
             background-attachment: fixed !important;
             color: #F8FAFC !important;
         }
+        
+        #MainMenu, footer {display: none !important;}
+        header, [data-testid="stHeader"] {background: transparent !important;}
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 229, 255, 0.2); border-radius: 20px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 229, 255, 0.8); }
 
-        /* 3. ERRADICACIÓN RADICAL DEL COLOR ROJO EN ENFOQUES Y BORDES */
-        input:focus, select:focus, textarea:focus, div:focus-within {
-            border-color: #00E5FF !important;
-            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3) !important;
-            outline: none !important;
+        /* 3. INPUTS Y CELDAS INDIVIDUALES PREMIUM (Resplandor sólo al interactuar) */
+        div[data-testid="stTextInput"] div[data-baseweb="input"], 
+        div[data-testid="stNumberInput"] div[data-baseweb="input"], 
+        div[data-testid="stSelectbox"] > div > div[data-baseweb="select"],
+        .stTextArea textarea {
+            border-radius: 12px !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            background-color: rgba(15, 23, 42, 0.6) !important;
+            color: #FFFFFF !important;
+            box-shadow: none !important;
+            transition: all 0.3s ease !important;
+            overflow: hidden !important;
         }
         
-        /* Anulación de anillos de selección BaseWeb nativos */
-        [data-baseweb="input"] {
-            border-color: rgba(0, 229, 255, 0.2) !important;
-        }
-        [data-baseweb="input"]:focus-within {
-            border-color: #00E5FF !important;
+        /* El Neón se enciende ÚNICAMENTE en la celda activa */
+        div[data-testid="stTextInput"] div[data-baseweb="input"]:focus-within, 
+        div[data-testid="stNumberInput"] div[data-baseweb="input"]:focus-within, 
+        div[data-testid="stSelectbox"] > div > div[data-baseweb="select"]:focus-within,
+        .stTextArea textarea:focus {
+            border: 1px solid #00E5FF !important;
             box-shadow: 0 0 15px rgba(0, 229, 255, 0.3) !important;
+            background-color: rgba(10, 15, 30, 0.9) !important;
         }
 
-        /* 4. SECTORES NUMÉRICOS (Botones de +/- libres de rojo) */
+        /* 4. BOTONES NUMÉRICOS (+/-) REDONDEADOS Y SIN ROJO */
         [data-testid="stNumberInput"] button {
             background-color: rgba(15, 23, 42, 0.8) !important;
-            border: 1px solid rgba(0, 229, 255, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
             color: #00E5FF !important;
             border-radius: 8px !important;
+            transition: all 0.2s ease !important;
+            margin: 0 2px !important;
         }
         [data-testid="stNumberInput"] button:hover {
             background-color: rgba(0, 229, 255, 0.15) !important;
             color: #FFFFFF !important;
             border-color: #00E5FF !important;
-            box-shadow: 0 0 10px rgba(0, 229, 255, 0.3) !important;
+            box-shadow: 0 0 8px rgba(0, 229, 255, 0.4) !important;
         }
 
-        /* 5. ERRADICACIÓN DE ROJO EN TOGGLES / INTERRUPTORES */
+        /* 5. TOGGLES (Interruptores) AZULES, CERO ROJO */
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div {
             background-color: rgba(15, 23, 42, 0.8) !important;
-            border: 1px solid rgba(0, 229, 255, 0.3) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
         }
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div[aria-checked="true"],
         [data-testid="stToggle"] [data-baseweb="checkbox"] div[data-checked="true"] {
             background-color: #00E5FF !important;
             border-color: #00E5FF !important;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.5) !important;
         }
 
-        /* 6. BARRA DE MÓDULOS DE SIDEBAR ULTRA-PREMIUM (CERO PUNTOS ROJOS) */
-        [data-testid="stSidebar"] {
-            background-color: rgba(3, 7, 18, 0.9) !important;
-            backdrop-filter: blur(25px) !important;
-            border-right: 1px solid rgba(0, 229, 255, 0.15) !important;
-        }
-        
-        /* Forzar ocultación estricta de componentes gráficos circulares del st.radio */
-        [data-testid="stSidebar"] [role="radiogroup"] label div[data-baseweb="radio"],
-        [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child,
-        [data-testid="stSidebar"] [role="radiogroup"] label > span:first-child {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            width: 0 !important;
-        }
-
-        /* Estilo base tipo cápsula de cristal para el listado de módulos */
-        [data-testid="stSidebar"] [role="radiogroup"] label {
-            background: rgba(15, 23, 42, 0.4) !important;
-            border: 1px solid rgba(255, 255, 255, 0.02) !important;
-            border-radius: 12px !important;
-            padding: 12px 16px !important;
-            margin: 4px 12px !important;
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-            display: flex !important;
-            width: calc(100% - 24px) !important;
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] label div[dir="auto"],
-        [data-testid="stSidebar"] [role="radiogroup"] label p {
-            color: #94A3B8 !important;
-            font-size: 14.5px !important;
-            font-weight: 500 !important;
-            margin: 0 !important;
-        }
-
-        /* Hover Dinámico */
-        [data-testid="stSidebar"] [role="radiogroup"] label:hover {
-            background: rgba(0, 229, 255, 0.06) !important;
-            border-color: rgba(0, 229, 255, 0.2) !important;
-            transform: translateX(4px);
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] label:hover div[dir="auto"] { color: #FFFFFF !important; }
-
-        /* Estado Activo Metálico de Neón */
-        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked),
-        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] {
-            background: linear-gradient(90deg, rgba(0, 229, 255, 0.15) 0%, rgba(0, 102, 255, 0.02) 100%) !important;
-            border-left: 4px solid #00E5FF !important;
-            border-top: 1px solid rgba(0, 229, 255, 0.3) !important;
-            border-bottom: 1px solid rgba(0, 229, 255, 0.3) !important;
-            border-right: 1px solid rgba(0, 229, 255, 0.05) !important;
-            box-shadow: 0 0 25px rgba(0, 229, 255, 0.2) !important;
-            transform: translateX(4px) scale(1.01);
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) div[dir="auto"],
-        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] div[dir="auto"] {
+        /* 6. BOTONES MAESTROS (Efecto Táctil y Gradiente Premium) */
+        .stButton>button {
+            background: linear-gradient(135deg, #0052D4 0%, #4364F7 50%, #6FB1FC 100%) !important;
             color: #FFFFFF !important;
+            border: none !important;
+            border-radius: 12px !important;
             font-weight: 700 !important;
-            text-shadow: 0 0 10px rgba(0, 229, 255, 0.8) !important;
+            text-transform: uppercase !important;
+            letter-spacing: 1.2px !important;
+            padding: 0.8rem 2rem !important;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            box-shadow: 0 4px 15px rgba(0, 82, 212, 0.3) !important;
+            width: 100% !important;
         }
+        .stButton>button:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 8px 25px rgba(0, 229, 255, 0.5) !important;
+            background: linear-gradient(135deg, #4364F7 0%, #00E5FF 100%) !important;
+        }
+        .stButton>button:active { transform: translateY(1px) !important; }
 
-        /* 7. AMORTIZACIÓN DE PESTAÑAS (TABS) */
+        /* 7. ALERTAS ( st.success / st.error / st.info ) - Cristal Oscuro Premium */
+        div[data-testid="stAlert"] {
+            background-color: rgba(10, 15, 30, 0.7) !important;
+            border: 1px solid rgba(0, 229, 255, 0.2) !important;
+            border-left: 5px solid #00E5FF !important;
+            border-radius: 12px !important;
+            backdrop-filter: blur(10px) !important;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4) !important;
+            padding: 16px !important;
+        }
+        div[data-testid="stAlert"] * { color: #FFFFFF !important; font-weight: 500 !important; }
+        div[data-testid="stAlert"] svg { fill: #00E5FF !important; }
+
+        /* 8. PESTAÑAS (TABS) MODERNAS TIPO PÍLDORA */
         [data-baseweb="tab-list"] { gap: 12px; background: transparent !important; border-bottom: none !important; }
         [data-baseweb="tab"] {
-            background: rgba(15, 23, 42, 0.6) !important;
-            border: 1px solid rgba(0, 229, 255, 0.1) !important;
+            background: rgba(15, 23, 42, 0.5) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
             border-radius: 10px !important;
-            padding: 10px 20px !important;
-            transition: all 0.2s ease !important;
-            color: #94A3B8 !important;
+            padding: 8px 20px !important;
+            transition: all 0.3s ease !important;
+            color: #8B9BB4 !important;
         }
         [data-baseweb="tab"]:hover { background: rgba(0, 229, 255, 0.1) !important; color: #FFFFFF !important; }
         [data-baseweb="tab"][aria-selected="true"] {
-            background: linear-gradient(135deg, rgba(0, 102, 255, 0.3), rgba(0, 229, 255, 0.05)) !important;
+            background: rgba(0, 102, 255, 0.2) !important;
             border: 1px solid rgba(0, 229, 255, 0.4) !important;
             color: #00E5FF !important;
             box-shadow: 0 4px 15px rgba(0, 229, 255, 0.15) !important;
         }
         [data-baseweb="tab-highlight"] { display: none !important; }
 
-        /* 8. PANELES DE NOTIFICACIÓN EN CRISTAL INTERNO (Adiós verde y rojo plano) */
-        [data-testid="stAlert"] {
-            background: rgba(15, 23, 42, 0.6) !important;
-            border: 1px solid rgba(0, 229, 255, 0.3) !important;
-            border-left: 5px solid #00E5FF !important;
-            border-radius: 12px !important;
-            backdrop-filter: blur(10px) !important;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
-        }
-        [data-testid="stAlert"] * { color: #FFFFFF !important; font-weight: 600 !important; }
-        [data-testid="stAlert"] svg { fill: #00E5FF !important; }
-
-        /* 9. BOTONES COMERCIALES LÍQUIDOS */
-        .stButton>button {
-            background: linear-gradient(135deg, #0044BB 0%, #0099FF 100%) !important;
-            color: #FFFFFF !important;
-            border: 1px solid rgba(0, 229, 255, 0.3) !important;
-            border-radius: 10px !important;
-            font-weight: 700 !important;
-            text-transform: uppercase !important;
-            letter-spacing: 1px !important;
-            padding: 0.7rem 2rem !important;
-            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-            box-shadow: 0 4px 15px rgba(0, 102, 255, 0.25) !important;
-        }
-        .stButton>button:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 10px 25px rgba(0, 229, 255, 0.4) !important;
-            background: linear-gradient(135deg, #0066FF 0%, #00E5FF 100%) !important;
-            border-color: #00E5FF !important;
-        }
-
-        /* 10. CONTENEDORES CORPORATIVOS MÁXIMO NIVEL */
+        /* 9. FORMULARIOS GLOBALES (Cajas limpias y redondeadas) */
         [data-testid="stForm"] {
-            background: rgba(15, 23, 42, 0.6) !important;
-            backdrop-filter: blur(20px) !important;
-            border: 1px solid rgba(0, 229, 255, 0.2) !important;
+            background: rgba(15, 23, 42, 0.3) !important;
+            backdrop-filter: blur(15px) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
             border-radius: 16px !important;
-            padding: 35px !important;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+            padding: 30px !important;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
         }
-        [data-testid="stMetric"] {
-            background: rgba(15, 23, 42, 0.4) !important; backdrop-filter: blur(15px) !important;
-            border: 1px solid rgba(0, 229, 255, 0.1) !important; border-radius: 14px !important;
-            border-left: 4px solid #0066FF !important; transition: all 0.3s ease !important;
+
+        /* 10. MENÚ LATERAL (SIDEBAR) IMPECABLE */
+        [data-testid="stSidebar"] {
+            background-color: rgba(3, 7, 18, 0.8) !important;
+            backdrop-filter: blur(20px) !important;
+            border-right: 1px solid rgba(0, 229, 255, 0.1) !important;
         }
-        [data-testid="stMetric"]:hover {
-            border-left: 4px solid #00E5FF !important; transform: translateX(3px) !important;
-            box-shadow: 0 8px 20px rgba(0, 102, 255, 0.15) !important;
-        }
+        [data-testid="stSidebar"] [role="radiogroup"] label div[data-baseweb="radio"],
+        [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child,
+        [data-testid="stSidebar"] [role="radiogroup"] label > span:first-child { display: none !important; }
         
-        #MainMenu, footer, [data-testid="stHeader"] { display: none !important; }
+        [data-testid="stSidebar"] [role="radiogroup"] label {
+            background: rgba(15, 23, 42, 0.3) !important;
+            border: 1px solid transparent !important;
+            border-radius: 12px !important;
+            padding: 12px 16px !important; margin: 4px 12px !important;
+            transition: all 0.3s ease !important; cursor: pointer !important; width: calc(100% - 24px) !important;
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] label div[dir="auto"], [data-testid="stSidebar"] [role="radiogroup"] label p {
+            color: #8B9BB4 !important; font-size: 14px !important; font-weight: 500 !important; margin: 0 !important;
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] label:hover {
+            background: rgba(0, 229, 255, 0.05) !important; transform: translateX(3px);
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"],
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) {
+            background: linear-gradient(90deg, rgba(0, 229, 255, 0.15) 0%, rgba(0, 0, 0, 0) 100%) !important;
+            border-left: 3px solid #00E5FF !important;
+            box-shadow: inset 0 0 10px rgba(0, 229, 255, 0.05) !important; transform: translateX(4px);
+        }
+        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] div[dir="auto"],
+        [data-testid="stSidebar"] [role="radiogroup"] label:has(input:checked) div[dir="auto"] {
+            color: #FFFFFF !important; font-weight: 700 !important; text-shadow: 0 0 8px rgba(0, 229, 255, 0.6) !important;
+        }
+
+        h1, h2, h3 { color: #FFFFFF !important; font-weight: 700 !important; }
+        .fade-in { animation: fadeIn 0.5s ease forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 """, unsafe_allow_html=True)
 
@@ -431,13 +414,12 @@ try:
             st.markdown("<div style='height: 4vh;'></div>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1, 3, 1])
             with col2:
-                # Animación de Caricatura Divertida para el inicio (Gato Hacker)
                 url_gif_divertido = "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif"
                 st.markdown(f"""
-                <div class="fade-in" style="text-align: center; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 24px; padding: 40px; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
-                    <img src="{url_gif_divertido}" style="border-radius: 16px; width: 100%; max-width: 320px; border: 2px solid rgba(0, 229, 255, 0.3); box-shadow: 0 0 30px rgba(0, 229, 255, 0.2);">
+                <div class="fade-in" style="text-align: center; background: rgba(15, 23, 42, 0.4); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 40px; backdrop-filter: blur(10px);">
+                    <img src="{url_gif_divertido}" style="border-radius: 16px; width: 100%; max-width: 320px; border: 1px solid rgba(0, 229, 255, 0.2); box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);">
                     <h1 style='font-size: 2.8rem; font-weight: 800; margin-top: 25px; margin-bottom: 0; color: #FFFFFF;'>HOLA, <span style='color: #00E5FF;'>{st.session_state['nombre_usuario'].split(" ")[0].upper()}</span></h1>
-                    <p style='color: #8B9BB4; font-size: 1.1rem; font-weight: 300; margin-top: 10px;'>Es hora de poner a trabajar el ecosistema DaTo.</p>
+                    <p style='color: #8B9BB4; font-size: 1.1rem; font-weight: 400; margin-top: 10px;'>Es hora de poner a trabajar el ecosistema DaTo.</p>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -491,7 +473,7 @@ try:
                         interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
                         
                         st.markdown(f"""
-                        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-bottom: 20px; margin-top: 20px;">
+                        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 5px solid #00E5FF; border-radius: 12px; padding: 25px; text-align: center; backdrop-filter: blur(10px); margin-bottom: 20px; margin-top: 20px;">
                             <h3 style="color:#00E5FF; margin:0; font-weight: 600; letter-spacing: 1.5px; font-size: 1.1rem;">MONTO EXACTO DE REDENCIÓN (PAZ Y SALVO)</h3>
                             <h1 style="color:white; font-size: 3.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1>
                             <p style="color:#8B9BB4; font-size: 14px; margin:0;">Base Capital ({fmt_cop(saldo_capital)}) + Tasa del Periodo ({fmt_cop(interes_mes)})</p>
@@ -1069,7 +1051,7 @@ try:
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
                 st.markdown(f"""
-                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 25px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-bottom: 20px;">
+                <div style="background: rgba(10, 20, 40, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-bottom: 25px;">
                     <h3 style="color:#00E5FF; margin:0; font-weight: 700; letter-spacing: 2.5px;">EVALUACIÓN PATRIMONIAL DEL ECOSISTEMA</h3>
                     <h1 style="color:white; font-size: 4.5rem; font-weight: 800; margin: 10px 0; text-shadow: 0 0 25px rgba(0, 229, 255, 0.4);">{fmt_cop(patrimonio_neto)}</h1>
                     <p style="color:#8B9BB4; font-size: 15px; margin:0;">Base Líquida Local ({fmt_cop(cap)}) + Capital Expuesto en Nodos ({fmt_cop(cartera_neta_calle)}) - Fondeo Externo Exigible ({fmt_cop(deuda)})</p>
@@ -1077,8 +1059,8 @@ try:
                 """, unsafe_allow_html=True)
                 
                 c_m1, c_m2, c_m3 = st.columns(3)
-                c_m1.metric("✅ Rentabilidad Pura Desbloqueada (Caja)", fmt_cop(ganancia_neta_100))
-                c_m2.metric("💳 Masa Crítica Expuesta (Zona Riesgo)", fmt_cop(cartera_neta_calle))
+                c_m1.metric("✅ Rentabilidad Pura Desbloqueada", fmt_cop(ganancia_neta_100))
+                c_m2.metric("💳 Masa Crítica Expuesta (Riesgo)", fmt_cop(cartera_neta_calle))
                 c_m3.metric("📊 Ticket Estadístico / LTV", fmt_cop(ticket_promedio))
 
             with tab_graf:
@@ -1097,7 +1079,7 @@ try:
                     else: st.info("Módulo silenciado por falta de data.")
                     
                 with col_g2:
-                    st.markdown("<h4 style='color:#00C6FF;'>📈 Curva de Despliegue Comercial (Ventas)</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#00E5FF;'>📈 Curva de Despliegue Comercial (Ventas)</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT DATE_FORMAT(fecha_inicio, '%Y-%m') as mes, SUM(precio_venta) as total FROM Creditos GROUP BY mes ORDER BY mes ASC")
                     ventas_mes = cursor.fetchall()
                     if ventas_mes:
@@ -1146,7 +1128,7 @@ try:
                         st.bar_chart(df_ingresos, color="#00C6FF")
 
                 with col_e2:
-                    st.markdown("<h4 style='color:#0066FF;'>💸 Análisis Forense de Fugas</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#00E5FF;'>💸 Análisis Forense de Fugas</h4>", unsafe_allow_html=True)
                     df_egresos = pd.DataFrame([
                         {"Vectores": "Gastos Estructurales Base", "Score": gastos_totales},
                         {"Vectores": "Fuga por Bonos y Comisiones", "Score": comisiones_totales}
@@ -1156,7 +1138,7 @@ try:
                         st.bar_chart(df_egresos, color="#0066FF")
                         
                 st.markdown(f"""
-                <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-top: 30px;">
+                <div style="background: rgba(10, 20, 40, 0.6); border: 1px solid rgba(0, 229, 255, 0.3); border-left: 6px solid #00E5FF; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); backdrop-filter: blur(15px); margin-top: 30px;">
                     <h4 style="color:#00E5FF; margin:0; font-weight: 600; letter-spacing: 1.5px;">PROYECCIÓN DE RENDIMIENTO (ROI) GLOBAL</h4>
                     <h1 style="color:white; font-size: 3.5rem; font-weight: 800; margin: 10px 0; text-shadow: 0 0 20px rgba(0, 229, 255, 0.3);">{((ganancia_por_venta + ganancia_por_interes) / (total_costo_equipos if total_costo_equipos > 0 else 1) * 100):.1f}%</h1>
                     <p style="color:#8B9BB4; font-size: 15px; margin:0;">Métrica predictiva de retorno de inversión por cada punto de liquidez convertido en hardware.</p>
