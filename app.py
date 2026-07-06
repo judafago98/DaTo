@@ -328,7 +328,7 @@ try:
                 st.markdown("<br>", unsafe_allow_html=True)
                 
                 # --- NUEVO: MODO PANTALLAZO ---
-                modo_cliente = st.toggle("📸 Activar Vista para Pantallazo")
+                modo_cliente = st.toggle("📸 Activar Vista para Cliente")
                 if 'tasa_simulador' not in st.session_state:
                     st.session_state['tasa_simulador'] = 3.0
                     
