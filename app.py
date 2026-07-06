@@ -159,9 +159,16 @@ CAPACIDADES_PC = ["8GB RAM / 256GB SSD", "16GB RAM / 512GB SSD", "16GB RAM / 1TB
 CAPACIDADES_ELECTRO = ["No Aplica", "32 Pulgadas", "50 Pulgadas", "65 Pulgadas", "Escribir manual..."]
 
 # --- Conexión Silenciosa BLINDADA ---
+# --- Conexión Silenciosa BLINDADA (CON SECRETOS) ---
 @st.cache_resource(ttl=60)
 def init_connection():
-    try: return mysql.connector.connect(host="gateway01.us-east-1.prod.aws.tidbcloud.com", port=4000, user="2xRKoKTDAr4tRLF.root", password="7KGQVtKygobgy311", database="sistema_creditos", ssl_verify_cert=False, autocommit=True, connection_timeout=15)
+    try: return mysql.connector.connect(
+        host=st.secrets["DB_HOST"], 
+        port=st.secrets["DB_PORT"], 
+        user=st.secrets["DB_USER"], 
+        password=st.secrets["DB_PASS"], 
+        database=st.secrets["DB_NAME"], 
+        ssl_verify_cert=False, autocommit=True, connection_timeout=15)
     except Exception: return None
 
 conn = init_connection()
