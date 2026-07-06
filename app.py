@@ -17,14 +17,24 @@ def auto_fix_db(cursor, conn):
 # --- Configuración visual de la app ---
 st.set_page_config(page_title="DaTo Workspace", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
-# --- DISEÑO ULTRA PREMIUM Y RESPONSIVO ---
+# --- DISEÑO ULTRA PREMIUM Y RESPONSIVO (BLACK & BLUE EDITION) ---
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
         html, body, [class*="css"] { font-family: 'Outfit', sans-serif; }
 
-        @keyframes gradientBG { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-        .stApp { background: linear-gradient(-45deg, #020617, #0A192F, #020813, #001E3C); background-size: 300% 300%; animation: gradientBG 25s ease infinite; color: #F8FAFC; }
+        /* FONDO DE REDES Y CIRCUITOS CIBERNÉTICOS (NEGRO/AZUL) */
+        .stApp {
+            background-color: #000000;
+            background-image: 
+                linear-gradient(rgba(0, 198, 255, 0.07) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 198, 255, 0.07) 1px, transparent 1px),
+                radial-gradient(circle at 50% 50%, rgba(0, 30, 60, 0.6), #000000);
+            background-size: 35px 35px, 35px 35px, 100% 100%;
+            background-position: center center;
+            background-attachment: fixed;
+            color: #F8FAFC;
+        }
         
         #MainMenu, footer {display: none !important;}
         header, [data-testid="stHeader"] {background: transparent !important;}
@@ -37,14 +47,14 @@ st.markdown("""
         [data-testid="stImage"] { display: flex; align-items: center; justify-content: center; }
         [data-testid="stImage"] img {
             border-radius: 24px !important;
-            box-shadow: 0 0 25px rgba(0, 198, 255, 0.4), inset 0 0 10px rgba(0, 198, 255, 0.2) !important;
+            box-shadow: 0 0 35px rgba(0, 198, 255, 0.3), inset 0 0 15px rgba(0, 198, 255, 0.2) !important;
             border: 2px solid #00C6FF !important; transition: all 0.4s ease !important;
             max-height: 400px; object-fit: cover; width: 100% !important; max-width: 400px;
         }
-        [data-testid="stImage"] img:hover { box-shadow: 0 0 50px rgba(0, 198, 255, 0.8) !important; transform: scale(1.02) !important; }
+        [data-testid="stImage"] img:hover { box-shadow: 0 0 50px rgba(0, 198, 255, 0.6) !important; transform: scale(1.02) !important; }
 
         [data-testid="stSidebar"] {
-            background-color: rgba(2, 6, 23, 0.85) !important; backdrop-filter: blur(20px);
+            background-color: rgba(2, 6, 23, 0.95) !important; backdrop-filter: blur(20px);
             border-right: 1px solid rgba(0, 198, 255, 0.15);
         }
         
@@ -64,42 +74,69 @@ st.markdown("""
         }
         [data-testid="stSidebar"] div[role="radiogroup"] label[data-checked="true"] p { color: #00C6FF !important; font-weight: 700 !important; }
 
-        .login-wrapper { display: flex; align-items: stretch; justify-content: center; min-height: 50vh; gap: 40px; margin-top: 8vh; }
+        .login-wrapper { display: flex; align-items: center; justify-content: center; height: 100%; }
 
         [data-testid="stForm"] {
-            background: rgba(4, 13, 30, 0.5) !important; backdrop-filter: blur(25px) !important;
-            border: 1px solid rgba(0, 198, 255, 0.15) !important; border-radius: 20px !important;
-            padding: 40px 30px !important; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            background: rgba(4, 13, 30, 0.7) !important; backdrop-filter: blur(25px) !important;
+            border: 1px solid rgba(0, 198, 255, 0.2) !important; border-radius: 20px !important;
+            padding: 40px 30px !important; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
             display: flex; flex-direction: column; justify-content: center; height: 100%;
         }
 
         [data-testid="stMetric"] {
-            background: rgba(10, 20, 40, 0.6); backdrop-filter: blur(15px);
+            background: rgba(4, 10, 20, 0.8); backdrop-filter: blur(15px);
             border: 1px solid rgba(0, 198, 255, 0.1); border-radius: 16px; padding: 24px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2); border-top: 3px solid #00C6FF; transition: all 0.3s ease;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5); border-top: 3px solid #0066FF; transition: all 0.3s ease;
         }
         [data-testid="stMetric"]:hover { border-top: 3px solid #00E5FF; transform: translateY(-3px); box-shadow: 0 15px 30px rgba(0, 198, 255, 0.15); }
         
+        /* BOTONES ULTRA PREMIUM AZULES */
         .stButton>button {
-            background: linear-gradient(135deg, #0066FF 0%, #00C6FF 100%); width: 100% !important;
-            color: #FFFFFF !important; border: none; border-radius: 10px; font-weight: 600; padding: 0.6rem 1.5rem; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0, 102, 255, 0.3);
+            background: linear-gradient(135deg, #001E3C 0%, #0066FF 50%, #00C6FF 100%) !important;
+            color: #FFFFFF !important;
+            border: 1px solid rgba(0, 198, 255, 0.4) !important;
+            border-radius: 12px !important;
+            font-weight: 700 !important;
+            letter-spacing: 1.5px !important;
+            text-transform: uppercase !important;
+            padding: 0.8rem 2rem !important;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            box-shadow: 0 6px 20px rgba(0, 102, 255, 0.3), inset 0 2px 5px rgba(255, 255, 255, 0.3) !important;
+            position: relative !important;
+            overflow: hidden !important;
+            z-index: 1 !important;
+            width: 100% !important;
         }
-        .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 198, 255, 0.5); background: linear-gradient(135deg, #00C6FF 0%, #0066FF 100%); }
+        .stButton>button::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transform: skewX(-25deg); transition: left 0.7s ease; z-index: -1;
+        }
+        .stButton>button:hover::before { left: 150%; }
+        .stButton>button:hover {
+            transform: translateY(-5px) scale(1.02) !important;
+            box-shadow: 0 12px 30px rgba(0, 198, 255, 0.6), inset 0 2px 4px rgba(255, 255, 255, 0.4) !important;
+            border-color: #00E5FF !important;
+        }
+        .stButton>button:active {
+            transform: translateY(2px) scale(0.98) !important;
+            box-shadow: 0 2px 10px rgba(0, 102, 255, 0.4), inset 0 4px 8px rgba(0, 0, 0, 0.5) !important;
+        }
         
         input, select, textarea {
-            background-color: rgba(4, 13, 30, 0.7) !important; color: white !important;
-            border: 1px solid rgba(0, 198, 255, 0.2) !important; border-radius: 10px !important; padding: 12px !important;
+            background-color: rgba(2, 6, 15, 0.8) !important; color: white !important;
+            border: 1px solid rgba(0, 198, 255, 0.3) !important; border-radius: 10px !important; padding: 12px !important;
         }
-        input:focus, select:focus, textarea:focus { border-color: #00E5FF !important; box-shadow: 0 0 12px rgba(0, 198, 255, 0.3) !important; background-color: rgba(10, 25, 50, 0.9) !important; }
+        input:focus, select:focus, textarea:focus { border-color: #00E5FF !important; box-shadow: 0 0 15px rgba(0, 198, 255, 0.4) !important; background-color: rgba(4, 13, 30, 0.9) !important; }
 
         h1, h2, h3 { color: #FFFFFF !important; font-weight: 600 !important; }
         .fade-in { animation: fadeIn 0.6s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
         .kpi-card {
-            background: linear-gradient(135deg, rgba(0,198,255,0.05) 0%, rgba(0,102,255,0.15) 100%);
+            background: linear-gradient(135deg, rgba(0,198,255,0.05) 0%, rgba(0,102,255,0.1) 100%);
             border: 1px solid rgba(0, 198, 255, 0.3); border-radius: 16px; padding: 25px;
-            text-align: center; box-shadow: 0 10px 30px rgba(0,198,255,0.1); margin-bottom: 20px;
+            text-align: center; box-shadow: 0 10px 30px rgba(0,198,255,0.05); margin-bottom: 20px;
         }
 
         @media (max-width: 768px) {
@@ -113,7 +150,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 🛡️ FUNCIONES GLOBALES Y FORMATOS
+# 🛡️ FUNCIONES GLOBALES Y FORMATOS (ONLY BLUES)
 # ==========================================
 def fmt_cop(val):
     try: val_int = int(float(val))
@@ -128,20 +165,20 @@ def fmt_cop(val):
     return f"-${res}" if is_neg else f"${res}"
 
 def color_estado(val):
-    if val in ['Pagado', 'Pagada', 'Completado']: return 'background-color: rgba(16, 185, 129, 0.15); color: #34D399; font-weight: 600;'
-    elif val in ['Activo', 'Pendiente']: return 'background-color: rgba(245, 158, 11, 0.15); color: #F59E0B; font-weight: 600;'
+    if val in ['Pagado', 'Pagada', 'Completado']: return 'background-color: rgba(0, 229, 255, 0.1); color: #00E5FF; font-weight: 600;'
+    elif val in ['Activo', 'Pendiente']: return 'background-color: rgba(0, 102, 255, 0.1); color: #0066FF; font-weight: 600;'
     elif val in ['Disponible']: return 'background-color: rgba(0, 198, 255, 0.15); color: #00C6FF; font-weight: 600;'
     elif val in ['Vendido']: return 'background-color: rgba(255, 255, 255, 0.05); color: #94A3B8; font-weight: 600;'
     return ''
 
 def color_estado_cuota(val):
-    if 'Pagada' in val: return 'background-color: rgba(16, 185, 129, 0.1); color: #34D399; font-weight: 600;'
-    elif 'Parcial' in val: return 'background-color: rgba(245, 158, 11, 0.1); color: #F59E0B; font-weight: 600;'
-    else: return 'color: #F59E0B; font-weight: 500;'
+    if 'Pagada' in val: return 'background-color: rgba(0, 229, 255, 0.1); color: #00E5FF; font-weight: 600;'
+    elif 'Parcial' in val: return 'background-color: rgba(0, 153, 255, 0.1); color: #0099FF; font-weight: 600;'
+    else: return 'color: #0066FF; font-weight: 500;'
 
 def color_ganancia_real(val):
-    if '-' in str(val): return 'color: #F87171; font-weight: 500;'
-    return 'color: #34D399; font-weight: 600;'
+    if '-' in str(val): return 'color: #94A3B8; font-weight: 500;'
+    return 'color: #00E5FF; font-weight: 600;'
 
 def sumar_meses_exactos(fecha_base, meses_a_sumar):
     mes = fecha_base.month - 1 + meses_a_sumar
@@ -166,13 +203,13 @@ def generar_plan_pagos_real(id_credito, cursor):
         for idx, c in enumerate(cuotas_fijas):
             esperado = float(c['monto_esperado'])
             if pagado_acum >= esperado: 
-                est, pagado_acum = '✅ Pagada', pagado_acum - esperado
+                est, pagado_acum = '☑️ Pagada', pagado_acum - esperado
                 f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
-                est, pagado_acum = f'⚠️ Parcial (Abonó {fmt_cop(pagado_acum)})', 0
+                est, pagado_acum = f'🔷 Parcial (Abonó {fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[idx]['fecha_pago'].strftime('%Y-%m-%d') if idx < len(pagos_hist) else '---'
             else: 
-                est, f_pago_mostrar = '🔸 Pendiente', '---'
+                est, f_pago_mostrar = '🔹 Pendiente', '---'
             plan.append({'Cuota': f"Número {c['numero_cuota']}", 'Vencimiento Límite': c['fecha_vencimiento'], 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
     else:
         plazo, valor, f_base = int(cred['plazo_meses']), float(cred['valor_cuota'] or 0), cred['fecha_primera_cuota']
@@ -181,13 +218,13 @@ def generar_plan_pagos_real(id_credito, cursor):
             f_venc = sumar_meses_exactos(f_base, i - 1)
             esperado = valor
             if pagado_acum >= esperado: 
-                est, pagado_acum = '✅ Pagada', pagado_acum - esperado
+                est, pagado_acum = '☑️ Pagada', pagado_acum - esperado
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
-                est, pagado_acum = f'⚠️ Parcial (Abonó {fmt_cop(pagado_acum)})', 0
+                est, pagado_acum = f'🔷 Parcial (Abonó {fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             else: 
-                est, f_pago_mostrar = '🔸 Pendiente', '---'
+                est, f_pago_mostrar = '🔹 Pendiente', '---'
             plan.append({'Cuota': f"Mes {i}", 'Vencimiento Límite': f_venc.strftime('%Y-%m-%d'), 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
     return pd.DataFrame(plan)
 
@@ -219,7 +256,7 @@ try:
     cursor = conn.cursor(dictionary=True, buffered=True)
     auto_fix_db(cursor, conn)
 except Exception as e:
-    st.error(f"🚨 El servidor de base de datos está hibernando o inalcanzable. Espera 30 segundos y recarga la página (F5). Detalles: {e}")
+    st.error(f"🌐 El servidor de base de datos está hibernando o inalcanzable. Espera 30 segundos y recarga la página (F5). Detalles: {e}")
     st.stop()
 
 # ==========================================
@@ -237,14 +274,14 @@ try:
         
         with col_izq:
             st.markdown("<div class='login-wrapper fade-in'>", unsafe_allow_html=True)
-            st.image("logo.png")
+            st.image("image_b3d241.jpg")
             st.markdown("</div>", unsafe_allow_html=True)
 
         with col_der:
-            st.markdown("<div class='fade-in'>", unsafe_allow_html=True)
+            st.markdown("<div class='fade-in' style='display: flex; align-items: center; justify-content: center; height: 100%;'>", unsafe_allow_html=True)
             with st.form("form_login"):
-                st.markdown("<h2 style='color: #00C6FF; font-weight: 600; margin-bottom: 5px; font-size: 2.2rem;'>Portal de Acceso</h2>", unsafe_allow_html=True)
-                st.markdown("<p style='color: #94A3B8; margin-bottom: 25px; font-size: 1.05rem;'>Identifícate para entrar al ecosistema operativo.</p>", unsafe_allow_html=True)
+                st.markdown("<h2 style='color: #00E5FF; font-weight: 700; margin-bottom: 5px; font-size: 2.4rem;'>Portal de Acceso</h2>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #94A3B8; margin-bottom: 25px; font-size: 1.1rem;'>Identifícate para entrar al ecosistema operativo.</p>", unsafe_allow_html=True)
                 usuario_input = st.text_input("👤 Usuario Corporativo")
                 password_input = st.text_input("🔒 Clave de Seguridad", type="password")
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -282,13 +319,13 @@ try:
 
         st.sidebar.markdown("<br>", unsafe_allow_html=True)
         st.sidebar.markdown("<div style='text-align: center; margin-bottom: 20px;'>", unsafe_allow_html=True)
-        st.sidebar.image("logo.png")
+        st.sidebar.image("image_b3d241.jpg")
         st.sidebar.markdown("</div>", unsafe_allow_html=True)
         
         st.sidebar.markdown(f"""
             <div style='padding: 12px; background: rgba(0, 198, 255, 0.03); border-radius: 12px; border: 1px solid rgba(0,198,255,0.1); margin-bottom: 15px; text-align: center;'>
                 <b style='color:#F8FAFC; font-size: 15px;'>{st.session_state['nombre_usuario']}</b><br>
-                <span style='color:#00C6FF; font-size: 11px; font-weight: 500; letter-spacing: 1px;'>{str(st.session_state['rol']).upper()}</span>
+                <span style='color:#00E5FF; font-size: 11px; font-weight: 500; letter-spacing: 1px;'>{str(st.session_state['rol']).upper()}</span>
             </div>
         """, unsafe_allow_html=True)
         
@@ -312,7 +349,7 @@ try:
             st.markdown("<div style='height: 5vh;'></div>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1, 2, 1])
             with col2:
-                st.image("logo.png")
+                st.image("image_b3d241.jpg")
                 st.markdown(f"""
                 <div class="fade-in" style="text-align: center; margin-top: 20px;">
                     <h1 style='font-size: 3.5rem; font-weight: 700; margin-bottom: 0;'>Bienvenido a <span style='color: #00C6FF;'>DaTo</span></h1>
@@ -327,7 +364,6 @@ try:
             with tab_sim:
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # --- NUEVO: MODO PANTALLAZO ---
                 modo_cliente = st.toggle("📸 Activar Vista para Cliente")
                 if 'tasa_simulador' not in st.session_state:
                     st.session_state['tasa_simulador'] = 3.0
@@ -373,7 +409,7 @@ try:
                         
                         st.markdown(f"""
                         <div class="kpi-card">
-                            <h3 style="color:#00C6FF; margin:0; font-weight: 500; font-size: 1.1rem;">LIQUIDACIÓN TOTAL CON DESCUENTO (PAZ Y SALVO)</h3>
+                            <h3 style="color:#00E5FF; margin:0; font-weight: 500; font-size: 1.1rem;">LIQUIDACIÓN TOTAL CON DESCUENTO (PAZ Y SALVO)</h3>
                             <h1 style="color:white; font-size: 3.5rem; margin: 0;">{fmt_cop(saldo_capital + interes_mes)}</h1>
                             <p style="color:#94A3B8; font-size: 14px; margin-top: 5px;">Capital restante ({fmt_cop(saldo_capital)}) + Interés de este mes ({fmt_cop(interes_mes)}).</p>
                         </div>
@@ -706,7 +742,7 @@ try:
             st.markdown("<h2 class='fade-in'>Auditoría de Operaciones 📜</h2>", unsafe_allow_html=True)
             if not es_admin: st.error("🔒 Privilegio directivo requerido."); st.stop()
             
-            tab_v, tab_r = st.tabs(["📋 Libro Mayor de Operaciones", "⚠️ Módulo de Corrección (Zona Roja)"])
+            tab_v, tab_r = st.tabs(["📋 Libro Mayor de Operaciones", "⚠️ Módulo de Corrección (Zona Crítica)"])
             
             with tab_v:
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -731,7 +767,7 @@ try:
                 c1, c2, c3 = st.columns(3)
                 
                 with c1:
-                    st.markdown("<h4 style='color:#ef4444;'>🗑️ Anular un Recibo de Pago</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#00E5FF;'>🗑️ Anular un Recibo de Pago</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT p.id_pago, cl.nombre_completo, p.monto_recibido, p.fecha_pago, p.tipo_pago FROM Pagos p JOIN Creditos c ON p.id_credito = c.id_credito JOIN Clientes cl ON c.id_cliente = cl.id_cliente ORDER BY p.id_pago DESC LIMIT 50")
                     pagos_db = cursor.fetchall()
                     if pagos_db:
@@ -749,7 +785,7 @@ try:
                     else: st.info("No hay historial de recibos.")
 
                 with c2:
-                    st.markdown("<h4 style='color:#f97316;'>🚨 Echar Atrás una Venta Entera</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#00C6FF;'>🚨 Echar Atrás una Venta Entera</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT c.id_credito, cl.nombre_completo, i.modelo, c.imei, c.abono_inicial FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei ORDER BY c.id_credito DESC")
                     creds_db = cursor.fetchall()
                     if creds_db:
@@ -772,7 +808,7 @@ try:
                     else: st.info("Facturación limpia.")
                     
                 with c3:
-                    st.markdown("<h4 style='color:#eab308;'>📦 Eliminar Hardware de Bodega</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0099FF;'>📦 Eliminar Hardware de Bodega</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT imei, marca, modelo, costo_adquisicion, id_bolsa FROM Inventario WHERE estado = 'Disponible'")
                     inv_db = cursor.fetchall()
                     if inv_db:
@@ -972,7 +1008,7 @@ try:
                         df_chart_rec = pd.DataFrame(recaudos_mes)
                         df_chart_rec.columns = ['Mes', 'Efectivo Recaudado']
                         df_chart_rec.set_index('Mes', inplace=True)
-                        st.bar_chart(df_chart_rec, color="#34D399")
+                        st.bar_chart(df_chart_rec, color="#00C6FF")
                     else: st.info("Gráfico inactivo. No hay recaudos.")
                     
                 with col_g2:
@@ -983,7 +1019,7 @@ try:
                         df_chart_ven = pd.DataFrame(ventas_mes)
                         df_chart_ven.columns = ['Mes', 'Monto de Ventas']
                         df_chart_ven.set_index('Mes', inplace=True)
-                        st.area_chart(df_chart_ven, color="#00C6FF")
+                        st.area_chart(df_chart_ven, color="#0066FF")
                     else: st.info("Gráfico inactivo.")
 
             with tab_riesgo:
@@ -1008,7 +1044,7 @@ try:
                         df_est = pd.DataFrame(estados_credito)
                         df_est.columns = ['Estado del Contrato', 'Cantidad']
                         df_est.set_index('Estado del Contrato', inplace=True)
-                        st.bar_chart(df_est, color="#F59E0B")
+                        st.bar_chart(df_est, color="#00E5FF")
 
             with tab_eficiencia:
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -1032,7 +1068,7 @@ try:
                     ])
                     if not df_egresos.empty:
                         df_egresos.set_index("Fuga de Capital", inplace=True)
-                        st.bar_chart(df_egresos, color="#F87171")
+                        st.bar_chart(df_egresos, color="#001E3C")
                         
                 st.markdown(f"""
                 <div class="kpi-card" style="margin-top: 20px;">
@@ -1123,7 +1159,7 @@ try:
                             except Exception as e: st.error(f"Falla Crítica de Base de Datos: {e}")
 
 finally:
-    # === SEGURO ANTI-FUGAS DE MEMORIA: Se ejecuta SIEMPRE, incluso si Streamlit reinicia ===
+    # === SEGURO ANTI-FUGAS DE MEMORIA ===
     try:
         if 'cursor' in locals() and cursor: cursor.close()
         if 'conn' in locals() and conn and conn.is_connected(): conn.close()
