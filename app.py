@@ -680,7 +680,7 @@ try:
                         
                         if "Financiado" in tipo_v:
                             with c3:
-                                p_final = st.number_input("Valor Total Factura ($)", min_value=1, value=0, step=10000)
+                                p_final = st.number_input("Valor Total Factura ($)", min_value=0, value=0, step=10000)
                                 ab_init = st.number_input("Abono Inicial Entregado ($)", min_value=0, value=0, step=10000)
                                 plazo = st.number_input("Meses a Pagar", min_value=1, value=6)
                             with c4:
@@ -700,7 +700,7 @@ try:
                         
                         elif "Separé" in tipo_v:
                             with c3:
-                                p_final = st.number_input("Valor Total a Pagar ($)", min_value=1, value=0, step=10000)
+                                p_final = st.number_input("Valor Total a Pagar ($)", min_value=0, value=0, step=10000)
                                 ab_init = st.number_input("Abono Inicial (Para separar) ($)", min_value=0, value=0, step=10000)
                                 plazo = st.number_input("Número de Cuotas", min_value=1, value=2)
                             with c4:
@@ -721,7 +721,7 @@ try:
                                     f_c = st.date_input(f"Fecha Límite Cuota {idx+1}", value=sumar_meses_exactos(f_cuota, idx), key=f"f_{idx}")
                                 c_pers.append((idx+1, v_c, f_c))
                         else:
-                            p_final = st.number_input("Valor Total Pagado de Contado ($)", min_value=1, value=0, step=10000)
+                            p_final = st.number_input("Valor Total Pagado de Contado ($)", min_value=0, value=0, step=10000)
                             vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
                             nuevo_vendedor = st.text_input("O crear nuevo:")
                             comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
@@ -730,7 +730,7 @@ try:
                         st.divider()
                         if st.form_submit_button("Registrar Venta en Sistema", width='stretch'):
                             if not equipos_sel: st.error("Debes seleccionar mínimo un equipo para vender.")
-                            elif p_final <= 0: st.error("El valor del equipo debe ser mayor a cero.")
+                            elif p_final <= 0: st.error("El valor de la factura debe ser mayor a cero.")
                             else:
                                 vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..." else None)
                                 if comis > 0 and not vendedor_final: st.error("Asigna un vendedor para pagarle su comisión.")
@@ -763,7 +763,6 @@ try:
                                         cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, vendedor, id_credito, id_usuario_registro) VALUES (%s, %s, %s, 'Por Pagar', %s, %s, %s)", (f"Comisión Venta - {vendedor_final} (Cliente: {cliente_sel.split(' - ')[1]})", comis, datetime.date.today(), vendedor_final, id_cr, st.session_state['id_usuario']))
                                         
                                     conn.commit(); st.toast("Venta y contrato guardados exitosamente."); time.sleep(1.5); st.rerun()
-
         elif menu_seleccionado == "pagos":
             st.markdown("<h2>Caja y Recaudos 💰</h2>", unsafe_allow_html=True)
             cursor.execute("SELECT c.id_credito, cl.nombre_completo, c.imei, c.monto_financiado, c.tasa_interes_mensual, c.valor_cuota, c.plazo_meses, i.marca, i.modelo FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei WHERE c.estado = 'Activo'")
