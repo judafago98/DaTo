@@ -232,11 +232,13 @@ def generar_plan_pagos_real(id_credito, cursor):
     return pd.DataFrame(plan)
 
 CATALOGO = {
-    "📱 Celular": {"Apple": ["iPhone 16 Pro Max", "iPhone 16 Pro", "iPhone 15 Pro Max", "iPhone 15", "iPhone 14 Pro Max", "iPhone 13", "iPhone 11", "Otro..."], "Samsung": ["Galaxy S24 Ultra", "Galaxy S23 FE", "Galaxy A55", "Galaxy Z Fold5", "Otro..."], "Xiaomi": ["Redmi Note 13 Pro+", "Poco X6 Pro", "Xiaomi 14", "Otro..."], "Motorola": ["Edge 50 Pro", "Moto G84", "Razr 40 Ultra", "Otro..."], "Otra Marca...": ["Escribir manual..."]},
-    "💻 Computador": {"Lenovo": ["ThinkPad T14", "Legion Pro 5", "Otro..."], "ASUS": ["ROG Strix G16", "ZenBook 14", "Otro..."], "HP": ["EliteBook 840", "Victus 15", "Otro..."], "Apple": ["MacBook Air M3", "MacBook Pro M3 Pro", "Otro..."], "Otra Marca...": ["Escribir manual..."]},
-    "📺 Electrodoméstico": {"Samsung": ["Televisor QLED", "Nevera Nevecón", "Lavadora", "Otro..."], "LG": ["Televisor OLED", "Torre de Lavado", "Otro..."], "Otra Marca...": ["Escribir manual..."]},
-    "🎮 Consolas y Gaming": {"Sony": ["PlayStation 5", "PS VR2", "Otro..."], "Microsoft": ["Xbox Series X", "Xbox Series S", "Otro..."], "Nintendo": ["Switch OLED", "Otro..."], "Otra Marca...": ["Escribir manual..."]},
-    "📦 Otros": {"Accesorios": ["AirPods Pro 2", "Apple Watch Series 9", "Otro..."], "Repuestos": ["Pantalla Original", "Batería", "Otro..."], "Otra Categoria...": ["Escribir manual..."]}
+    "📱 Celular": {"Apple": ["iPhone 16 Pro Max", "iPhone 15", "Otro..."], "Samsung": ["Galaxy S24", "Otro..."], "Xiaomi": ["Otro..."], "Otra Marca...": ["Escribir manual..."]},
+    "🎧 Accesorios Celular": {"Energía": ["Cargador", "Cable"], "Audio": ["Audifonos"], "Wearables": ["Reloj"], "Otros": ["Pencil", "Otro..."]},
+    "💻 Computador": {"Apple": ["MacBook Air", "MacBook Pro", "Otro..."], "PC": ["Lenovo", "ASUS", "HP", "Otro..."], "Otra Marca...": ["Escribir manual..."]},
+    "🖥️ Ipad": {"Apple": ["iPad Pro", "iPad Air", "iPad Mini", "iPad 10th Gen", "Otro..."]},
+    "🎮 Video Juegos": {"Consolas": ["PlayStation 5", "Xbox Series X", "Nintendo Switch"], "Juegos Físicos": ["Juego PS5", "Juego Switch", "Otro..."]},
+    "📺 Electrodomesticos": {"Cocina": ["Air Frayer", "Licuadora", "Cafetera", "Nevera", "Nevecon"], "Hogar y Entretenimiento": ["TV", "Projector", "Lavadora", "Otro..."]},
+    "📦 Otros": {"Complementos": ["APP TV", "Base Computador"], "Repuestos": ["Otro..."], "Otra Categoria...": ["Escribir manual..."]}
 }
 CAPACIDADES_MOVILES = ["64GB", "128GB", "256GB", "512GB", "1TB", "Otra..."]
 CAPACIDADES_PC = ["8GB RAM / 256GB SSD", "16GB RAM / 512GB SSD", "16GB RAM / 1TB SSD", "32GB RAM / 1TB SSD", "Otra..."]
@@ -491,7 +493,8 @@ try:
 
         elif menu_seleccionado == "inventario":
             st.markdown("<h2>Gestión de Inventario 📦</h2>", unsafe_allow_html=True)
-            tab_inv1, tab_inv2, tab_inv3 = st.tabs(["📦 Equipos Disponibles", "📥 Ingresar Nuevos Equipos", "📜 Historial de Ventas"])
+            # Reemplaza la línea de los tabs por esta:
+            tab_inv1, tab_inv2, tab_inv3, tab_inv4 = st.tabs(["📦 Equipos Disponibles", "📥 Ingresar Nuevos", "📜 Historial de Ventas", "📈 Analítica de Rotación"])
             
             with tab_inv1:
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -604,7 +607,40 @@ try:
                     df_hist['Precio de Venta'] = df_hist['Precio de Venta'].apply(lambda x: fmt_cop(x) if x > 0 else 'N/A')
                     st.dataframe(df_hist.style.map(color_estado, subset=['Estado']), width='stretch')
                 else: st.info("Registro vacío.")
-
+                    
+            with tab_inv4:
+                st.markdown("<br><h4 style='color:#0052D4;'>📊 Rendimiento del Inventario por Categoría</h4>", unsafe_allow_html=True)
+                st.write("Conoce qué líneas de producto dejan mayor margen y dónde tienes el capital detenido.")
+                
+                # Consulta analítica cruzada (Disponibles vs Vendidos)
+                cursor.execute("""
+                    SELECT 
+                        categoria AS Categoría,
+                        COUNT(CASE WHEN estado = 'Disponible' THEN 1 END) AS 'Unidades en Stock',
+                        SUM(CASE WHEN estado = 'Disponible' THEN costo_adquisicion ELSE 0 END) AS 'Capital Detenido ($)',
+                        COUNT(CASE WHEN estado = 'Vendido' THEN 1 END) AS 'Unidades Vendidas Históricas',
+                        SUM(CASE WHEN estado = 'Vendido' THEN precio_venta_contado ELSE 0 END) AS 'Ingreso Potencial Generado ($)'
+                    FROM Inventario
+                    GROUP BY categoria
+                    ORDER BY 'Capital Detenido ($)' DESC
+                """)
+                df_analitica = pd.DataFrame(cursor.fetchall())
+                
+                if not df_analitica.empty:
+                    # Formateo monetario para la tabla
+                    df_analitica['Capital Detenido ($) Formateado'] = df_analitica['Capital Detenido ($)'].apply(fmt_cop)
+                    df_analitica['Ingreso Potencial Formateado'] = df_analitica['Ingreso Potencial Generado ($)'].apply(fmt_cop)
+                    
+                    c_a1, c_a2 = st.columns([2, 1])
+                    with c_a1:
+                        st.dataframe(df_analitica[['Categoría', 'Unidades en Stock', 'Capital Detenido ($) Formateado', 'Unidades Vendidas Históricas', 'Ingreso Potencial Formateado']], width='stretch', hide_index=True)
+                    
+                    with c_a2:
+                        st.markdown("**Concentración de Inversión**")
+                        # Gráfico rápido de dónde está la plata usando la data cruda
+                        st.bar_chart(df_analitica.set_index('Categoría')['Capital Detenido ($)'])
+                else:
+                    st.info("No hay suficientes datos procesados para generar el análisis. Carga inventario y registra ventas.")
         elif menu_seleccionado == "clientes":
             st.markdown("<h2>Directorio de Clientes 👥</h2>", unsafe_allow_html=True)
             tab_ver, tab_nuevo, tab_editar = st.tabs(["📋 Ver Clientes (Hojas de Vida)", "➕ Nuevo Cliente", "✏️ Editar Perfil"])
@@ -1283,28 +1319,43 @@ try:
             
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Storytelling Financiero: Explicar qué significa el patrimonio
+                porcentaje_calle = (cartera_neta_calle / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
+                porcentaje_bodega = (inventario_bodega / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
+                porcentaje_caja = (cap / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
+                
                 st.markdown(f"""
                 <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); margin-bottom: 25px;">
-                    <h3 style="color:#0052D4; margin:0; font-weight: 700;">VALOR TOTAL DE TU EMPRESA HOY</h3>
-                    <h1 style="color:#1E293B; font-size: 4.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(patrimonio_neto)}</h1>
-                    <p style="color:#64748B; font-size: 15px; margin:0;">Caja Global ({fmt_cop(cap)}) + Cartera ({fmt_cop(cartera_neta_calle)}) + <b>Bodega ({fmt_cop(inventario_bodega)})</b> - Deudas a Socios ({fmt_cop(deuda)})</p>
-                </div>
-                """, unsafe_allow_html=True)
-            
-            with tab_bi:
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.markdown(f"""
-                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); margin-bottom: 25px;">
-                    <h3 style="color:#0052D4; margin:0; font-weight: 700;">VALOR TOTAL DE TU EMPRESA HOY</h3>
-                    <h1 style="color:#1E293B; font-size: 4.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(patrimonio_neto)}</h1>
-                    <p style="color:#64748B; font-size: 15px; margin:0;">Plata en Caja Global ({fmt_cop(cap)}) + Cartera en la calle ({fmt_cop(cartera_neta_calle)}) - Lo que debemos a Socios ({fmt_cop(deuda)})</p>
+                    <p style="color:#64748B; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin:0;">Patrimonio Neto de DaTo</p>
+                    <h1 style="color:#1E293B; font-size: 4rem; font-weight: 800; margin: 10px 0;">{fmt_cop(patrimonio_neto)}</h1>
+                    <p style="color:#475569; font-size: 16px; max-width: 700px; margin: 0 auto; line-height: 1.5;">
+                        De cada $100 que vale tu empresa hoy, <b>${int(porcentaje_calle)}</b> están trabajando en la calle (Créditos), 
+                        <b>${int(porcentaje_bodega)}</b> están listos para la venta (Bodega) y <b>${int(porcentaje_caja)}</b> están disponibles en efectivo líquido.
+                    </p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                c_m1, c_m2 = st.columns(2)
-                c_m1.metric("💳 Cartera Pendiente en la calle", fmt_cop(cartera_neta_calle))
+                # Desglose Visual Rápido
+                c_m1, c_m2, c_m3 = st.columns(3)
+                c_m1.metric("💳 Capital Rotando (Créditos)", fmt_cop(cartera_neta_calle))
+                c_m2.metric("📦 Capital Detenido (Bodega)", fmt_cop(inventario_bodega))
+                c_m3.metric("💰 Liquidez Inmediata (Caja)", fmt_cop(cap))
+                
+                # Alertas Financieras Rápidas
                 recup_perc = (cartera_recaudada / cartera_colocada * 100) if cartera_colocada > 0 else 0
-                c_m2.metric("✅ Tasa de Recuperación Total", f"{recup_perc:.1f}%")
+                st.markdown(f"""
+                <div style="display: flex; gap: 20px; margin-top: 20px;">
+                    <div style="flex: 1; background: {'#FEF2F2' if recup_perc < 30 else '#ECFDF5'}; padding: 15px; border-radius: 10px; border-left: 4px solid {'#DC2626' if recup_perc < 30 else '#10B981'};">
+                        <b>Tasa de Recuperación: {recup_perc:.1f}%</b><br>
+                        <span style="font-size: 13px; color: #475569;">{'La recuperación está lenta, revisa la cartera.' if recup_perc < 30 else 'Flujo de caja saludable.'}</span>
+                    </div>
+                    <div style="flex: 1; background: {'#FEF2F2' if deuda > (cap + cartera_neta_calle)*0.5 else '#F0F9FF'}; padding: 15px; border-radius: 10px; border-left: 4px solid {'#DC2626' if deuda > (cap + cartera_neta_calle)*0.5 else '#0284C7'};">
+                        <b>Exposición a Socios: {fmt_cop(deuda)}</b><br>
+                        <span style="font-size: 13px; color: #475569;">{'Tu nivel de deuda externa es alto frente a tus activos.' if deuda > (cap + cartera_neta_calle)*0.5 else 'Nivel de apalancamiento seguro.'}</span>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
 
             with tab_dian:
                 st.markdown("<br><h4 style='color:#0052D4;'>🛡️ Radar DIAN y Topes Bancarios</h4>", unsafe_allow_html=True)
