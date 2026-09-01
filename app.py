@@ -854,30 +854,62 @@ try:
                     st.markdown("#### 🔄 Configuración de Retoma (Trade-In)", unsafe_allow_html=True)
                     retoma_activa = st.toggle("El cliente entrega equipo como parte de pago")
                     
-                    val_retoma, imei_retoma, cat_f, marca_f, mod_f = 0, "", "", "", ""
+                    val_retoma, imei_retoma, cat_f, marca_f, mod_f, color_retoma = 0, "", "", "", "", "S/C"
+                    
                     if retoma_activa:
                         st.markdown("<div style='background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>", unsafe_allow_html=True)
                         r1, r2, r3 = st.columns(3)
                         cat_retoma = r1.selectbox("Categoría Retoma", list(CATALOGO.keys()))
                         marca_retoma, mod_retoma = "", ""
-                        if cat_retoma:
-                            marca_retoma = r2.selectbox("Marca Retoma", list(CATALOGO[cat_retoma].keys()))
-                            if marca_retoma: 
-                                mod_retoma = r3.selectbox("Modelo Retoma", CATALOGO[cat_retoma][marca_retoma])
                         
-                        r_m1, r_m2 = st.columns(2)
-                        marca_man = r_m1.text_input("Ingresar Marca Manual (Retoma):") if marca_retoma == "Otra Marca..." else marca_retoma
-                        mod_man = r_m2.text_input("Ingresar Modelo Manual (Retoma):") if mod_retoma in ["Otro...", "Escribir manual..."] else mod_retoma
+                        if cat_retoma:
+                            cat_clean = cat_retoma.split(" ", 1)[1] if " " in cat_retoma else cat_retoma
+                            
+                            # 1. Traer marcas dinámicas de la Base de Datos + Catálogo
+                            cursor.execute("SELECT DISTINCT marca FROM Inventario WHERE categoria = %s", (cat_clean,))
+                            marcas_db = [m['marca'] for m in cursor.fetchall() if m['marca']]
+                            marcas_base = list(CATALOGO[cat_retoma].keys())
+                            if "Otra Marca..." in marcas_base: marcas_base.remove("Otra Marca...")
+                            todas_marcas = sorted(list(set(marcas_base + marcas_db))) + ["Otra Marca..."]
+                            
+                            marca_retoma = r2.selectbox("Marca Retoma", todas_marcas)
+                            
+                            if marca_retoma: 
+                                # 2. Traer modelos dinámicos de la Base de Datos + Catálogo
+                                marcas_catalogo = list(CATALOGO[cat_retoma].keys())
+                                modelos_base = CATALOGO[cat_retoma][marca_retoma] if marca_retoma in marcas_catalogo else []
+                                if "Otro..." in modelos_base: modelos_base.remove("Otro...")
+                                if "Escribir manual..." in modelos_base: modelos_base.remove("Escribir manual...")
                                 
-                        r4, r5 = st.columns(2)
-                        imei_retoma = r4.text_input("IMEI del equipo usado (Déjalo vacío para auto-generar)")
-                        val_retoma = r5.number_input("Valor tasado (Abono por Retoma) ($)", min_value=0, step=10000, value=0)
+                                cursor.execute("SELECT DISTINCT modelo FROM Inventario WHERE categoria = %s AND marca = %s", (cat_clean, marca_retoma))
+                                modelos_db = [m['modelo'] for m in cursor.fetchall() if m['modelo']]
+                                
+                                todos_modelos = sorted(list(set(modelos_base + modelos_db))) + ["Otro..."]
+                                mod_retoma = r3.selectbox("Modelo Retoma", todos_modelos)
+                        
+                        r_m1, r_m2, r_m3 = st.columns(3)
+                        marca_man = r_m1.text_input("Ingresar Marca Manual:") if marca_retoma == "Otra Marca..." else marca_retoma
+                        mod_man = r_m2.text_input("Ingresar Modelo Manual:") if mod_retoma in ["Otro...", "Escribir manual..."] else mod_retoma
+                                
+                        cap_retoma, cap_fin = "", ""
+                        # Solo pedimos capacidad extra si es un modelo "Otro..." (los de la BD ya la traen incluida)
+                        if mod_man and mod_retoma in ["Otro...", "Escribir manual..."]:
+                            opc_cap = CAPACIDADES_PC if "Cómputo" in cat_retoma or "💻" in cat_retoma else (CAPACIDADES_ELECTRO if "Electrodomesticos" in cat_retoma or "📺" in cat_retoma else CAPACIDADES_MOVILES)
+                            cap_retoma = r_m3.selectbox("Capacidad Retoma", opc_cap, index=None)
+                            if cap_retoma: 
+                                cap_fin = "" if cap_retoma == "No Aplica" else (r_m3.text_input("Capacidad Manual:") if cap_retoma == "Escribir manual..." else cap_retoma)
+
+                        r4, r5, r6 = st.columns(3)
+                        color_retoma = r4.text_input("Color del equipo usado")
+                        imei_retoma = r5.text_input("IMEI (Déjalo vacío para auto-generar)")
+                        val_retoma = r6.number_input("Valor tasado (Abono por Retoma) ($)", min_value=0, step=10000, value=0)
                         st.markdown("</div>", unsafe_allow_html=True)
                         
                         if cat_retoma and marca_man and mod_man:
-                            cat_f = cat_retoma.split(" ", 1)[1] if " " in cat_retoma else cat_retoma
+                            cat_f = cat_clean
                             marca_f = marca_man
-                            mod_f = mod_man
+                            # Si es un modelo dinámico que ya existe, no le pegamos la capacidad doble
+                            mod_f = mod_man if mod_retoma not in ["Otro...", "Escribir manual..."] else f"{mod_man} {cap_fin}".strip()
 
                     st.markdown("#### Tiempos del Crédito", unsafe_allow_html=True)
                     c_f1, c_f2 = st.columns(2)
@@ -1016,13 +1048,16 @@ try:
                                         if retoma_activa and val_retoma > 0:
                                             cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, 'Pago en Especie / Retoma', %s, 0, %s, %s, %s, 'Ingreso Retoma Bodega')", (id_cr, val_retoma, val_retoma, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final))
                                             
+                                            # Generación de IMEI y asignación de Color predeterminado si viene vacío
                                             imei_final_retoma = imei_retoma.strip() if imei_retoma.strip() else f"SYS-{str(uuid.uuid4())[:8].upper()}"
+                                            color_final_retoma = color_retoma.strip() if color_retoma.strip() else "S/C"
+                                            
                                             cursor.execute("SELECT id_bolsa FROM Bolsas_Capital ORDER BY id_bolsa ASC LIMIT 1")
                                             bolsa_base = cursor.fetchone()['id_bolsa']
                                             cursor.execute("""
-                                                INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, fecha_compra) 
-                                                VALUES (%s, %s, %s, %s, 'Retoma', %s, %s, 0, 'Disponible', %s, 1, %s)
-                                            """, (imei_final_retoma, cat_f, marca_f, mod_f, bolsa_base, val_retoma, st.session_state['id_usuario'], fecha_venta.strftime('%Y-%m-%d')))
+                                                INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, fecha_compra, color) 
+                                                VALUES (%s, %s, %s, %s, 'Retoma', %s, %s, 0, 'Disponible', %s, 1, %s, %s)
+                                            """, (imei_final_retoma, cat_f, marca_f, mod_f, bolsa_base, val_retoma, st.session_state['id_usuario'], fecha_venta.strftime('%Y-%m-%d'), color_final_retoma))
                                             
                                     if comis > 0 and vendedor_final:
                                         cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, vendedor, id_credito, id_usuario_registro, tipo_gasto) VALUES (%s, %s, %s, 'Por Pagar', %s, %s, %s, 'Gasto Operativo')", (f"Comisión Venta - {vendedor_final} (Cliente: {cliente_sel.split(' - ')[1]})", comis, datetime.date.today(), vendedor_final, id_cr, st.session_state['id_usuario']))
