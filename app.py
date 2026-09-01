@@ -586,7 +586,12 @@ else:
             c3.markdown(f"<div class='card-panel' style='text-align:center;'><h5>Equipos en Bodega</h5><h2 style='color:#64748B;'>{cursor.fetchone()['c']} Unds.</h2></div>", unsafe_allow_html=True)
 
 finally:
+
     try:
         if 'cursor' in locals() and cursor: cursor.close()
         if 'conn' in locals() and conn and conn.is_connected(): conn.close()
-    except: pass
+    except Exception: 
+    pass
+
+
+    
