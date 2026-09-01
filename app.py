@@ -13,41 +13,39 @@ import base64
 # 🛠️ AUTO-MIGRACIÓN ROBUSTA DE BASE DE DATOS
 # ==========================================
 def auto_fix_db(cursor, conn):
+    # Forzar ensanchamiento de columnas estrictas antiguas
     try: cursor.execute("ALTER TABLE Pagos MODIFY COLUMN tipo_pago VARCHAR(255)"); conn.commit()
     except Exception: pass
+    try: cursor.execute("ALTER TABLE Creditos MODIFY COLUMN estado_comision VARCHAR(255) DEFAULT 'No Aplica'"); conn.commit()
+    except Exception: pass
     
-    # 1. Clientes
     cols_clientes = ["ADD COLUMN direccion VARCHAR(255)", "ADD COLUMN barrio VARCHAR(255)", "ADD COLUMN ciudad VARCHAR(255)", "ADD COLUMN correo VARCHAR(255)", "ADD COLUMN empresa VARCHAR(255)"]
     for c in cols_clientes:
         try: cursor.execute(f"ALTER TABLE Clientes {c}"); conn.commit()
         except Exception: pass
     
-    # 2. Inventario
     cols_inv = ["ADD COLUMN cantidad INT DEFAULT 1", "ADD COLUMN color VARCHAR(100)", "ADD COLUMN fecha_compra DATE", "ADD COLUMN factura VARCHAR(100)", "ADD COLUMN tienda_proveedor VARCHAR(255)", "ADD COLUMN nit_proveedor VARCHAR(100)", "ADD COLUMN celular_proveedor VARCHAR(100)"]
     for c in cols_inv:
         try: cursor.execute(f"ALTER TABLE Inventario {c}"); conn.commit()
         except Exception: pass
     
-    # 3. Gastos
     cols_gastos = ["ADD COLUMN estado_pago VARCHAR(50) DEFAULT 'Pagado'", "ADD COLUMN vendedor VARCHAR(255)", "ADD COLUMN id_credito INT"]
     for c in cols_gastos:
         try: cursor.execute(f"ALTER TABLE Gastos_Operativos {c}"); conn.commit()
         except Exception: pass
 
-    # 4. Créditos (BLINDANDO LA VENTA PARA EVITAR ERRORES SQL)
     cols_creditos = [
         "ADD COLUMN precio_venta DECIMAL(15,2) DEFAULT 0",
         "ADD COLUMN abono_inicial DECIMAL(15,2) DEFAULT 0",
         "ADD COLUMN valor_comision DECIMAL(15,2) DEFAULT 0", 
         "ADD COLUMN asesor_comision VARCHAR(255)", 
-        "ADD COLUMN estado_comision VARCHAR(50) DEFAULT 'No Aplica'", 
+        "ADD COLUMN estado_comision VARCHAR(255) DEFAULT 'No Aplica'", 
         "ADD COLUMN fecha_pago_comision DATE"
     ]
     for c in cols_creditos:
         try: cursor.execute(f"ALTER TABLE Creditos {c}"); conn.commit()
         except Exception: pass
 
-    # 5. Tablas Adicionales
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Vendedores (id_vendedor INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(255) UNIQUE)"); conn.commit()
     except Exception: pass
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Creditos_Items (id INT AUTO_INCREMENT PRIMARY KEY, id_credito INT, imei VARCHAR(100))"); conn.commit()
@@ -57,34 +55,27 @@ def auto_fix_db(cursor, conn):
 st.set_page_config(page_title="DaTo | Tecnología con Respaldo", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
 # ==========================================
-# 🎨 UI CORPORATIVA (TEMA IMPECABLE, CERO ROJOS)
+# 🎨 UI CORPORATIVA
 # ==========================================
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
-        /* FORZAR TEMA CLARO ABSOLUTO */
         :root { color-scheme: light !important; }
         .stApp { background-color: #F8FAFC !important; background-image: none !important; }
 
-        /* TEXTOS A OSCURO CORPORATIVO (Sin tocar los íconos de Streamlit) */
         p, span, div, label, li, td, th { font-family: 'Outfit', sans-serif; color: #1E293B !important; }
         h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; color: #0052D4 !important; font-weight: 700 !important; }
 
-        /* SALVANDO LOS ÍCONOS DE STREAMLIT DE LA FUENTE OUTFIT */
         .material-symbols-rounded, .material-icons, i, [data-testid="collapsedControl"] * {
             font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
             color: #0052D4 !important;
         }
-
-        /* --- DESTRUYENDO EL ROJO ESPANTOSO DE STREAMLIT --- */
         
-        /* 1. Pestañas (Tabs) */
         button[data-baseweb="tab"] { color: #64748B !important; background: transparent !important; }
         button[data-baseweb="tab"][aria-selected="true"] { color: #0052D4 !important; border-bottom-color: #0052D4 !important; }
         div[data-baseweb="tab-highlight"] { background-color: #0052D4 !important; display: none !important; }
         
-        /* 2. Cajas de Selección Múltiple (Adiós Rojo) */
         span[data-baseweb="tag"] {
             background-color: #E0F2FE !important;
             color: #0369A1 !important;
@@ -95,16 +86,13 @@ st.markdown("""
         span[data-baseweb="tag"] span { color: #0369A1 !important; font-weight: 600 !important; }
         span[data-baseweb="tag"] svg { fill: #0369A1 !important; }
 
-        /* 3. Focus y Bordes Activos */
-        div[data-baseweb="input"]:focus-within, 
-        div[data-baseweb="select"]:focus-within,
-        textarea:focus { border-color: #0052D4 !important; box-shadow: 0 0 0 1.5px #0052D4 !important; }
+        div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within, textarea:focus { 
+            border-color: #0052D4 !important; box-shadow: 0 0 0 1.5px #0052D4 !important; 
+        }
 
-        /* 4. Interruptores (Toggles) */
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div { background-color: #CBD5E1 !important; }
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div[aria-checked="true"] { background-color: #0052D4 !important; }
 
-        /* --- BOTONES PREMIUM --- */
         .stButton > button {
             background-color: #0052D4 !important; color: #FFFFFF !important; border: 1px solid #0052D4 !important;
             border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s; width: 100% !important;
@@ -114,7 +102,6 @@ st.markdown("""
         
         [data-testid="stNumberInput"] button { background-color: #F1F5F9 !important; border: 1px solid #CBD5E1 !important; color: #0052D4 !important; border-radius: 6px !important; box-shadow: none !important;}
 
-        /* --- CAJAS Y FONDOS BLANCOS --- */
         div[data-testid="stForm"], .card-panel, [data-testid="stSidebar"] {
             background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important;
             border-radius: 12px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.03) !important;
@@ -124,7 +111,6 @@ st.markdown("""
             background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; border-radius: 8px !important; color: #0F172A !important;
         }
 
-        /* --- MENÚ LATERAL --- */
         [data-testid="stSidebar"] [role="radiogroup"] label div[data-baseweb="radio"],
         [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child,
         [data-testid="stSidebar"] [role="radiogroup"] label > span:first-child { display: none !important; }
@@ -238,6 +224,7 @@ CATALOGO = {
 CAPACIDADES_MOVILES = ["64GB", "128GB", "256GB", "512GB", "1TB", "Otra..."]
 CAPACIDADES_PC = ["8GB RAM / 256GB SSD", "16GB RAM / 512GB SSD", "16GB RAM / 1TB SSD", "32GB RAM / 1TB SSD", "Otra..."]
 CAPACIDADES_ELECTRO = ["No Aplica", "32 Pulgadas", "50 Pulgadas", "65 Pulgadas", "Escribir manual..."]
+
 CIUDADES_COLOMBIA = ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga", "Cúcuta", "Pereira", "Santa Marta", "Ibagué", "Pasto", "Manizales", "Neiva", "Villavicencio", "Armenia", "Valledupar", "Montería", "Sincelejo", "Popayán", "Tunja", "Riohacha", "Florencia", "Quibdó", "Arauca", "Yopal", "Leticia", "San Andrés", "Otra..."]
 
 # --- CONEXIÓN BLINDADA POR POOL ---
@@ -261,7 +248,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# LOGIN DUAL (Portal Clientes Primero)
+# LOGIN DUAL
 # ==========================================
 try:
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
@@ -305,7 +292,7 @@ try:
                         else: st.error("Usuario o contraseña incorrectos.")
 
     # ==========================================
-    # 📱 VISTA EXCLUSIVA PARA EL CLIENTE LOGUEADO
+    # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
     # ==========================================
     elif st.session_state['rol'] == 'Cliente':
         st.markdown(f"<h1 style='text-align:center;'>👋 ¡Hola, {st.session_state['nombre_cliente'].split()[0]}!</h1>", unsafe_allow_html=True)
@@ -417,7 +404,7 @@ try:
                 """, unsafe_allow_html=True)
 
         elif menu_seleccionado == "simulador":
-            st.markdown("<h2 style='margin-bottom: 25px;'>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
+            st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
             tab_sim, tab_paz = st.tabs(["📊 Simular Cuotas", "🤝 Liquidación Paz y Salvo"])
             
             with tab_sim:
@@ -477,14 +464,16 @@ try:
             
             with tab_inv1:
                 st.markdown("<br>", unsafe_allow_html=True)
-                cursor.execute("SELECT imei AS 'Serial/IMEI', categoria AS 'Tipo', marca AS 'Marca', modelo AS 'Modelo', color AS 'Color', cantidad AS 'Unidades', costo_adquisicion AS 'Costo Unidad' FROM Inventario WHERE estado = 'Disponible'")
+                cursor.execute("SELECT imei AS 'Serial/IMEI', categoria AS 'Tipo', marca AS 'Marca', modelo AS 'Modelo', color AS 'Color', cantidad AS 'Unidades', costo_adquisicion AS 'Costo Unidad', precio_venta_contado AS 'Precio Sugerido' FROM Inventario WHERE estado = 'Disponible'")
                 df_inventario = pd.DataFrame(cursor.fetchall())
                 
-                c1, c2 = st.columns(2)
+                c1, c2, c3 = st.columns(3)
                 c1.metric("📦 Productos Físicos Diferentes", f"{len(df_inventario)}")
                 if not df_inventario.empty:
                     c2.metric("💰 Dinero Invertido en Stock", fmt_cop(sum([float(r['Costo Unidad']) * int(r['Unidades']) for _, r in df_inventario.iterrows()])))
+                    c3.metric("💎 Proyección Venta Sugerida", fmt_cop(sum([float(r['Precio Sugerido'] or 0) * int(r['Unidades']) for _, r in df_inventario.iterrows()])))
                     df_inventario['Costo Unidad'] = df_inventario['Costo Unidad'].apply(fmt_cop)
+                    df_inventario['Precio Sugerido'] = df_inventario['Precio Sugerido'].apply(lambda x: fmt_cop(x) if x else 'N/A')
                     st.dataframe(df_inventario, width='stretch')
                 else: 
                     st.markdown("""<div style="text-align:center;"><img src="https://media.giphy.com/media/3o7aD2saalEvTehEX2/giphy.gif" style="max-width:250px; border-radius:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"><br><h3 style="color:#64748B;">La bodega está vacía.</h3></div>""", unsafe_allow_html=True)
@@ -527,10 +516,11 @@ try:
                                 cel_prov = p3.text_input("Celular Proveedor")
                                 factura = p4.text_input("Factura de Compra")
 
-                                c5, c6 = st.columns(2)
+                                c5, c6, c7 = st.columns(3)
                                 with c5: bolsa = st.selectbox("¿De qué caja salió la plata?", options=list(opc_bolsas.keys()), index=None)
                                 with c6: costo = st.number_input("Costo de Compra (Por 1 Unidad)", min_value=0, step=10000, value=0)
-                                
+                                with c7: precio_venta = st.number_input("Precio Sugerido Venta", min_value=0, step=10000, value=0)
+
                                 if st.form_submit_button("Guardar en Inventario", width='stretch') and bolsa:
                                     dat_b = opc_bolsas[bolsa]
                                     costo_total = costo * cantidad
@@ -540,9 +530,9 @@ try:
                                         for _ in range(cantidad):
                                             imei_final = imei_in if (cantidad == 1 and imei_in) else f"SYS-{str(uuid.uuid4())[:8].upper()}"
                                             cursor.execute("""
-                                                INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
-                                                VALUES (%s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
-                                            """, (imei_final, cat_sel.split(" ")[1] if " " in cat_sel else cat_sel, marca_fin, f"{mod_fin} {cap_fin}".strip(), cond, dat_b['id_bolsa'], costo, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
+                                                INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
+                                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
+                                            """, (imei_final, cat_sel.split(" ")[1] if " " in cat_sel else cat_sel, marca_fin, f"{mod_fin} {cap_fin}".strip(), cond, dat_b['id_bolsa'], costo, precio_venta, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
                                         cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
                                         conn.commit(); st.toast('Equipos agregados con éxito.'); time.sleep(1.5); st.rerun()
 
@@ -606,6 +596,7 @@ try:
                             e_nom = st.text_input("Nombre Completo", value=dat_c['nombre_completo'])
                             e_tel = st.text_input("Celular", value=dat_c['telefono'] if dat_c['telefono'] else "")
                             e_cor = st.text_input("Correo", value=dat_c['correo'] if dat_c['correo'] else "")
+                            
                             idx_c = CIUDADES_COLOMBIA.index(dat_c['ciudad']) if dat_c['ciudad'] in CIUDADES_COLOMBIA else len(CIUDADES_COLOMBIA)-1
                             e_ciu_sel = st.selectbox("Ciudad", CIUDADES_COLOMBIA, index=idx_c)
                             e_ciu = st.text_input("Especifique la ciudad", value=dat_c['ciudad']) if e_ciu_sel == "Otra..." else e_ciu_sel
@@ -619,7 +610,8 @@ try:
                                         UPDATE Clientes SET documento=%s, nombre_completo=%s, telefono=%s, correo=%s, ciudad=%s, barrio=%s, direccion=%s, empresa=%s WHERE id_cliente=%s
                                     """, (e_doc, e_nom, e_tel, e_cor, e_ciu, e_bar, e_dir, e_emp, dat_c['id_cliente']))
                                     conn.commit(); st.toast("Datos del cliente actualizados."); time.sleep(1); st.rerun()
-                                except mysql.connector.Error: st.error("Error: Esa cédula ya está registrada a nombre de otro cliente.")
+                                except mysql.connector.Error: 
+                                    st.error("Error: Esa cédula ya está registrada a nombre de otro cliente.")
                 else: st.info("No hay clientes creados.")
             
             st.divider()
@@ -636,11 +628,8 @@ try:
             cursor.execute("SELECT nombre FROM Vendedores")
             vendedores = [v['nombre'] for v in cursor.fetchall()]
             
-            # --- Alertas Intuitivas Bloqueantes ---
-            if not clientes: 
-                st.error("⚠️ **ALERTA:** No tienes ningún cliente registrado en el sistema. Para realizar una venta, primero ve al menú lateral 'Directorio de Clientes' y crea uno.")
-            elif not inventario: 
-                st.error("⚠️ **ALERTA:** La bodega está completamente vacía (No hay equipos disponibles). Ingresa inventario en el menú lateral 'Gestión de Inventario' para poder vender.")
+            if not clientes: st.error("⚠️ **ALERTA:** No tienes ningún cliente registrado. Ve a 'Directorio de Clientes' y crea uno.")
+            elif not inventario: st.error("⚠️ **ALERTA:** La bodega está vacía. Ingresa inventario para poder vender.")
             else:
                 opc_cli = {f"{c['documento']} - {c['nombre_completo']}": c['id_cliente'] for c in clientes}
                 opc_eq = {f"[{e['categoria']}] {e['marca']} {e['modelo']} (Cod: {e['imei']})": e['imei'] for e in inventario}
@@ -654,11 +643,11 @@ try:
                     equipos_sel = st.multiselect("Selecciona uno o más equipos de la bodega:", list(opc_eq.keys()))
                     
                     if equipos_sel:
-                        st.markdown("<p style='color: #0052D4; font-weight: bold; margin-bottom: 5px;'>🛒 Equipos seleccionados para esta factura:</p>", unsafe_allow_html=True)
-                        for eq in equipos_sel: st.markdown(f"- ✅ {eq}")
+                        st.markdown("<div style='background: #E0F2FE; border-left: 4px solid #0052D4; padding: 15px; border-radius: 8px; margin-bottom: 20px;'><p style='color: #0052D4; font-weight: bold; margin-bottom: 5px;'>🛒 Equipos en esta factura:</p>", unsafe_allow_html=True)
+                        for eq in equipos_sel: st.markdown(f"<span style='color: #0369A1;'>- ✅ {eq}</span>", unsafe_allow_html=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
                     
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown("#### Tiempos del Crédito")
+                    st.markdown("#### Tiempos del Crédito", unsafe_allow_html=True)
                     c_f1, c_f2 = st.columns(2)
                     with c_f1: fecha_venta = st.date_input("Fecha de Venta", value=datetime.date.today())
                     with c_f2: f_cuota = st.date_input("Fecha de la Primera Cuota", value=sumar_meses_exactos(fecha_venta, 1))
@@ -750,7 +739,7 @@ try:
                                     cursor.execute("""
                                         INSERT INTO Creditos (id_cliente, imei, precio_venta, abono_inicial, monto_financiado, tasa_interes_mensual, plazo_meses, valor_cuota, estado, fecha_inicio, fecha_primera_cuota, valor_comision, asesor_comision, estado_comision, id_usuario_registro) 
                                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                    """, (opc_cli[cliente_sel], primer_imei, p_final, ab_init, m_f, tasa/100.0, plazo, v_c_bd, e_f, fecha_venta.strftime('%Y-%m-%d'), f_cuota.strftime('%Y-%m-%d'), comis, vendedor_final, 'Por Pagar' if comis > 0 else 'No Aplica', st.session_state['id_usuario']))
+                                    """, (opc_cli[cliente_sel], primer_imei, p_final, ab_init, m_f, tasa/100.0, plazo, v_c_bd, e_f, fecha_venta.strftime('%Y-%m-%d'), f_cuota.strftime('%Y-%m-%d'), comis, vendedor_final, 'Pendiente' if comis > 0 else 'No Aplica', st.session_state['id_usuario']))
                                     id_cr = cursor.lastrowid
                                     
                                     for eq in equipos_sel:
