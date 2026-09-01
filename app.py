@@ -1281,8 +1281,8 @@ try:
                 c.estado AS 'Estado', c.tasa_interes_mensual
                 FROM Creditos c 
                 JOIN Clientes cl ON c.id_cliente = cl.id_cliente 
-                WHERE c.estado = 'Activo' 
-                AND (c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito), 0)) > 0
+                WHERE c.estado = 'Activo'
+                HAVING `Saldo Capital` > 0
                 ORDER BY c.fecha_primera_cuota ASC
             """)
             df = pd.DataFrame(cursor.fetchall())
