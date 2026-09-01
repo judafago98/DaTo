@@ -647,49 +647,99 @@ try:
             
             with tab_ver:
                 st.markdown("<br>", unsafe_allow_html=True)
-                cursor.execute("SELECT * FROM Clientes ORDER BY fecha_registro DESC")
+                
+                # Súper Query unificada para traer toda la info de una vez (Rápido y eficiente)
+                cursor.execute("""
+                    SELECT 
+                        c.id_cliente, c.documento, c.nombre_completo, c.telefono, c.ciudad, c.fecha_registro,
+                        (SELECT COUNT(id_credito) FROM Creditos WHERE id_cliente = c.id_cliente AND estado = 'Activo') as activos,
+                        (SELECT IFNULL(SUM(monto_recibido), 0) FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito WHERE cr.id_cliente = c.id_cliente) as ltv
+                    FROM Clientes c
+                    ORDER BY c.fecha_registro DESC
+                """)
                 clientes_db = cursor.fetchall()
+                
                 if not clientes_db:
                     st.info("No hay clientes registrados en el sistema.")
                 else:
-                    st.write("Haz clic en cualquier cliente para desplegar su historia financiera.")
-                    for c in clientes_db:
-                        # Calcular LTV y Créditos
-                        cursor.execute("SELECT COUNT(id_credito) as activos FROM Creditos WHERE id_cliente = %s AND estado = 'Activo'", (c['id_cliente'],))
-                        activos = cursor.fetchone()['activos']
-                        cursor.execute("SELECT SUM(monto_recibido) as pagado FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito WHERE cr.id_cliente = %s", (c['id_cliente'],))
-                        res_p = cursor.fetchone()
-                        ltv = float(res_p['pagado'] or 0)
+                    # --- 1. BUSCADOR INTELIGENTE ---
+                    st.markdown("<h4 style='color:#0052D4; margin-bottom: 5px;'>🔍 Buscador de Hojas de Vida</h4>", unsafe_allow_html=True)
+                    
+                    opc_cli_buscar = {f"{c['documento']} - {c['nombre_completo']}": c for c in clientes_db}
+                    
+                    cliente_seleccionado = st.selectbox(
+                        "Escribe el nombre o número de cédula del cliente:", 
+                        options=[""] + list(opc_cli_buscar.keys()), 
+                        index=0, 
+                        format_func=lambda x: "Escribe aquí para buscar..." if x == "" else x
+                    )
+                    
+                    if cliente_seleccionado != "":
+                        # --- HOJA DE VIDA INDIVIDUAL ---
+                        c = opc_cli_buscar[cliente_seleccionado]
+                        estado_ui = "🟢 Con Créditos Activos" if c['activos'] > 0 else "⚪ A Paz y Salvo"
+                        ltv = float(c['ltv'])
                         
-                        estado_ui = "🟢 Activo" if activos > 0 else "⚪ Sin créditos"
-                        
-                        with st.expander(f"{estado_ui} | 👤 {c['nombre_completo']} - C.C. {c['documento']}"):
-                            st.markdown(f"""
-                            <div style='display:flex; justify-content:space-between; margin-bottom:15px; flex-wrap:wrap; gap:10px;'>
-                                <div style='background:#F1F5F9; padding:15px; border-radius:8px; flex:1; min-width:150px;'>
-                                    <p style='color:#64748B; font-size:12px; margin:0;'>Fecha de Registro</p>
-                                    <h4 style='margin:0; color:#1E293B;'>{c['fecha_registro']}</h4>
+                        st.markdown(f"""
+                        <div style='background: #FFFFFF; border: 1px solid #0052D4; border-radius: 12px; padding: 25px; box-shadow: 0 10px 25px rgba(0,82,212,0.1); margin-top: 10px;'>
+                            <h3 style='margin-top:0; margin-bottom:5px; color:#1E293B;'>👤 {c['nombre_completo']}</h3>
+                            <span style='font-size:15px; color:#0052D4; font-weight:600; background:#EFF6FF; padding:4px 12px; border-radius:20px;'>C.C. {c['documento']}</span>
+                            <span style='font-size:15px; color:#475569; font-weight:600; background:#F1F5F9; padding:4px 12px; border-radius:20px; margin-left:10px;'>{estado_ui}</span>
+                            
+                            <div style='display:flex; justify-content:space-between; margin-bottom:15px; margin-top:25px; flex-wrap:wrap; gap:15px;'>
+                                <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
+                                    <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Cliente desde</p>
+                                    <h4 style='margin:0; color:#1E293B; margin-top:5px;'>{c['fecha_registro']}</h4>
                                 </div>
-                                <div style='background:#F1F5F9; padding:15px; border-radius:8px; flex:1; min-width:150px;'>
-                                    <p style='color:#64748B; font-size:12px; margin:0;'>Teléfono de Contacto</p>
-                                    <h4 style='margin:0; color:#1E293B;'>{c['telefono'] if c['telefono'] else 'N/A'}</h4>
+                                <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
+                                    <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Teléfono / Ciudad</p>
+                                    <h4 style='margin:0; color:#1E293B; margin-top:5px;'>{c['telefono'] if c['telefono'] != '0' else 'Sin registro'} <span style='color:#94A3B8;'>|</span> {c['ciudad'] if c['ciudad'] != '0' else 'Sin ciudad'}</h4>
                                 </div>
                                 <div style='background:#E0F2FE; padding:15px; border-radius:8px; flex:1; border: 1px solid #BAE6FD; min-width:150px;'>
-                                    <p style='color:#0369A1; font-size:12px; margin:0;'>Valor Histórico (LTV)</p>
-                                    <h4 style='margin:0; color:#0284C7;'>{fmt_cop(ltv)}</h4>
+                                    <p style='color:#0369A1; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Valor Histórico (LTV)</p>
+                                    <h4 style='margin:0; color:#0284C7; margin-top:5px;'>{fmt_cop(ltv)}</h4>
                                 </div>
                             </div>
-                            """, unsafe_allow_html=True)
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Historial de Pagos del Cliente
+                        st.markdown("<br>**📜 Historial de Transacciones de este Cliente**", unsafe_allow_html=True)
+                        cursor.execute("SELECT p.fecha_pago AS 'Fecha', p.monto_recibido AS 'Valor Pagado', p.tipo_pago AS 'Concepto', cb.nombre_cuenta AS 'Cuenta Destino' FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito LEFT JOIN Cuentas_Bancarias cb ON p.id_cuenta = cb.id_cuenta WHERE cr.id_cliente = %s ORDER BY p.fecha_pago DESC", (c['id_cliente'],))
+                        hist_pagos = cursor.fetchall()
+                        
+                        if hist_pagos:
+                            df_hp = pd.DataFrame(hist_pagos)
+                            df_hp['Valor Pagado'] = df_hp['Valor Pagado'].apply(fmt_cop)
+                            st.dataframe(df_hp, width='stretch', hide_index=True)
+                        else:
+                            st.info("El cliente no ha realizado abonos o pagos en el sistema todavía.")
                             
-                            st.markdown("**📜 Historial de Pagos Recibidos**")
-                            cursor.execute("SELECT p.fecha_pago AS 'Fecha', p.monto_recibido AS 'Valor Pagado', p.tipo_pago AS 'Concepto', cb.nombre_cuenta AS 'Cuenta Destino' FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito LEFT JOIN Cuentas_Bancarias cb ON p.id_cuenta = cb.id_cuenta WHERE cr.id_cliente = %s ORDER BY p.fecha_pago DESC", (c['id_cliente'],))
-                            hist_pagos = cursor.fetchall()
-                            if hist_pagos:
-                                df_hp = pd.DataFrame(hist_pagos)
-                                df_hp['Valor Pagado'] = df_hp['Valor Pagado'].apply(fmt_cop)
-                                st.dataframe(df_hp, width='stretch')
-                            else:
-                                st.write("El cliente no ha realizado pagos en el sistema.")
+                    else:
+                        # --- 2. VISTA GENERAL (TABLA MASIVA) ---
+                        st.markdown("<hr style='margin: 30px 0; border-color: #E2E8F0;'>", unsafe_allow_html=True)
+                        st.markdown("#### 📋 Directorio General")
+                        st.caption(f"Total registrados: {len(clientes_db)} clientes. Puedes hacer clic en los encabezados para ordenar.")
+                        
+                        df_todos = pd.DataFrame(clientes_db)
+                        df_todos['ltv'] = df_todos['ltv'].apply(float).apply(fmt_cop)
+                        df_todos['Estado'] = df_todos['activos'].apply(lambda x: "🟢 Activo" if x > 0 else "⚪ Inactivo")
+                        df_todos['ciudad'] = df_todos['ciudad'].replace('0', 'N/A')
+                        df_todos['telefono'] = df_todos['telefono'].replace('0', 'N/A')
+                        
+                        df_todos.rename(columns={
+                            'documento': 'Cédula',
+                            'nombre_completo': 'Nombre',
+                            'telefono': 'Teléfono',
+                            'ciudad': 'Ciudad',
+                            'ltv': 'LTV (Dinero Ingresado)'
+                        }, inplace=True)
+                        
+                        st.dataframe(
+                            df_todos[['Cédula', 'Nombre', 'Teléfono', 'Ciudad', 'Estado', 'LTV (Dinero Ingresado)']],
+                            width='stretch',
+                            hide_index=True
+                        )
 
             with tab_nuevo:
                 with st.form("f_cli"):
