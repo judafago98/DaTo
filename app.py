@@ -1101,7 +1101,7 @@ try:
                                             id_cuenta_final = opc_cuentas[cuenta_sel]
                                         
                                     m_f = p_final - ab_init if "Contado" not in tipo_v else 0
-                                    e_f = 'Activo' if ("Contado" not in tipo_v and m_f > 0) else 'Pagado'
+                                    e_f = 'Activo' if ("Contado" not in tipo_v and m_f >= 1) else 'Pagado'
                                     v_c_bd = c_fija if ("Financiado" in tipo_v or "Fondeo Externo" in tipo_v) else (c_pers[0][1] if "Separé" in tipo_v else 0)
                                     
                                     propietario_db = 'Fondo Externo' if "Fondeo Externo" in tipo_v else 'DaTo'
