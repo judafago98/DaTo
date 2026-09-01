@@ -26,6 +26,14 @@ def auto_fix_db(cursor, conn):
         try: cursor.execute("INSERT IGNORE INTO Cuentas_Bancarias (nombre_cuenta) VALUES (%s)", (cta,)); conn.commit()
         except Exception: pass
 
+    # --- SEPARACIÓN DE CAPITAL VS CAJA MÓVIL ---
+    cols_bolsas = ["ADD COLUMN inversion_inicial DECIMAL(15,2)"]
+    for c in cols_bolsas:
+        try: cursor.execute(f"ALTER TABLE Bolsas_Capital {c}"); conn.commit()
+        except Exception: pass
+    try: cursor.execute("UPDATE Bolsas_Capital SET inversion_inicial = saldo_actual WHERE inversion_inicial IS NULL OR inversion_inicial = 0"); conn.commit()
+    except Exception: pass
+
     cols_clientes = ["ADD COLUMN direccion VARCHAR(255)", "ADD COLUMN barrio VARCHAR(255)", "ADD COLUMN ciudad VARCHAR(255)", "ADD COLUMN correo VARCHAR(255)", "ADD COLUMN empresa VARCHAR(255)", "ADD COLUMN fecha_registro DATE"]
     for c in cols_clientes:
         try: cursor.execute(f"ALTER TABLE Clientes {c}"); conn.commit()
@@ -47,7 +55,6 @@ def auto_fix_db(cursor, conn):
     for c in cols_creditos:
         try: cursor.execute(f"ALTER TABLE Creditos {c}"); conn.commit()
         except Exception: pass
-    
     try: cursor.execute("UPDATE Creditos SET valor_cuota_original = valor_cuota WHERE valor_cuota_original IS NULL OR valor_cuota_original = 0"); conn.commit()
     except Exception: pass
 
@@ -157,7 +164,6 @@ def generar_plan_pagos_real(id_credito, cursor):
     cursor.execute("SELECT * FROM Creditos WHERE id_credito=%s", (id_credito,))
     cred = cursor.fetchone()
     
-    # OMITIMOS pagos de tipo Retoma o Abonos iniciales ya descontados del monto financiado para el ciclo
     cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito=%s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado') ORDER BY fecha_pago ASC", (id_credito,))
     pagos_hist = cursor.fetchall()
     pagado_total = sum([float(p['monto_recibido']) for p in pagos_hist])
@@ -180,7 +186,6 @@ def generar_plan_pagos_real(id_credito, cursor):
             plan.append({'Cuota': f"Número {c['numero_cuota']}", 'Vencimiento Límite': c['fecha_vencimiento'], 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
     else:
         plazo = int(cred['plazo_meses'])
-        # Calculamos con base en la cuota original para que la matemática sume visualmente
         v_orig = float(cred.get('valor_cuota_original') or cred['valor_cuota'] or 0)
         v_actual = float(cred['valor_cuota'] or 0)
         f_base = cred['fecha_primera_cuota']
@@ -235,7 +240,7 @@ try:
     pool = get_connection_pool()
     conn = pool.get_connection()
     cursor = conn.cursor(dictionary=True, buffered=True)
-    # auto_fix_db(cursor, conn) # <-- Apagado para evitar ralentizaciones
+    auto_fix_db(cursor, conn)
 except Exception as e:
     st.error(f"🌐 Servidor de base de datos inalcanzable. Detalle: {e}")
     st.stop()
@@ -298,14 +303,7 @@ try:
     # ==========================================
     # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
     # ==========================================
-    # ==========================================
-    # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
-    # ==========================================
-    # ==========================================
-    # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
-    # ==========================================
     elif st.session_state['rol'] == 'Cliente':
-        import math
         st.markdown(f"<h1 style='text-align:center;'>👋 ¡Hola, {st.session_state['nombre_cliente'].split()[0]}!</h1>", unsafe_allow_html=True)
         st.markdown("<p style='text-align:center; color:#64748B; font-size: 1.1rem;'>Este es el resumen de tus productos activos con nosotros.</p><br>", unsafe_allow_html=True)
         
@@ -331,7 +329,7 @@ try:
                 saldo_actual = float(cred['monto_financiado']) - float(cap_pag)
                 pago_total = saldo_actual + (saldo_actual * float(cred['tasa_interes_mensual']))
                 
-                # 3. Buscar Último Pago Real (Dinero físico del cliente)
+                # 3. Buscar Último Pago Real
                 cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado') ORDER BY fecha_pago DESC LIMIT 1", (cred['id_credito'],))
                 last_pago = cursor.fetchone()
                 last_val = fmt_cop(last_pago['monto_recibido']) if last_pago else "$0"
@@ -357,8 +355,6 @@ try:
                 plazo_actual_proyectado = cuotas_pagadas_completas + meses_restantes
                 plazo_original = int(cred['plazo_meses'])
                 
-                # Lógica de Storytelling para el Cliente
-                # Lógica de Storytelling para el Cliente
                 if plazo_actual_proyectado < plazo_original:
                     texto_plazo = f"<span style='color:#10B981; font-weight:bold;'>¡Redujiste tu plazo a {plazo_actual_proyectado} meses! 🎉</span>"
                 elif plazo_actual_proyectado > plazo_original:
@@ -366,7 +362,6 @@ try:
                 else:
                     texto_plazo = f"<span style='color:#1E293B; font-weight:600;'>Mantiene los {plazo_original} meses</span>"
 
-                # ---------------- REEMPLAZAR DESDE AQUÍ ----------------
                 html_tarjeta = (
                     "<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>"
                         f"<h3 style='text-align:center; color:#0052D4; margin-top:0;'>📱 {nombres_equipos}</h3>"
@@ -435,14 +430,15 @@ try:
                     "</div>"
                 )
                 st.markdown(html_tarjeta, unsafe_allow_html=True)
-                # ---------------- HASTA AQUÍ ----------------
-
+                
                 st.markdown("#### 🧾 Historial de tus pagos")
                 cursor.execute("SELECT fecha_pago, tipo_pago, monto_recibido FROM Pagos WHERE id_credito = %s ORDER BY fecha_pago DESC", (cred['id_credito'],))
                 pagos = cursor.fetchall()
                 if pagos:
                     df_p = pd.DataFrame(pagos)
                     df_p.columns = ['Fecha del Movimiento', 'Detalle del Pago / Concepto', 'Valor']
+                    # Limpiar la fecha para quitar las horas 00:00:00
+                    df_p['Fecha del Movimiento'] = pd.to_datetime(df_p['Fecha del Movimiento']).dt.strftime('%Y-%m-%d')
                     df_p['Valor'] = df_p['Valor'].apply(fmt_cop)
                     st.dataframe(df_p, width='stretch', hide_index=True)
                 else: st.info("Aún no tienes pagos registrados en este contrato.")
@@ -827,6 +823,7 @@ try:
                         
                         if hist_pagos:
                             df_hp = pd.DataFrame(hist_pagos)
+                            df_hp['Fecha'] = pd.to_datetime(df_hp['Fecha']).dt.strftime('%Y-%m-%d')
                             df_hp['Valor Pagado'] = df_hp['Valor Pagado'].apply(fmt_cop)
                             st.dataframe(df_hp, width='stretch', hide_index=True)
                         else:
@@ -1069,7 +1066,7 @@ try:
                         elif p_final <= 0: st.error("El valor de la factura debe ser mayor a cero.")
                         elif cuenta_sel == "➕ Añadir nueva cuenta..." and not nueva_cuenta: st.error("Escribe el nombre de la nueva cuenta bancaria.")
                         else:
-                            vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..." else None)
+                            vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..."] else None)
                             if comis > 0 and not vendedor_final: st.error("Asigna un vendedor para pagarle su comisión.")
                             elif "Separé" in tipo_v and s_cuotas != (p_final - ab_init): st.error("Las cuotas no suman el total de la deuda.")
                             else:
@@ -1225,7 +1222,6 @@ try:
                             st.toast("Dinero ingresado a la cuenta correcta.", icon='✅')
                             time.sleep(1.5)
                             
-                            # Limpiador de caché para vaciar los campos sin usar st.form
                             for k in list(st.session_state.keys()):
                                 if k.startswith("pago_"):
                                     del st.session_state[k]
@@ -1274,12 +1270,10 @@ try:
                 if sel_cli:
                     dat = opc_n[sel_cli]
                     
-                    # Calcular el capital pagado excluyendo los ingresos iniciales
                     cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado')", (dat['id_credito'],))
                     res_pag = cursor.fetchone()
                     cap_pag = float(res_pag['cap']) if res_pag and res_pag['cap'] else 0
                     
-                    # Buscar explícitamente el último pago real del cliente ordenado por fecha
                     cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado') ORDER BY fecha_pago DESC LIMIT 1", (dat['id_credito'],))
                     last_pago = cursor.fetchone()
                     last_val = float(last_pago['monto_recibido']) if last_pago else 0
@@ -1288,7 +1282,6 @@ try:
                     s_act = float(dat['monto_financiado']) - cap_pag
                     paz_y_salvo = s_act + (s_act * float(dat['tasa_interes_mensual']))
                     
-                    # Mensaje estructurado sin el "Saldo Pendiente"
                     msg = f"¡Hola {dat['nombre_completo']}! Te saludamos de DaTo.\n\nEste es el estado de cuenta de tu crédito:\n💵 *Cuota Mensual:* {fmt_cop(dat['valor_cuota'])}\n💳 *Último Pago Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar la totalidad hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nRecuerda que tu fecha límite de pago es el día {str(dat['fecha_primera_cuota'].day)} de cada mes."
                     
                     c1, c2 = st.columns([1, 1])
@@ -1338,7 +1331,10 @@ try:
                                 dat_p = opc_pagos[pago_sel]
                                 cursor.execute("SELECT id_credito FROM Pagos WHERE id_pago = %s", (dat_p['id_pago'],))
                                 id_c = cursor.fetchone()['id_credito']
-                                cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (dat_p['monto_recibido'],))
+                                
+                                if "Retoma" not in dat_p['tipo_pago']:
+                                    cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (dat_p['monto_recibido'],))
+                                
                                 cursor.execute("DELETE FROM Pagos WHERE id_pago = %s", (dat_p['id_pago'],))
                                 cursor.execute("UPDATE Creditos SET estado = 'Activo' WHERE id_credito = %s", (id_c,))
                                 conn.commit(); st.toast("Pago eliminado."); time.sleep(1.5); st.rerun()
@@ -1355,10 +1351,12 @@ try:
                             if st.form_submit_button("Borrar Venta y Recuperar Equipo", width='stretch') and cred_sel:
                                 dat_c = opc_creds[cred_sel]
                                 cursor.execute("SET FOREIGN_KEY_CHECKS = 0;")
+                                
                                 cursor.execute("SELECT SUM(monto_recibido) as t FROM Pagos WHERE id_credito = %s", (dat_c['id_credito'],))
                                 res_t = cursor.fetchone()
-                                plata_a_restar = float(dat_c['abono_inicial']) + float(res_t['t'] if res_t and res_t['t'] else 0)
-                                if plata_a_restar > 0: cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (plata_a_restar,))
+                                plata_a_restar = float(res_t['t'] if res_t and res_t['t'] else 0)
+                                if plata_a_restar > 0: 
+                                    cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (plata_a_restar,))
                                 
                                 cursor.execute("SELECT imei FROM Creditos_Items WHERE id_credito = %s", (dat_c['id_credito'],))
                                 for item in cursor.fetchall(): cursor.execute("UPDATE Inventario SET estado = 'Disponible' WHERE imei = %s", (item['imei'],))
@@ -1370,7 +1368,7 @@ try:
                                 cursor.execute("DELETE FROM Pagos WHERE id_credito = %s", (dat_c['id_credito'],))
                                 cursor.execute("DELETE FROM Creditos WHERE id_credito = %s", (dat_c['id_credito'],))
                                 cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
-                                conn.commit(); st.toast("Venta eliminada."); time.sleep(1.5); st.rerun()
+                                conn.commit(); st.toast("Venta eliminada y dinero extraído de caja."); time.sleep(1.5); st.rerun()
                     else: st.info("No hay ventas.")
                     
                 with c3:
@@ -1476,7 +1474,7 @@ try:
                             else: id_c_f = opc_cuentas[cta_inv]
 
                             cursor.execute("INSERT INTO Deudas_Fondeo (prestamista, monto_prestado, monto_total_pagar, saldo_pendiente, fecha_prestamo, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, %s, %s, %s, 'Incremento inversión')", (prov, iny, ret, ret, datetime.date.today(), st.session_state['id_usuario'], id_c_f))
-                            cursor.execute("INSERT INTO Bolsas_Capital (nombre_bolsa, saldo_actual, fecha_creacion) VALUES (%s, %s, CURDATE())", (prov, iny))
+                            cursor.execute("INSERT INTO Bolsas_Capital (nombre_bolsa, saldo_actual, inversion_inicial, fecha_creacion) VALUES (%s, %s, %s, CURDATE())", (prov, iny, iny))
                             
                             conn.commit(); st.toast("Plata sumada a la caja global y bolsillo creado."); time.sleep(2); st.rerun()
 
@@ -1499,64 +1497,87 @@ try:
                 else: st.info("No hay deudas con socios.")
 
         elif menu_seleccionado == "reportes":
-            st.markdown("<h2>Reportes (Radar DIAN y ROI) 📊</h2>", unsafe_allow_html=True)
+            st.markdown("<h2>Reportes y Estados Financieros 📊</h2>", unsafe_allow_html=True)
             if not es_admin: st.error("Módulo de gerencia."); st.stop()
             
-            tab_bi, tab_dian, tab_roi, tab_libro = st.tabs(["🌐 Visión General", "🛡️ Radar Fiscal (DIAN)", "💎 ROI por Inversor", "📓 Libro Diario"])
+            tab_bi, tab_dian, tab_roi, tab_libro = st.tabs(["🏛️ Balance General", "🛡️ Radar Fiscal (DIAN)", "💎 ROI por Inversor", "📓 Libro Diario"])
             
-            cursor.execute("SELECT SUM(saldo_actual) as cap FROM Bolsas_Capital")
-            cap = float(cursor.fetchone()['cap'] or 0)
+            # --- CONSTRUCCIÓN DEL BALANCE GENERAL ---
+            cursor.execute("SELECT SUM(saldo_actual) as cap, SUM(inversion_inicial) as inv_ini FROM Bolsas_Capital")
+            res_bolsas = cursor.fetchone()
+            caja_liquida = float(res_bolsas['cap'] or 0)
+            capital_aportado = float(res_bolsas['inv_ini'] or 0)
             
             cursor.execute("SELECT SUM(saldo_pendiente) as deu FROM Deudas_Fondeo")
-            deuda = float(cursor.fetchone()['deu'] or 0)
+            pasivo_fondeo = float(cursor.fetchone()['deu'] or 0)
+            
+            cursor.execute("SELECT SUM(monto) as gas_pend FROM Gastos_Operativos WHERE estado_pago = 'Por Pagar'")
+            pasivo_gastos = float(cursor.fetchone()['gas_pend'] or 0)
+            total_pasivos = pasivo_fondeo + pasivo_gastos
             
             cursor.execute("SELECT SUM(monto_financiado) as mf FROM Creditos WHERE estado = 'Activo'")
-            cartera_colocada = float(cursor.fetchone()['mf'] or 0)
-            
+            cartera_bruta = float(cursor.fetchone()['mf'] or 0)
             cursor.execute("SELECT SUM(capital_abonado) as ca FROM Pagos p JOIN Creditos c ON p.id_credito = c.id_credito WHERE c.estado = 'Activo'")
             cartera_recaudada = float(cursor.fetchone()['ca'] or 0)
+            cartera_neta = cartera_bruta - cartera_recaudada
             
             cursor.execute("SELECT SUM(costo_adquisicion * cantidad) as inv FROM Inventario WHERE estado = 'Disponible'")
-            inventario_bodega = float(cursor.fetchone()['inv'] or 0)
+            inventario_valorizado = float(cursor.fetchone()['inv'] or 0)
             
-            cartera_neta_calle = cartera_colocada - cartera_recaudada
-            patrimonio_neto = cap + cartera_neta_calle + inventario_bodega - deuda
+            total_activos = caja_liquida + cartera_neta + inventario_valorizado
+            patrimonio_neto = total_activos - total_pasivos
+            utilidad_acumulada = patrimonio_neto - capital_aportado
             
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
-                porcentaje_calle = (cartera_neta_calle / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
-                porcentaje_bodega = (inventario_bodega / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
-                porcentaje_caja = (cap / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
                 
                 st.markdown(f"""
                 <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); margin-bottom: 25px;">
-                    <p style="color:#64748B; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin:0;">Patrimonio Neto de DaTo</p>
+                    <p style="color:#64748B; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin:0;">ESTADO DE SITUACIÓN FINANCIERA (Patrimonio Neto)</p>
                     <h1 style="color:#1E293B; font-size: 4rem; font-weight: 800; margin: 10px 0;">{fmt_cop(patrimonio_neto)}</h1>
-                    <p style="color:#475569; font-size: 16px; max-width: 700px; margin: 0 auto; line-height: 1.5;">
-                        De cada $100 que vale tu empresa hoy, <b>${int(porcentaje_calle)}</b> están trabajando en la calle (Créditos), 
-                        <b>${int(porcentaje_bodega)}</b> están listos para la venta (Bodega) y <b>${int(porcentaje_caja)}</b> están disponibles en efectivo líquido.
-                    </p>
                 </div>
                 """, unsafe_allow_html=True)
                 
-                c_m1, c_m2, c_m3 = st.columns(3)
-                c_m1.metric("💳 Capital Rotando (Créditos)", fmt_cop(cartera_neta_calle))
-                c_m2.metric("📦 Capital Detenido (Bodega)", fmt_cop(inventario_bodega))
-                c_m3.metric("💰 Liquidez Inmediata (Caja)", fmt_cop(cap))
+                c_act, c_pas, c_pat = st.columns(3)
                 
-                recup_perc = (cartera_recaudada / cartera_colocada * 100) if cartera_colocada > 0 else 0
-                st.markdown(f"""
-                <div style="display: flex; gap: 20px; margin-top: 20px;">
-                    <div style="flex: 1; background: {'#FEF2F2' if recup_perc < 30 else '#ECFDF5'}; padding: 15px; border-radius: 10px; border-left: 4px solid {'#DC2626' if recup_perc < 30 else '#10B981'};">
-                        <b>Tasa de Recuperación: {recup_perc:.1f}%</b><br>
-                        <span style="font-size: 13px; color: #475569;">{'La recuperación está lenta, revisa la cartera.' if recup_perc < 30 else 'Flujo de caja saludable.'}</span>
+                with c_act:
+                    st.markdown(f"""
+                    <div style="background:#F0FDF4; border:1px solid #A7F3D0; border-radius:12px; padding:20px;">
+                        <h3 style="color:#047857; margin-top:0; margin-bottom:5px;">🟢 ACTIVOS</h3>
+                        <p style="color:#065F46; font-size:13px; margin-bottom:15px;">(Lo que tiene la empresa)</p>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Caja y Bancos:</span><b style="color:#1E293B;">{fmt_cop(caja_liquida)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Cartera en Calle:</span><b style="color:#1E293B;">{fmt_cop(cartera_neta)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span style="color:#475569;">Bodega (Inventario):</span><b style="color:#1E293B;">{fmt_cop(inventario_valorizado)}</b></div>
+                        <hr style="border-color:#A7F3D0;">
+                        <div style="display:flex; justify-content:space-between;"><span style="color:#047857; font-weight:bold;">TOTAL ACTIVOS:</span><b style="color:#047857; font-size:18px;">{fmt_cop(total_activos)}</b></div>
                     </div>
-                    <div style="flex: 1; background: {'#FEF2F2' if deuda > (cap + cartera_neta_calle)*0.5 else '#F0F9FF'}; padding: 15px; border-radius: 10px; border-left: 4px solid {'#DC2626' if deuda > (cap + cartera_neta_calle)*0.5 else '#0284C7'};">
-                        <b>Exposición a Socios: {fmt_cop(deuda)}</b><br>
-                        <span style="font-size: 13px; color: #475569;">{'Tu nivel de deuda externa es alto frente a tus activos.' if deuda > (cap + cartera_neta_calle)*0.5 else 'Nivel de apalancamiento seguro.'}</span>
+                    """, unsafe_allow_html=True)
+                    
+                with c_pas:
+                    st.markdown(f"""
+                    <div style="background:#FFF1F2; border:1px solid #FECACA; border-radius:12px; padding:20px;">
+                        <h3 style="color:#BE123C; margin-top:0; margin-bottom:5px;">🔴 PASIVOS</h3>
+                        <p style="color:#9F1239; font-size:13px; margin-bottom:15px;">(Lo que debe la empresa)</p>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Deudas Inversores:</span><b style="color:#1E293B;">{fmt_cop(pasivo_fondeo)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Cuentas x Pagar:</span><b style="color:#1E293B;">{fmt_cop(pasivo_gastos)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span style="color:#475569;">Impuestos/Otros:</span><b style="color:#1E293B;">$0</b></div>
+                        <hr style="border-color:#FECACA;">
+                        <div style="display:flex; justify-content:space-between;"><span style="color:#BE123C; font-weight:bold;">TOTAL PASIVOS:</span><b style="color:#BE123C; font-size:18px;">{fmt_cop(total_pasivos)}</b></div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+                    
+                with c_pat:
+                    st.markdown(f"""
+                    <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:12px; padding:20px;">
+                        <h3 style="color:#1D4ED8; margin-top:0; margin-bottom:5px;">🔵 PATRIMONIO</h3>
+                        <p style="color:#1E40AF; font-size:13px; margin-bottom:15px;">(Activos menos Pasivos)</p>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Capital Inyectado:</span><b style="color:#1E293B;">{fmt_cop(capital_aportado)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Utilidad Retenida:</span><b style="color:#1E293B;">{fmt_cop(utilidad_acumulada)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span style="color:#475569;">Reserva:</span><b style="color:#1E293B;">$0</b></div>
+                        <hr style="border-color:#BFDBFE;">
+                        <div style="display:flex; justify-content:space-between;"><span style="color:#1D4ED8; font-weight:bold;">TOTAL PATRIMONIO:</span><b style="color:#1D4ED8; font-size:18px;">{fmt_cop(patrimonio_neto)}</b></div>
+                    </div>
+                    """, unsafe_allow_html=True)
 
             with tab_dian:
                 st.markdown("<br><h4 style='color:#0052D4;'>🛡️ Radar DIAN y Topes Bancarios</h4>", unsafe_allow_html=True)
