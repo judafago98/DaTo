@@ -7,119 +7,125 @@ import time
 import uuid
 import calendar
 import os
+import base64
 
 # ==========================================
 # 🛠️ AUTO-MIGRACIÓN DE BASE DE DATOS
 # ==========================================
 def auto_fix_db(cursor, conn):
-    try:
-        cursor.execute("ALTER TABLE Pagos MODIFY COLUMN tipo_pago VARCHAR(255)")
-        conn.commit()
+    try: cursor.execute("ALTER TABLE Pagos MODIFY COLUMN tipo_pago VARCHAR(255)"); conn.commit()
     except Exception: pass
     
-    # Nuevos campos Clientes
     try: cursor.execute("ALTER TABLE Clientes ADD COLUMN direccion VARCHAR(255), ADD COLUMN barrio VARCHAR(255), ADD COLUMN ciudad VARCHAR(255), ADD COLUMN correo VARCHAR(255), ADD COLUMN empresa VARCHAR(255)"); conn.commit()
     except Exception: pass
     
-    # Nuevos campos Inventario
     try: cursor.execute("ALTER TABLE Inventario ADD COLUMN cantidad INT DEFAULT 1, ADD COLUMN color VARCHAR(100), ADD COLUMN fecha_compra DATE, ADD COLUMN factura VARCHAR(100), ADD COLUMN tienda_proveedor VARCHAR(255), ADD COLUMN nit_proveedor VARCHAR(100), ADD COLUMN celular_proveedor VARCHAR(100)"); conn.commit()
     except Exception: pass
     
-    # Adaptación de Gastos para Comisiones
     try: cursor.execute("ALTER TABLE Gastos_Operativos ADD COLUMN estado_pago VARCHAR(50) DEFAULT 'Pagado', ADD COLUMN vendedor VARCHAR(255), ADD COLUMN id_credito INT"); conn.commit()
     except Exception: pass
 
-    # Tablas Adicionales
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Vendedores (id_vendedor INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(255) UNIQUE)"); conn.commit()
     except Exception: pass
+    
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Creditos_Items (id INT AUTO_INCREMENT PRIMARY KEY, id_credito INT, imei VARCHAR(100))"); conn.commit()
     except Exception: pass
 
-# --- Configuración visual de la app ---
-st.set_page_config(page_title="DaTo Workspace", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="DaTo | Tecnología con Respaldo", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
-# --- DISEÑO BLANCO CORPORATIVO FORZADO ---
+# ==========================================
+# 🎨 UI CORPORATIVA (TEMA BLANCO, CERO ROJOS, LECTURA DE LOGO2.PNG)
+# ==========================================
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
         /* FORZAR TEMA CLARO ABSOLUTO */
         :root { color-scheme: light !important; }
-        
         .stApp { background-color: #F8FAFC !important; background-image: none !important; }
 
-        /* Textos Generales a Negro/Gris Oscuro */
-        html, body, [class*="css"], p, span, div, label, li, td, th { 
-            font-family: 'Outfit', sans-serif !important; color: #1E293B !important; 
-        }
-
+        /* TEXTOS A OSCURO CORPORATIVO */
+        html, body, [class*="css"], p, span, div, label, li, td, th { font-family: 'Outfit', sans-serif !important; color: #1E293B !important; }
         h1, h2, h3, h4, h5, h6 { color: #0052D4 !important; font-weight: 700 !important; }
 
-        /* CONTENEDORES Y TARJETAS (Blancos) */
+        /* ELIMINAR EL ROJO DE STREAMLIT POR COMPLETO (BORDES, PESTAÑAS, BOTONES, TOGGLES) */
+        
+        /* Pestañas (Tabs) */
+        button[data-baseweb="tab"] { color: #64748B !important; background: transparent !important; }
+        button[data-baseweb="tab"][aria-selected="true"] { color: #0052D4 !important; border-bottom-color: #0052D4 !important; }
+        div[data-baseweb="tab-highlight"] { background-color: #0052D4 !important; display: none !important; }
+        
+        /* Focus y Bordes Activos (Cuando haces clic en un input) */
+        div[data-baseweb="input"]:focus-within, 
+        div[data-baseweb="select"]:focus-within,
+        textarea:focus {
+            border-color: #0052D4 !important;
+            box-shadow: 0 0 0 1.5px #0052D4 !important;
+        }
+
+        /* Interruptores (Toggles) */
+        [data-testid="stToggle"] [data-baseweb="checkbox"] > div { background-color: #CBD5E1 !important; }
+        [data-testid="stToggle"] [data-baseweb="checkbox"] > div[aria-checked="true"] { background-color: #0052D4 !important; }
+
+        /* Botones Principales */
+        .stButton > button {
+            background-color: #0052D4 !important; color: #FFFFFF !important; border: 1px solid #0052D4 !important;
+            border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s; width: 100% !important;
+        }
+        .stButton > button:hover { background-color: #003366 !important; border-color: #003366 !important; transform: translateY(-1px); }
+        .stButton > button:active, .stButton > button:focus { border-color: #003366 !important; color: #FFFFFF !important; }
+
+        /* Botones Numéricos (+ / -) */
+        [data-testid="stNumberInput"] button { background-color: #F1F5F9 !important; border: 1px solid #CBD5E1 !important; color: #0052D4 !important; border-radius: 6px !important; }
+
+        /* CONTENEDORES BLANCOS */
         div[data-testid="stForm"], .card-panel, [data-testid="stSidebar"] {
             background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important;
             border-radius: 12px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.02) !important;
         }
 
-        /* INPUTS Y SELECTS (Fondo blanco, texto oscuro) */
-        input, textarea, select, 
-        div[data-baseweb="input"] > div, 
-        div[data-baseweb="select"] > div {
-            background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important;
-            border-radius: 8px !important; color: #0F172A !important; -webkit-text-fill-color: #0F172A !important;
-        }
-        
-        input:focus, textarea:focus, div[data-baseweb="input"] > div:focus-within, div[data-baseweb="select"] > div:focus-within {
-            border-color: #00A2FF !important; box-shadow: 0 0 0 2px rgba(0, 162, 255, 0.2) !important; background-color: #FFFFFF !important;
+        /* INPUTS BASE */
+        input, textarea, select, div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
+            background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; border-radius: 8px !important; color: #0F172A !important;
         }
 
-        /* BOTONES (+/- numéricos) */
-        [data-testid="stNumberInput"] button {
-            background-color: #F1F5F9 !important; border: 1px solid #CBD5E1 !important; color: #0052D4 !important; border-radius: 6px !important; margin: 0 2px !important;
-        }
-        
-        /* BOTONES MAESTROS */
-        .stButton>button {
-            background: #0088FF !important; color: #FFFFFF !important; -webkit-text-fill-color: #FFFFFF !important;
-            border: none !important; border-radius: 8px !important; font-weight: 600 !important; width: 100% !important; transition: all 0.2s;
-        }
-        .stButton>button:hover { background: #0052D4 !important; transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 82, 212, 0.2) !important; }
-
-        /* PESTAÑAS (TABS) - CERO ROJO */
-        button[data-baseweb="tab"] { color: #64748B !important; background: transparent !important; }
-        button[data-baseweb="tab"][aria-selected="true"] { color: #0052D4 !important; border-bottom-color: #0052D4 !important; background: transparent !important; }
-        div[data-baseweb="tab-highlight"] { display: none !important; }
-        
-        /* TOGGLES */
-        [data-testid="stToggle"] [data-baseweb="checkbox"] > div { background-color: #CBD5E1 !important; }
-        [data-testid="stToggle"] [data-baseweb="checkbox"] > div[aria-checked="true"] { background-color: #00A2FF !important; }
-
-        /* SIDEBAR MENÚ */
+        /* MENÚ LATERAL */
         [data-testid="stSidebar"] [role="radiogroup"] label div[data-baseweb="radio"],
         [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child,
         [data-testid="stSidebar"] [role="radiogroup"] label > span:first-child { display: none !important; }
         [data-testid="stSidebar"] [role="radiogroup"] label {
             background: #F1F5F9 !important; border: 1px solid transparent !important; border-radius: 8px !important;
-            padding: 10px 15px !important; margin: 4px 10px !important; transition: all 0.2s ease !important; cursor: pointer !important;
+            padding: 10px 15px !important; margin: 4px 10px !important; cursor: pointer !important;
         }
         [data-testid="stSidebar"] [role="radiogroup"] label:hover { background: #E2E8F0 !important; }
-        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] {
-            background: #E0F2FE !important; border-left: 4px solid #00A2FF !important;
-        }
-        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] div[dir="auto"] {
-            color: #00A2FF !important; font-weight: 700 !important;
-        }
+        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] { background: #E0F2FE !important; border-left: 4px solid #0052D4 !important; }
+        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] div[dir="auto"] { color: #0052D4 !important; font-weight: 700 !important; }
     </style>
 """, unsafe_allow_html=True)
 
+def get_base64_image(image_path):
+    if os.path.exists(image_path):
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    return None
+
 def renderizar_logo(es_sidebar=False):
-    alto = "90px" if es_sidebar else "160px"
-    fuente = "2.2rem" if es_sidebar else "4rem"
-    sub_fuente = "0.9rem" if es_sidebar else "1.3rem"
+    # Intentar leer logo2.png, si no está lee logo.png
+    b64_img = get_base64_image("logo2.png")
+    if not b64_img:
+        b64_img = get_base64_image("logo.png")
+        
+    width = "180px" if es_sidebar else "300px"
+    
+    if b64_img:
+        img_html = f'<img src="data:image/png;base64,{b64_img}" style="max-width: {width}; height: auto; display: block; margin: 0 auto;">'
+    else:
+        img_html = f"<h1 style='color: #0052D4; font-weight: 800; text-align: center; margin: 0;'>⚡ DaTo</h1><p style='text-align: center; color: #64748B; margin: 0;'>Tecnología con respaldo</p>"
+        
     st.markdown(f"""
-    <div style='display: flex; flex-direction: column; align-items: center; justify-content: center; height: {alto}; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04); margin-bottom: 20px;'>
-        <h1 style='color: #0052D4; font-size: {fuente}; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin:0;'>⚡ DaTo</h1>
-        <p style='color: #64748B; margin: 0; font-weight: 500; font-size: {sub_fuente};'>Tecnología con respaldo</p>
+    <div style='display: flex; justify-content: center; align-items: center; padding: 20px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);'>
+        <div>{img_html}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -233,7 +239,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# LOGIN (ADMINISTRATIVO Y CLIENTE)
+# LOGIN DUAL
 # ==========================================
 try:
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
@@ -290,7 +296,6 @@ try:
             st.success("¡Felicidades! Actualmente estás a Paz y Salvo con DaTo.")
         else:
             for cred in creditos_cliente:
-                # Equipos
                 cursor.execute("SELECT i.marca, i.modelo FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = %s", (cred['id_credito'],))
                 equipos = cursor.fetchall()
                 if not equipos: 
@@ -298,7 +303,6 @@ try:
                     equipos = cursor.fetchall()
                 nombres_equipos = " + ".join([f"{e['marca']} {e['modelo']}" for e in equipos])
                 
-                # Matemáticas
                 cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s", (cred['id_credito'],))
                 cap_pag = cursor.fetchone()['cap'] or 0
                 saldo_actual = float(cred['monto_financiado']) - float(cap_pag)
@@ -384,10 +388,8 @@ try:
             st.markdown("<div style='height: 4vh;'></div>", unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1, 3, 1])
             with col2:
-                url_gif_divertido = "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif"
                 st.markdown(f"""
                 <div style="text-align: center; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 20px; padding: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
-                    <img src="{url_gif_divertido}" style="border-radius: 16px; width: 100%; max-width: 320px; border: 1px solid #E2E8F0;">
                     <h1 style='font-size: 2.8rem; font-weight: 800; margin-top: 25px; margin-bottom: 0; color: #1E293B;'>HOLA, <span style='color: #0052D4;'>{st.session_state['nombre_usuario'].split(" ")[0].upper()}</span></h1>
                     <p style='color: #64748B; font-size: 1.1rem; font-weight: 400; margin-top: 10px;'>Es hora de poner a trabajar el ecosistema DaTo.</p>
                 </div>
@@ -524,6 +526,7 @@ try:
                                                     INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
                                                     VALUES (%s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
                                                 """, (imei_final, cat_sel.split(" ")[1] if " " in cat_sel else cat_sel, marca_fin, f"{mod_fin} {cap_fin}".strip(), cond, dat_b['id_bolsa'], costo, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
+                                            
                                             cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
                                             conn.commit(); st.toast('Equipos agregados con éxito.'); time.sleep(1.5); st.rerun()
 
