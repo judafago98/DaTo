@@ -495,17 +495,41 @@ try:
             
             with tab_inv1:
                 st.markdown("<br>", unsafe_allow_html=True)
-                cursor.execute("SELECT imei AS 'Serial/IMEI', categoria AS 'Tipo', marca AS 'Marca', modelo AS 'Modelo', color AS 'Color', cantidad AS 'Unidades', costo_adquisicion AS 'Costo Unidad', precio_venta_contado AS 'Precio Sugerido' FROM Inventario WHERE estado = 'Disponible'")
+                cursor.execute("""
+                    SELECT i.imei AS 'Serial/IMEI', 
+                           i.tipo_ingreso AS 'Condición',
+                           i.categoria AS 'Categoría', 
+                           i.marca AS 'Marca', 
+                           i.modelo AS 'Modelo', 
+                           i.color AS 'Color', 
+                           b.nombre_bolsa AS 'Fondeado por',
+                           i.cantidad AS 'Unidades', 
+                           i.costo_adquisicion AS 'Costo Unidad', 
+                           i.precio_venta_contado AS 'Precio Sugerido' 
+                    FROM Inventario i
+                    LEFT JOIN Bolsas_Capital b ON i.id_bolsa = b.id_bolsa
+                    WHERE i.estado = 'Disponible'
+                """)
                 df_inventario = pd.DataFrame(cursor.fetchall())
                 
                 c1, c2, c3 = st.columns(3)
                 c1.metric("📦 Productos Físicos Diferentes", f"{len(df_inventario)}")
+                
                 if not df_inventario.empty:
                     c2.metric("💰 Dinero Invertido en Stock", fmt_cop(sum([float(r['Costo Unidad']) * int(r['Unidades']) for _, r in df_inventario.iterrows()])))
                     c3.metric("💎 Proyección Venta Sugerida", fmt_cop(sum([float(r['Precio Sugerido'] or 0) * int(r['Unidades']) for _, r in df_inventario.iterrows()])))
+                    
                     df_inventario['Costo Unidad'] = df_inventario['Costo Unidad'].apply(fmt_cop)
                     df_inventario['Precio Sugerido'] = df_inventario['Precio Sugerido'].apply(lambda x: fmt_cop(x) if x else 'N/A')
-                    st.dataframe(df_inventario, width='stretch')
+                    
+                    # Colores automáticos según el estado del equipo
+                    def color_condicion(val):
+                        if val == 'Nuevo': return 'color: #059669; font-weight: 600;'
+                        if val == 'Retoma': return 'color: #D97706; font-weight: 600;'
+                        if val == 'Usado': return 'color: #2563EB; font-weight: 600;'
+                        return ''
+                        
+                    st.dataframe(df_inventario.style.map(color_condicion, subset=['Condición']), width='stretch')
                 else: 
                     st.markdown("""<div style="text-align:center;"><img src="https://media.giphy.com/media/3o7aD2saalEvTehEX2/giphy.gif" style="max-width:250px; border-radius:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"><br><h3 style="color:#64748B;">La bodega está vacía.</h3></div>""", unsafe_allow_html=True)
 
