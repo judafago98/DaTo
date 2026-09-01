@@ -485,14 +485,16 @@ try:
             
             with tab_inv1:
                 st.markdown("<br>", unsafe_allow_html=True)
-                cursor.execute("SELECT imei AS 'Serial/IMEI', categoria AS 'Tipo', marca AS 'Marca', modelo AS 'Modelo', color AS 'Color', cantidad AS 'Unidades', costo_adquisicion AS 'Costo Unidad' FROM Inventario WHERE estado = 'Disponible'")
+                cursor.execute("SELECT imei AS 'Serial/IMEI', categoria AS 'Tipo', marca AS 'Marca', modelo AS 'Modelo', color AS 'Color', cantidad AS 'Unidades', costo_adquisicion AS 'Costo Unidad', precio_venta_contado AS 'Precio Sugerido' FROM Inventario WHERE estado = 'Disponible'")
                 df_inventario = pd.DataFrame(cursor.fetchall())
                 
-                c1, c2 = st.columns(2)
+                c1, c2, c3 = st.columns(3)
                 c1.metric("📦 Productos Físicos Diferentes", f"{len(df_inventario)}")
                 if not df_inventario.empty:
                     c2.metric("💰 Dinero Invertido en Stock", fmt_cop(sum([float(r['Costo Unidad']) * int(r['Unidades']) for _, r in df_inventario.iterrows()])))
+                    c3.metric("💎 Proyección Venta Sugerida", fmt_cop(sum([float(r['Precio Sugerido'] or 0) * int(r['Unidades']) for _, r in df_inventario.iterrows()])))
                     df_inventario['Costo Unidad'] = df_inventario['Costo Unidad'].apply(fmt_cop)
+                    df_inventario['Precio Sugerido'] = df_inventario['Precio Sugerido'].apply(lambda x: fmt_cop(x) if x else 'N/A')
                     st.dataframe(df_inventario, width='stretch')
                 else: st.info("No hay inventario disponible.")
 
@@ -519,41 +521,44 @@ try:
                                 if cap: cap_fin = "" if cap == "No Aplica" else (st.text_input("Capacidad Manual:") if cap == "Escribir manual..." else cap)
 
                         if mod and cap:
-                            st.markdown("#### Datos de la Compra")
-                            l1, l2, l3, l4 = st.columns(4)
-                            cantidad = l1.number_input("Cantidad a Ingresar", min_value=1, value=1)
-                            color = l2.text_input("Color")
-                            imei_in = l3.text_input("IMEI (Déjelo en blanco si es lote general)")
-                            cond = l4.selectbox("Estado del equipo", ["Nuevo", "Usado", "Retoma"])
-                            
-                            st.markdown("#### Proveedor")
-                            p1, p2, p3, p4 = st.columns(4)
-                            proveedor = p1.text_input("Tienda / Proveedor")
-                            nit = p2.text_input("NIT Proveedor")
-                            cel_prov = p3.text_input("Celular Proveedor")
-                            factura = p4.text_input("Factura de Compra")
+                            with st.form("f_inv"):
+                                st.markdown("#### Datos de la Compra")
+                                l1, l2, l3, l4 = st.columns(4)
+                                cantidad = l1.number_input("Cantidad a Ingresar", min_value=1, value=1)
+                                color = l2.text_input("Color")
+                                imei_in = l3.text_input("IMEI (Déjelo en blanco si es lote general)")
+                                cond = l4.selectbox("Estado del equipo", ["Nuevo", "Usado", "Retoma"])
+                                
+                                st.markdown("#### Proveedor")
+                                p1, p2, p3, p4 = st.columns(4)
+                                proveedor = p1.text_input("Tienda / Proveedor")
+                                nit = p2.text_input("NIT Proveedor")
+                                cel_prov = p3.text_input("Celular Proveedor")
+                                factura = p4.text_input("Factura de Compra")
 
-                            c5, c6 = st.columns(2)
-                            with c5:
-                                bolsa = st.selectbox("¿De qué caja salió la plata?", options=list(opc_bolsas.keys()), index=None)
-                            with c6:
-                                if bolsa:
+                                c5, c6, c7 = st.columns(3)
+                                with c5:
+                                    bolsa = st.selectbox("¿De qué caja salió la plata?", options=list(opc_bolsas.keys()), index=None)
+                                with c6:
                                     costo = st.number_input("Costo de Compra (Por 1 Unidad)", min_value=0, step=10000, value=0)
-                                    if st.button("Guardar en Inventario", width='stretch'):
-                                        dat_b = opc_bolsas[bolsa]
-                                        costo_total = costo * cantidad
-                                        if costo_total > float(dat_b['saldo_actual']): st.error("No hay suficiente dinero en esa caja para pagar esta mercancía.")
-                                        elif not mod_fin: st.warning("El modelo es obligatorio.")
-                                        else:
-                                            for _ in range(cantidad):
-                                                imei_final = imei_in if (cantidad == 1 and imei_in) else f"SYS-{str(uuid.uuid4())[:8].upper()}"
-                                                cursor.execute("""
-                                                    INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
-                                                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
-                                                """, (imei_final, cat_sel.split(" ")[1] if " " in cat_sel else cat_sel, marca_fin, f"{mod_fin} {cap_fin}".strip(), cond, dat_b['id_bolsa'], costo, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
-                                            
-                                            cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
-                                            conn.commit(); st.toast('Equipos agregados con éxito.'); time.sleep(1.5); st.rerun()
+                                with c7:
+                                    precio_venta = st.number_input("Precio Sugerido Venta", min_value=0, step=10000, value=0)
+
+                                if st.form_submit_button("Guardar en Inventario", width='stretch') and bolsa:
+                                    dat_b = opc_bolsas[bolsa]
+                                    costo_total = costo * cantidad
+                                    if costo_total > float(dat_b['saldo_actual']): st.error("No hay suficiente dinero en esa caja para pagar esta mercancía.")
+                                    elif not mod_fin: st.warning("El modelo es obligatorio.")
+                                    else:
+                                        for _ in range(cantidad):
+                                            imei_final = imei_in if (cantidad == 1 and imei_in) else f"SYS-{str(uuid.uuid4())[:8].upper()}"
+                                            cursor.execute("""
+                                                INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
+                                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
+                                            """, (imei_final, cat_sel.split(" ")[1] if " " in cat_sel else cat_sel, marca_fin, f"{mod_fin} {cap_fin}".strip(), cond, dat_b['id_bolsa'], costo, precio_venta, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
+                                        
+                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
+                                        conn.commit(); st.toast('Equipos agregados con éxito.'); time.sleep(1.5); st.rerun()
 
             with tab_inv3:
                 st.markdown("<br>", unsafe_allow_html=True)
