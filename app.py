@@ -10,24 +10,44 @@ import os
 import base64
 
 # ==========================================
-# 🛠️ AUTO-MIGRACIÓN DE BASE DE DATOS
+# 🛠️ AUTO-MIGRACIÓN ROBUSTA DE BASE DE DATOS
 # ==========================================
 def auto_fix_db(cursor, conn):
     try: cursor.execute("ALTER TABLE Pagos MODIFY COLUMN tipo_pago VARCHAR(255)"); conn.commit()
     except Exception: pass
     
-    try: cursor.execute("ALTER TABLE Clientes ADD COLUMN direccion VARCHAR(255), ADD COLUMN barrio VARCHAR(255), ADD COLUMN ciudad VARCHAR(255), ADD COLUMN correo VARCHAR(255), ADD COLUMN empresa VARCHAR(255)"); conn.commit()
-    except Exception: pass
+    # Agregar columnas a Clientes UNA POR UNA para evitar fallos silenciosos
+    cols_clientes = [
+        "ADD COLUMN direccion VARCHAR(255)", "ADD COLUMN barrio VARCHAR(255)", 
+        "ADD COLUMN ciudad VARCHAR(255)", "ADD COLUMN correo VARCHAR(255)", "ADD COLUMN empresa VARCHAR(255)"
+    ]
+    for c in cols_clientes:
+        try: cursor.execute(f"ALTER TABLE Clientes {c}"); conn.commit()
+        except Exception: pass
     
-    try: cursor.execute("ALTER TABLE Inventario ADD COLUMN cantidad INT DEFAULT 1, ADD COLUMN color VARCHAR(100), ADD COLUMN fecha_compra DATE, ADD COLUMN factura VARCHAR(100), ADD COLUMN tienda_proveedor VARCHAR(255), ADD COLUMN nit_proveedor VARCHAR(100), ADD COLUMN celular_proveedor VARCHAR(100)"); conn.commit()
-    except Exception: pass
+    # Agregar columnas a Inventario UNA POR UNA
+    cols_inv = [
+        "ADD COLUMN cantidad INT DEFAULT 1", "ADD COLUMN color VARCHAR(100)", 
+        "ADD COLUMN fecha_compra DATE", "ADD COLUMN factura VARCHAR(100)", 
+        "ADD COLUMN tienda_proveedor VARCHAR(255)", "ADD COLUMN nit_proveedor VARCHAR(100)", 
+        "ADD COLUMN celular_proveedor VARCHAR(100)"
+    ]
+    for c in cols_inv:
+        try: cursor.execute(f"ALTER TABLE Inventario {c}"); conn.commit()
+        except Exception: pass
     
-    try: cursor.execute("ALTER TABLE Gastos_Operativos ADD COLUMN estado_pago VARCHAR(50) DEFAULT 'Pagado', ADD COLUMN vendedor VARCHAR(255), ADD COLUMN id_credito INT"); conn.commit()
-    except Exception: pass
+    # Agregar columnas a Gastos UNA POR UNA
+    cols_gastos = [
+        "ADD COLUMN estado_pago VARCHAR(50) DEFAULT 'Pagado'", 
+        "ADD COLUMN vendedor VARCHAR(255)", "ADD COLUMN id_credito INT"
+    ]
+    for c in cols_gastos:
+        try: cursor.execute(f"ALTER TABLE Gastos_Operativos {c}"); conn.commit()
+        except Exception: pass
 
+    # Tablas Adicionales
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Vendedores (id_vendedor INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(255) UNIQUE)"); conn.commit()
     except Exception: pass
-    
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Creditos_Items (id INT AUTO_INCREMENT PRIMARY KEY, id_credito INT, imei VARCHAR(100))"); conn.commit()
     except Exception: pass
 
@@ -35,7 +55,7 @@ def auto_fix_db(cursor, conn):
 st.set_page_config(page_title="DaTo | Tecnología con Respaldo", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
 # ==========================================
-# 🎨 UI CORPORATIVA (TEMA BLANCO, CERO ROJOS, LECTURA DE LOGO2.PNG)
+# 🎨 UI CORPORATIVA (TEMA BLANCO, CERO ROJOS, LOGO2.PNG)
 # ==========================================
 st.markdown("""
     <style>
@@ -49,20 +69,22 @@ st.markdown("""
         html, body, [class*="css"], p, span, div, label, li, td, th { font-family: 'Outfit', sans-serif !important; color: #1E293B !important; }
         h1, h2, h3, h4, h5, h6 { color: #0052D4 !important; font-weight: 700 !important; }
 
-        /* ELIMINAR EL ROJO DE STREAMLIT POR COMPLETO (BORDES, PESTAÑAS, BOTONES, TOGGLES) */
+        /* PROTEGER ÍCONOS DEL SISTEMA Y BOTÓN DE DESPLEGAR */
+        span.material-symbols-rounded, .material-icons, [data-testid="collapsedControl"] * {
+            font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+        }
+
+        /* ELIMINAR EL ROJO DE STREAMLIT POR COMPLETO */
         
         /* Pestañas (Tabs) */
         button[data-baseweb="tab"] { color: #64748B !important; background: transparent !important; }
         button[data-baseweb="tab"][aria-selected="true"] { color: #0052D4 !important; border-bottom-color: #0052D4 !important; }
         div[data-baseweb="tab-highlight"] { background-color: #0052D4 !important; display: none !important; }
         
-        /* Focus y Bordes Activos (Cuando haces clic en un input) */
+        /* Focus y Bordes Activos */
         div[data-baseweb="input"]:focus-within, 
         div[data-baseweb="select"]:focus-within,
-        textarea:focus {
-            border-color: #0052D4 !important;
-            box-shadow: 0 0 0 1.5px #0052D4 !important;
-        }
+        textarea:focus { border-color: #0052D4 !important; box-shadow: 0 0 0 1.5px #0052D4 !important; }
 
         /* Interruptores (Toggles) */
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div { background-color: #CBD5E1 !important; }
@@ -111,7 +133,6 @@ def get_base64_image(image_path):
     return None
 
 def renderizar_logo(es_sidebar=False):
-    # Intentar leer logo2.png, si no está lee logo.png
     b64_img = get_base64_image("logo2.png")
     if not b64_img:
         b64_img = get_base64_image("logo.png")
@@ -218,6 +239,9 @@ CAPACIDADES_MOVILES = ["64GB", "128GB", "256GB", "512GB", "1TB", "Otra..."]
 CAPACIDADES_PC = ["8GB RAM / 256GB SSD", "16GB RAM / 512GB SSD", "16GB RAM / 1TB SSD", "32GB RAM / 1TB SSD", "Otra..."]
 CAPACIDADES_ELECTRO = ["No Aplica", "32 Pulgadas", "50 Pulgadas", "65 Pulgadas", "Escribir manual..."]
 
+# Base de datos de ciudades para estandarizar
+CIUDADES_COLOMBIA = ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga", "Cúcuta", "Pereira", "Santa Marta", "Ibagué", "Pasto", "Manizales", "Neiva", "Villavicencio", "Armenia", "Valledupar", "Montería", "Sincelejo", "Popayán", "Tunja", "Riohacha", "Florencia", "Quibdó", "Arauca", "Yopal", "Leticia", "San Andrés", "Otra..."]
+
 # --- CONEXIÓN BLINDADA POR POOL ---
 @st.cache_resource
 def get_connection_pool():
@@ -239,7 +263,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# LOGIN DUAL
+# LOGIN DUAL (Portal Clientes Primero)
 # ==========================================
 try:
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
@@ -253,7 +277,21 @@ try:
         
         with col_centro:
             renderizar_logo(es_sidebar=False)
-            tab_admin, tab_cliente = st.tabs(["💼 Equipo DaTo", "👤 Portal Clientes"])
+            # AHORA EL PORTAL DE CLIENTES ES EL PRIMER TAB
+            tab_cliente, tab_admin = st.tabs(["👤 Portal Clientes", "💼 Equipo DaTo"])
+
+            with tab_cliente:
+                with st.form("form_login_cliente"):
+                    st.markdown("<h3 style='color: #0052D4; margin-bottom: 5px;'>Bienvenido a DaTo</h3>", unsafe_allow_html=True)
+                    st.markdown("<p style='color: #64748B; margin-bottom: 20px;'>Consulta tu estado de cuenta y recibos de pago.</p>", unsafe_allow_html=True)
+                    cedula_cliente = st.text_input("Tu Número de Documento (C.C.)")
+                    if st.form_submit_button("Ver mi Estado de Cuenta", width='stretch'):
+                        cursor.execute("SELECT * FROM Clientes WHERE documento = %s", (cedula_cliente,))
+                        cli_db = cursor.fetchone()
+                        if cli_db:
+                            st.session_state.update({'logeado': True, 'rol': 'Cliente', 'id_cliente': cli_db['id_cliente'], 'nombre_cliente': cli_db['nombre_completo']})
+                            st.rerun()
+                        else: st.error("No encontramos compras registradas con esta cédula.")
 
             with tab_admin:
                 with st.form("form_login"):
@@ -268,19 +306,6 @@ try:
                             st.session_state.update({'logeado': True, 'id_usuario': usuario_db['id_usuario'], 'nombre_usuario': usuario_db['nombre_completo'], 'rol': usuario_db['rol']})
                             st.rerun()
                         else: st.error("Usuario o contraseña incorrectos.")
-            
-            with tab_cliente:
-                with st.form("form_login_cliente"):
-                    st.markdown("<h3 style='color: #0052D4; margin-bottom: 5px;'>Bienvenido a DaTo</h3>", unsafe_allow_html=True)
-                    st.markdown("<p style='color: #64748B; margin-bottom: 20px;'>Consulta tu estado de cuenta y recibos de pago.</p>", unsafe_allow_html=True)
-                    cedula_cliente = st.text_input("Tu Número de Documento (C.C.)")
-                    if st.form_submit_button("Ver mi Estado de Cuenta", width='stretch'):
-                        cursor.execute("SELECT * FROM Clientes WHERE documento = %s", (cedula_cliente,))
-                        cli_db = cursor.fetchone()
-                        if cli_db:
-                            st.session_state.update({'logeado': True, 'rol': 'Cliente', 'id_cliente': cli_db['id_cliente'], 'nombre_cliente': cli_db['nombre_completo']})
-                            st.rerun()
-                        else: st.error("No encontramos compras registradas con esta cédula.")
 
     # ==========================================
     # 📱 VISTA EXCLUSIVA PARA EL CLIENTE LOGUEADO
@@ -557,7 +582,8 @@ try:
                     
                     c4, c5, c6 = st.columns(3)
                     correo = c4.text_input("Correo Electrónico")
-                    ciudad = c5.text_input("Ciudad")
+                    ciudad_sel = c5.selectbox("Ciudad", CIUDADES_COLOMBIA, index=0)
+                    ciudad = c5.text_input("Especifique ciudad:") if ciudad_sel == "Otra..." else ciudad_sel
                     barrio = c6.text_input("Barrio")
                     
                     c7, c8 = st.columns(2)
@@ -584,22 +610,30 @@ try:
                     if cli_a_editar:
                         dat_c = opc_edit_cli[cli_a_editar]
                         with st.form("f_edit_cli"):
-                            st.write(f"Actualizando datos de: **{dat_c['documento']}**")
+                            st.write(f"Actualizando datos del ID en sistema: **{dat_c['id_cliente']}**")
+                            e_doc = st.text_input("Número de Cédula / Documento", value=dat_c['documento'])
                             e_nom = st.text_input("Nombre Completo", value=dat_c['nombre_completo'])
                             e_tel = st.text_input("Celular", value=dat_c['telefono'] if dat_c['telefono'] else "")
                             e_cor = st.text_input("Correo", value=dat_c['correo'] if dat_c['correo'] else "")
-                            e_ciu = st.text_input("Ciudad", value=dat_c['ciudad'] if dat_c['ciudad'] else "")
+                            
+                            idx_c = CIUDADES_COLOMBIA.index(dat_c['ciudad']) if dat_c['ciudad'] in CIUDADES_COLOMBIA else len(CIUDADES_COLOMBIA)-1
+                            e_ciu_sel = st.selectbox("Ciudad", CIUDADES_COLOMBIA, index=idx_c)
+                            e_ciu = st.text_input("Especifique la ciudad", value=dat_c['ciudad']) if e_ciu_sel == "Otra..." else e_ciu_sel
+                            
                             e_bar = st.text_input("Barrio", value=dat_c['barrio'] if dat_c['barrio'] else "")
                             e_dir = st.text_input("Dirección", value=dat_c['direccion'] if dat_c['direccion'] else "")
                             e_emp = st.text_input("Trabajo / Empresa", value=dat_c['empresa'] if dat_c['empresa'] else "")
                             
                             if st.form_submit_button("Actualizar Datos en DB", width='stretch'):
-                                cursor.execute("""
-                                    UPDATE Clientes 
-                                    SET nombre_completo=%s, telefono=%s, correo=%s, ciudad=%s, barrio=%s, direccion=%s, empresa=%s 
-                                    WHERE id_cliente=%s
-                                """, (e_nom, e_tel, e_cor, e_ciu, e_bar, e_dir, e_emp, dat_c['id_cliente']))
-                                conn.commit(); st.toast("Datos del cliente actualizados."); time.sleep(1); st.rerun()
+                                try:
+                                    cursor.execute("""
+                                        UPDATE Clientes 
+                                        SET documento=%s, nombre_completo=%s, telefono=%s, correo=%s, ciudad=%s, barrio=%s, direccion=%s, empresa=%s 
+                                        WHERE id_cliente=%s
+                                    """, (e_doc, e_nom, e_tel, e_cor, e_ciu, e_bar, e_dir, e_emp, dat_c['id_cliente']))
+                                    conn.commit(); st.toast("Datos del cliente actualizados."); time.sleep(1); st.rerun()
+                                except mysql.connector.Error: 
+                                    st.error("Error: Esa cédula ya está registrada a nombre de otro cliente.")
                 else: st.info("No hay clientes creados.")
             
             st.divider()
@@ -1189,6 +1223,7 @@ try:
                             for id_mod, marcado in check_resultados.items():
                                 if marcado: cursor.execute("INSERT INTO Permisos_Rol (id_role, id_modulo) VALUES (%s, %s)", (id_r_actual, id_mod))
                             conn.commit(); st.toast("Permisos guardados."); time.sleep(1); st.rerun()
+
             with tab_c3:
                 st.markdown("<br>", unsafe_allow_html=True)
                 with st.form("form_nuevo_rol"):
@@ -1203,10 +1238,9 @@ try:
                                     conn.commit(); st.toast("Cargo creado."); time.sleep(1); st.rerun()
                             except Exception as e: st.error(f"Error: {e}")
 
-finally:
-    # === SEGURO ANTI-FUGAS DE MEMORIA ===
-    try:
-        if 'cursor' in locals() and cursor: cursor.close()
-        if 'conn' in locals() and conn and conn.is_connected(): conn.close()
-    except Exception:
-        pass
+# === SEGURO ANTI-FUGAS DE MEMORIA ===
+try:
+    if 'cursor' in locals() and cursor: cursor.close()
+    if 'conn' in locals() and conn and conn.is_connected(): conn.close()
+except Exception:
+    pass
