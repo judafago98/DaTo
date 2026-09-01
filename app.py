@@ -643,22 +643,23 @@ try:
                     st.info("No hay suficientes datos procesados para generar el análisis. Carga inventario y registra ventas.")
         elif menu_seleccionado == "clientes":
             st.markdown("<h2>Directorio de Clientes 👥</h2>", unsafe_allow_html=True)
+            
+            # 1. CONSULTA GLOBAL: Traemos todos los clientes ANTES de las pestañas
+            cursor.execute("""
+                SELECT 
+                    c.id_cliente, c.documento, c.nombre_completo, c.telefono, c.fecha_registro,
+                    c.direccion, c.barrio, c.ciudad, c.correo, c.empresa,
+                    (SELECT COUNT(id_credito) FROM Creditos WHERE id_cliente = c.id_cliente AND estado = 'Activo') as activos,
+                    (SELECT IFNULL(SUM(monto_recibido), 0) FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito WHERE cr.id_cliente = c.id_cliente) as ltv
+                FROM Clientes c
+                ORDER BY c.fecha_registro DESC
+            """)
+            clientes_db = cursor.fetchall()
+            
             tab_ver, tab_nuevo, tab_editar = st.tabs(["📋 Ver Clientes (Hojas de Vida)", "➕ Nuevo Cliente", "✏️ Editar Perfil"])
             
             with tab_ver:
                 st.markdown("<br>", unsafe_allow_html=True)
-                
-                # 1. Query expandido para traer todos los campos
-                cursor.execute("""
-                    SELECT 
-                        c.id_cliente, c.documento, c.nombre_completo, c.telefono, c.fecha_registro,
-                        c.direccion, c.barrio, c.ciudad, c.correo, c.empresa,
-                        (SELECT COUNT(id_credito) FROM Creditos WHERE id_cliente = c.id_cliente AND estado = 'Activo') as activos,
-                        (SELECT IFNULL(SUM(monto_recibido), 0) FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito WHERE cr.id_cliente = c.id_cliente) as ltv
-                    FROM Clientes c
-                    ORDER BY c.fecha_registro DESC
-                """)
-                clientes_db = cursor.fetchall()
                 
                 if not clientes_db:
                     st.info("No hay clientes registrados en el sistema.")
@@ -667,48 +668,36 @@ try:
                     
                     opc_cli_buscar = {f"{c['documento']} - {c['nombre_completo']}": c for c in clientes_db}
                     
+                    # Cambio a index=None para forzar la selección explícita
                     cliente_seleccionado = st.selectbox(
                         "Escribe el nombre o número de cédula del cliente:", 
-                        options=[""] + list(opc_cli_buscar.keys()), 
-                        index=0, 
-                        format_func=lambda x: "Escribe aquí para buscar..." if x == "" else x
+                        options=list(opc_cli_buscar.keys()), 
+                        index=None, 
+                        placeholder="Haz clic aquí y escribe para buscar..."
                     )
 
-                    # 2. Preparar el DataFrame maestro con todos los campos
+                    # Preparar el DataFrame maestro
                     df_todos = pd.DataFrame(clientes_db)
                     df_todos['ltv'] = df_todos['ltv'].apply(float).apply(fmt_cop)
-                    
-                    # Cambio de nomenclatura para evitar confusiones de estado
                     df_todos['Estado Crédito'] = df_todos['activos'].apply(lambda x: "🟢 Con Deuda Activa" if x > 0 else "⚪ Sin Créditos")
                     
-                    # Limpiar visualmente los '0' que subieron desde Excel
                     for col in ['telefono', 'ciudad', 'direccion', 'barrio', 'correo', 'empresa']:
                         df_todos[col] = df_todos[col].replace('0', 'N/A')
                         
-                    # Renombrar para la visualización en tabla
                     df_todos.rename(columns={
-                        'id_cliente': 'ID',
-                        'documento': 'Cédula',
-                        'nombre_completo': 'Nombre',
-                        'telefono': 'Teléfono',
-                        'fecha_registro': 'Registro',
-                        'direccion': 'Dirección',
-                        'barrio': 'Barrio',
-                        'ciudad': 'Ciudad',
-                        'correo': 'Correo',
-                        'empresa': 'Empresa',
-                        'ltv': 'LTV (Ingresos)'
+                        'id_cliente': 'ID', 'documento': 'Cédula', 'nombre_completo': 'Nombre',
+                        'telefono': 'Teléfono', 'fecha_registro': 'Registro', 'direccion': 'Dirección',
+                        'barrio': 'Barrio', 'ciudad': 'Ciudad', 'correo': 'Correo',
+                        'empresa': 'Empresa', 'ltv': 'LTV (Ingresos)'
                     }, inplace=True)
                     
                     columnas_ordenadas = ['ID', 'Cédula', 'Nombre', 'Teléfono', 'Estado Crédito', 'Ciudad', 'Dirección', 'Barrio', 'Correo', 'Empresa', 'LTV (Ingresos)', 'Registro']
 
-                    # 3. Lógica de Filtrado y Renderizado
-                    if cliente_seleccionado != "":
+                    if cliente_seleccionado:
                         c = opc_cli_buscar[cliente_seleccionado]
                         estado_ui = "🟢 Con Deuda Activa" if c['activos'] > 0 else "⚪ Sin Créditos"
                         ltv = float(c['ltv'])
                         
-                        # Limpiar visualmente para la tarjeta
                         tel_ui = c['telefono'] if c['telefono'] != '0' else 'N/A'
                         ciu_ui = c['ciudad'] if c['ciudad'] != '0' else 'N/A'
                         dir_ui = c['direccion'] if c['direccion'] != '0' else 'N/A'
@@ -738,7 +727,6 @@ try:
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        # Historial de Pagos del Cliente
                         st.markdown("<br>**📜 Historial de Transacciones de este Cliente**", unsafe_allow_html=True)
                         cursor.execute("SELECT p.fecha_pago AS 'Fecha', p.monto_recibido AS 'Valor Pagado', p.tipo_pago AS 'Concepto', cb.nombre_cuenta AS 'Cuenta Destino' FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito LEFT JOIN Cuentas_Bancarias cb ON p.id_cuenta = cb.id_cuenta WHERE cr.id_cliente = %s ORDER BY p.fecha_pago DESC", (c['id_cliente'],))
                         hist_pagos = cursor.fetchall()
@@ -750,23 +738,82 @@ try:
                         else:
                             st.info("El cliente no ha realizado abonos o pagos en el sistema todavía.")
                             
-                        # Filtrar la tabla de abajo para que muestre solo al cliente seleccionado
-                        df_mostrar = df_todos[df_todos['Cédula'] == c['documento']]
+                        # BLINDAJE DEL FILTRO: Forzar a texto ambos lados para evitar errores de pandas
+                        df_mostrar = df_todos[df_todos['Cédula'].astype(str) == str(c['documento'])]
                         
                     else:
-                        # Si no hay nadie seleccionado, mostramos todos
                         df_mostrar = df_todos
 
-                    # 4. Renderizado de la Tabla Principal
                     st.markdown("<hr style='margin: 30px 0; border-color: #E2E8F0;'>", unsafe_allow_html=True)
                     st.markdown("#### 📋 Directorio General de Clientes")
                     
-                    if cliente_seleccionado != "":
+                    if cliente_seleccionado:
                         st.caption("Mostrando registro filtrado.")
                     else:
                         st.caption(f"Total registrados: {len(df_mostrar)} clientes. Puedes hacer clic en los encabezados para ordenar.")
                     
                     st.dataframe(df_mostrar[columnas_ordenadas], width='stretch', hide_index=True)
+
+            with tab_nuevo:
+                with st.form("f_cli"):
+                    st.subheader("Crear Perfil de Cliente")
+                    c1, c2, c3 = st.columns(3)
+                    doc = c1.text_input("Número de Cédula / ID Consecutivo")
+                    nom = c2.text_input("Nombre Completo / Temporal")
+                    tel = c3.text_input("Número Celular")
+                    
+                    c4, c5, c6 = st.columns(3)
+                    correo = c4.text_input("Correo Electrónico")
+                    ciudad_sel = c5.selectbox("Ciudad", CIUDADES_COLOMBIA, index=0)
+                    ciudad = c5.text_input("Especifique ciudad:") if ciudad_sel == "Otra..." else ciudad_sel
+                    barrio = c6.text_input("Barrio")
+                    
+                    c7, c8 = st.columns(2)
+                    direccion = c7.text_input("Dirección de Residencia")
+                    empresa = c8.text_input("Empresa o Negocio donde labora")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.form_submit_button("Guardar Nuevo Cliente", width='stretch'):
+                        if doc and nom:
+                            try:
+                                cursor.execute("INSERT INTO Clientes (documento, nombre_completo, telefono, direccion, barrio, ciudad, correo, empresa, fecha_registro, id_usuario_registro) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURDATE(), %s)", 
+                                            (doc, nom, tel, direccion, barrio, ciudad, correo, empresa, st.session_state['id_usuario']))
+                                conn.commit(); st.toast("Cliente guardado exitosamente."); time.sleep(1); st.rerun()
+                            except mysql.connector.Error: st.error("Ya existe un cliente con esta cédula.")
+                        else: st.warning("La cédula y el nombre son obligatorios.")
+            
+            with tab_editar:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if clientes_db:
+                    opc_edit_cli = {f"{c['documento']} - {c['nombre_completo']}": c for c in clientes_db}
+                    
+                    # Ahora cargará correctamente la lista en la pestaña de edición
+                    cli_a_editar = st.selectbox("Seleccione el cliente a actualizar:", list(opc_edit_cli.keys()), index=None, placeholder="Buscar cliente a editar...")
+                    
+                    if cli_a_editar:
+                        dat_c = opc_edit_cli[cli_a_editar]
+                        with st.form("f_edit_cli"):
+                            st.write(f"Actualizando datos del ID en sistema: **{dat_c['id_cliente']}**")
+                            e_doc = st.text_input("Número de Cédula / Documento", value=dat_c['documento'])
+                            e_nom = st.text_input("Nombre Completo", value=dat_c['nombre_completo'])
+                            e_tel = st.text_input("Celular", value=dat_c['telefono'] if dat_c['telefono'] != '0' else "")
+                            e_cor = st.text_input("Correo", value=dat_c['correo'] if dat_c['correo'] != '0' else "")
+                            
+                            idx_c = CIUDADES_COLOMBIA.index(dat_c['ciudad']) if dat_c['ciudad'] in CIUDADES_COLOMBIA else (len(CIUDADES_COLOMBIA)-1 if dat_c['ciudad'] != '0' else 0)
+                            e_ciu_sel = st.selectbox("Ciudad", CIUDADES_COLOMBIA, index=idx_c)
+                            e_ciu = st.text_input("Especifique la ciudad", value=dat_c['ciudad'] if dat_c['ciudad'] != '0' else "") if e_ciu_sel == "Otra..." else e_ciu_sel
+                            
+                            e_bar = st.text_input("Barrio", value=dat_c['barrio'] if dat_c['barrio'] != '0' else "")
+                            e_dir = st.text_input("Dirección", value=dat_c['direccion'] if dat_c['direccion'] != '0' else "")
+                            e_emp = st.text_input("Trabajo / Empresa", value=dat_c['empresa'] if dat_c['empresa'] != '0' else "")
+                            
+                            if st.form_submit_button("Actualizar Datos en DB", width='stretch'):
+                                try:
+                                    cursor.execute("""
+                                        UPDATE Clientes SET documento=%s, nombre_completo=%s, telefono=%s, correo=%s, ciudad=%s, barrio=%s, direccion=%s, empresa=%s WHERE id_cliente=%s
+                                    """, (e_doc, e_nom, e_tel, e_cor, e_ciu, e_bar, e_dir, e_emp, dat_c['id_cliente']))
+                                    conn.commit(); st.toast("Datos actualizados."); time.sleep(1); st.rerun()
+                                except mysql.connector.Error: st.error("Error: Esa cédula ya está registrada a nombre de otro cliente.")
 
             with tab_nuevo:
                 with st.form("f_cli"):
