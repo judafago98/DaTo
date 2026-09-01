@@ -10,7 +10,7 @@ import os
 import base64
 
 # ==========================================
-# 🛠️ AUTO-MIGRACIÓN ROBUSTA DE BASE DE DATOS (NIVEL ERP)
+# 🛠️ AUTO-MIGRACIÓN ROBUSTA DE BASE DE DATOS
 # ==========================================
 def auto_fix_db(cursor, conn):
     try: cursor.execute("ALTER TABLE Pagos MODIFY COLUMN tipo_pago VARCHAR(255)"); conn.commit()
@@ -42,10 +42,14 @@ def auto_fix_db(cursor, conn):
         try: cursor.execute(f"ALTER TABLE Gastos_Operativos {c}"); conn.commit()
         except Exception: pass
 
-    cols_creditos = ["ADD COLUMN precio_venta DECIMAL(15,2) DEFAULT 0", "ADD COLUMN abono_inicial DECIMAL(15,2) DEFAULT 0", "ADD COLUMN valor_comision DECIMAL(15,2) DEFAULT 0", "ADD COLUMN asesor_comision VARCHAR(255)", "ADD COLUMN estado_comision VARCHAR(255) DEFAULT 'No Aplica'", "ADD COLUMN fecha_pago_comision DATE", "ADD COLUMN id_cuenta INT"]
+    # Se agrega la columna para memoria histórica de la cuota original
+    cols_creditos = ["ADD COLUMN precio_venta DECIMAL(15,2) DEFAULT 0", "ADD COLUMN abono_inicial DECIMAL(15,2) DEFAULT 0", "ADD COLUMN valor_comision DECIMAL(15,2) DEFAULT 0", "ADD COLUMN asesor_comision VARCHAR(255)", "ADD COLUMN estado_comision VARCHAR(255) DEFAULT 'No Aplica'", "ADD COLUMN fecha_pago_comision DATE", "ADD COLUMN id_cuenta INT", "ADD COLUMN valor_cuota_original DECIMAL(15,2)"]
     for c in cols_creditos:
         try: cursor.execute(f"ALTER TABLE Creditos {c}"); conn.commit()
         except Exception: pass
+    
+    try: cursor.execute("UPDATE Creditos SET valor_cuota_original = valor_cuota WHERE valor_cuota_original IS NULL OR valor_cuota_original = 0"); conn.commit()
+    except Exception: pass
 
     try: cursor.execute("ALTER TABLE Pagos ADD COLUMN id_cuenta INT, ADD COLUMN motivo_ingreso VARCHAR(255) DEFAULT 'Pago Cuotas'"); conn.commit()
     except Exception: pass
@@ -57,12 +61,8 @@ def auto_fix_db(cursor, conn):
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Creditos_Items (id INT AUTO_INCREMENT PRIMARY KEY, id_credito INT, imei VARCHAR(100))"); conn.commit()
     except Exception: pass
 
-# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="DaTo | Tecnología con Respaldo", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
-# ==========================================
-# 🎨 UI CORPORATIVA Y LIMPIA
-# ==========================================
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
@@ -156,7 +156,9 @@ def sumar_meses_exactos(fecha_base, meses_a_sumar):
 def generar_plan_pagos_real(id_credito, cursor):
     cursor.execute("SELECT * FROM Creditos WHERE id_credito=%s", (id_credito,))
     cred = cursor.fetchone()
-    cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito=%s ORDER BY fecha_pago ASC", (id_credito,))
+    
+    # OMITIMOS pagos de tipo Retoma o Abonos iniciales ya descontados del monto financiado para el ciclo
+    cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito=%s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado') ORDER BY fecha_pago ASC", (id_credito,))
     pagos_hist = cursor.fetchall()
     pagado_total = sum([float(p['monto_recibido']) for p in pagos_hist])
     
@@ -177,18 +179,29 @@ def generar_plan_pagos_real(id_credito, cursor):
                 est, f_pago_mostrar = 'Pendiente', '---'
             plan.append({'Cuota': f"Número {c['numero_cuota']}", 'Vencimiento Límite': c['fecha_vencimiento'], 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
     else:
-        plazo, valor, f_base = int(cred['plazo_meses']), float(cred['valor_cuota'] or 0), cred['fecha_primera_cuota']
+        plazo = int(cred['plazo_meses'])
+        # Calculamos con base en la cuota original para que la matemática sume visualmente
+        v_orig = float(cred.get('valor_cuota_original') or cred['valor_cuota'] or 0)
+        v_actual = float(cred['valor_cuota'] or 0)
+        f_base = cred['fecha_primera_cuota']
+        
         for i in range(1, plazo + 1):
             if not f_base: break
             f_venc = sumar_meses_exactos(f_base, i - 1)
-            esperado = valor
-            if pagado_acum >= esperado: 
+            
+            if pagado_acum >= v_orig and v_orig > 0:
+                esperado = v_orig
                 est, pagado_acum = 'Pagada', pagado_acum - esperado
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
-                est, pagado_acum = f'Abono Parcial ({fmt_cop(pagado_acum)})', 0
+                esperado = v_actual
+                if pagado_acum >= esperado:
+                    est, pagado_acum = 'Pagada', pagado_acum - esperado
+                else:
+                    est, pagado_acum = f'Abono Parcial ({fmt_cop(pagado_acum)})', 0
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             else: 
+                esperado = v_actual
                 est, f_pago_mostrar = 'Pendiente', '---'
             plan.append({'Cuota': f"Mes {i}", 'Vencimiento Límite': f_venc.strftime('%Y-%m-%d'), 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
     return pd.DataFrame(plan)
@@ -222,7 +235,7 @@ try:
     pool = get_connection_pool()
     conn = pool.get_connection()
     cursor = conn.cursor(dictionary=True, buffered=True)
-    # auto_fix_db(cursor, conn)   <--- ¡PONLE EL NUMERAL AQUÍ!
+    auto_fix_db(cursor, conn) # Habilitado temporalmente para asegurar la memoria histórica
 except Exception as e:
     st.error(f"🌐 Servidor de base de datos inalcanzable. Detalle: {e}")
     st.stop()
@@ -304,7 +317,7 @@ try:
                     equipos = cursor.fetchall()
                 nombres_equipos = " + ".join([f"{e['marca']} {e['modelo']}" for e in equipos])
                 
-                cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s", (cred['id_credito'],))
+                cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega')", (cred['id_credito'],))
                 cap_pag = cursor.fetchone()['cap'] or 0
                 saldo_actual = float(cred['monto_financiado']) - float(cap_pag)
                 pago_total = saldo_actual + (saldo_actual * float(cred['tasa_interes_mensual']))
@@ -435,7 +448,7 @@ try:
                     
                     if sel_paz:
                         datos_paz = opc_paz[sel_paz]
-                        cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s", (datos_paz['id_credito'],))
+                        cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega')", (datos_paz['id_credito'],))
                         res = cursor.fetchone()
                         saldo_capital = float(datos_paz['monto_financiado']) - float(res['cap'] if res and res['cap'] else 0.0)
                         interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
@@ -928,15 +941,21 @@ try:
                         abono_efectivo = p_final - val_retoma
                         ab_init, plazo, tasa = p_final, 0, 0.0
 
-                    st.divider()
-                    st.markdown("#### Origen de Fondos (Para Radar DIAN)")
-                    c_acc1, c_acc2 = st.columns(2)
-                    with c_acc1: 
-                        cuenta_sel = st.selectbox("¿A dónde ingresó la plata del abono/contado?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."], key="ventas_cta")
-                    with c_acc2:
+                    dinero_efectivo = abono_efectivo if "Contado" not in tipo_v else (p_final - val_retoma)
+                    
+                    if dinero_efectivo > 0:
+                        st.divider()
+                        st.markdown("#### Origen de Fondos (Para Radar DIAN)")
+                        c_acc1, c_acc2 = st.columns(2)
+                        with c_acc1: 
+                            cuenta_sel = st.selectbox("¿A dónde ingresó la plata del abono/contado?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."], key="ventas_cta")
+                        with c_acc2:
+                            nueva_cuenta = ""
+                            if cuenta_sel == "➕ Añadir nueva cuenta...":
+                                nueva_cuenta = st.text_input("Nombre de la nueva cuenta (Ej: Bancolombia - Maria)", key="ventas_ncta")
+                    else:
+                        cuenta_sel = None
                         nueva_cuenta = ""
-                        if cuenta_sel == "➕ Añadir nueva cuenta...":
-                            nueva_cuenta = st.text_input("Nombre de la nueva cuenta (Ej: Bancolombia - Maria)", key="ventas_ncta")
 
                     if st.button("Registrar Venta en Sistema", type="primary", use_container_width=True):
                         if not equipos_sel: st.error("Debes seleccionar mínimo un equipo para vender.")
@@ -952,11 +971,13 @@ try:
                                         try: cursor.execute("INSERT INTO Vendedores (nombre) VALUES (%s)", (nuevo_vendedor,))
                                         except: pass
                                     
-                                    if cuenta_sel == "➕ Añadir nueva cuenta...":
-                                        cursor.execute("INSERT INTO Cuentas_Bancarias (nombre_cuenta) VALUES (%s)", (nueva_cuenta,))
-                                        id_cuenta_final = cursor.lastrowid
-                                    else:
-                                        id_cuenta_final = opc_cuentas[cuenta_sel]
+                                    id_cuenta_final = None
+                                    if cuenta_sel:
+                                        if cuenta_sel == "➕ Añadir nueva cuenta...":
+                                            cursor.execute("INSERT INTO Cuentas_Bancarias (nombre_cuenta) VALUES (%s)", (nueva_cuenta,))
+                                            id_cuenta_final = cursor.lastrowid
+                                        else:
+                                            id_cuenta_final = opc_cuentas[cuenta_sel]
                                         
                                     m_f = p_final - ab_init if "Contado" not in tipo_v else 0
                                     e_f = 'Activo' if "Contado" not in tipo_v else 'Pagado'
@@ -964,9 +985,9 @@ try:
                                     
                                     primer_imei = opc_eq[equipos_sel[0]]
                                     cursor.execute("""
-                                        INSERT INTO Creditos (id_cliente, imei, precio_venta, abono_inicial, monto_financiado, tasa_interes_mensual, plazo_meses, valor_cuota, estado, fecha_inicio, fecha_primera_cuota, valor_comision, asesor_comision, estado_comision, id_usuario_registro, id_cuenta) 
-                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                                    """, (opc_cli[cliente_sel], primer_imei, p_final, ab_init, m_f, tasa/100.0, plazo, v_c_bd, e_f, fecha_venta.strftime('%Y-%m-%d'), f_cuota.strftime('%Y-%m-%d'), comis, vendedor_final, 'Pendiente' if comis > 0 else 'No Aplica', st.session_state['id_usuario'], id_cuenta_final))
+                                        INSERT INTO Creditos (id_cliente, imei, precio_venta, abono_inicial, monto_financiado, tasa_interes_mensual, plazo_meses, valor_cuota, valor_cuota_original, estado, fecha_inicio, fecha_primera_cuota, valor_comision, asesor_comision, estado_comision, id_usuario_registro, id_cuenta) 
+                                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                                    """, (opc_cli[cliente_sel], primer_imei, p_final, ab_init, m_f, tasa/100.0, plazo, v_c_bd, v_c_bd, e_f, fecha_venta.strftime('%Y-%m-%d'), f_cuota.strftime('%Y-%m-%d'), comis, vendedor_final, 'Pendiente' if comis > 0 else 'No Aplica', st.session_state['id_usuario'], id_cuenta_final))
                                     id_cr = cursor.lastrowid
                                     
                                     for eq in equipos_sel:
@@ -977,15 +998,14 @@ try:
                                     if "Separé" in tipo_v:
                                         for n_c, v_c, f_c in c_pers: cursor.execute("INSERT INTO Cuotas_Programadas (id_credito, numero_cuota, monto_esperado, fecha_vencimiento) VALUES (%s, %s, %s, %s)", (id_cr, n_c, v_c, f_c.strftime('%Y-%m-%d')))
                                     
-                                    # Ingreso de Efectivo a la Caja (Impacto capital 0 porque la deuda arranca ya restada)
-                                    if abono_efectivo > 0: 
+                                    if dinero_efectivo > 0: 
                                         motivo_in = 'Pago Contado' if "Contado" in tipo_v else 'Abono Inicial (Factura)'
-                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (abono_efectivo,))
-                                        cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, 0, 0, %s, %s, %s, %s)", (id_cr, abono_efectivo, motivo_in, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, motivo_in))
+                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (dinero_efectivo,))
+                                        cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, 0, 0, %s, %s, %s, %s)", (id_cr, dinero_efectivo, motivo_in, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, motivo_in))
                                         
-                                    # Ingreso en especie (Impacto capital 0 porque la deuda arranca ya restada)
                                     if val_retoma > 0:
                                         cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, 'Pago en Especie / Retoma', 0, 0, %s, %s, %s, 'Cruce Retoma Bodega')", (id_cr, val_retoma, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final))
+                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (val_retoma,))
 
                                     if comis > 0 and vendedor_final:
                                         cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, vendedor, id_credito, id_usuario_registro, tipo_gasto) VALUES (%s, %s, %s, 'Por Pagar', %s, %s, %s, 'Gasto Operativo')", (f"Comisión Venta - {vendedor_final} (Cliente: {cliente_sel.split(' - ')[1]})", comis, datetime.date.today(), vendedor_final, id_cr, st.session_state['id_usuario']))
@@ -994,18 +1014,15 @@ try:
                                     st.balloons()
                                     st.success("¡Venta y contrato guardados exitosamente!")
                                     time.sleep(2)
-                                    
-                                    # Limpiador de Caché post-venta
                                     for k in list(st.session_state.keys()):
                                         if k.startswith("ventas_"): del st.session_state[k]
-                                        
                                     st.rerun()
                                 except mysql.connector.Error as err:
                                     st.error(f"❌ Error al guardar en base de datos: {err}")
 
         elif menu_seleccionado == "pagos":
             st.markdown("<h2>Caja y Recaudos 💰</h2>", unsafe_allow_html=True)
-            cursor.execute("SELECT c.id_credito, cl.nombre_completo, c.imei, c.monto_financiado, c.tasa_interes_mensual, c.valor_cuota, c.plazo_meses, i.marca, i.modelo FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei WHERE c.estado = 'Activo'")
+            cursor.execute("SELECT c.id_credito, cl.nombre_completo, c.imei, c.monto_financiado, c.tasa_interes_mensual, c.valor_cuota, c.valor_cuota_original, c.plazo_meses, i.marca, i.modelo FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei WHERE c.estado = 'Activo'")
             activos = cursor.fetchall()
             
             if not activos: st.info("No hay créditos pendientes por cobrar.")
@@ -1072,10 +1089,11 @@ try:
                                     st.balloons()
                                 else:
                                     if "Reduce el valor de la cuota" in tipo:
-                                        cursor.execute("SELECT COUNT(*) as pagadas FROM Pagos WHERE id_credito = %s AND tipo_pago LIKE '%%Cuota%%'", (dat['id_credito'],))
-                                        pagadas = int(cursor.fetchone()['pagadas'] or 0)
-                                        meses_restantes = dat['plazo_meses'] - pagadas
+                                        v_orig = float(dat.get('valor_cuota_original') or dat['valor_cuota'])
+                                        meses_ya_cubiertos = int((cap_pagado + cap_abono) / v_orig) if v_orig > 0 else 0
+                                        meses_restantes = dat['plazo_meses'] - meses_ya_cubiertos
                                         if meses_restantes <= 0: meses_restantes = 1
+                                        
                                         i_m = float(dat['tasa_interes_mensual'])
                                         nueva_cuota = nuevo_saldo * (i_m * (1 + i_m)**meses_restantes) / (((1 + i_m)**meses_restantes) - 1) if i_m > 0 else nuevo_saldo / meses_restantes
                                         cursor.execute("UPDATE Creditos SET valor_cuota = %s WHERE id_credito = %s", (int(round(nueva_cuota)), dat['id_credito']))
@@ -1347,7 +1365,6 @@ try:
             
             tab_bi, tab_dian, tab_roi, tab_libro = st.tabs(["🌐 Visión General", "🛡️ Radar Fiscal (DIAN)", "💎 ROI por Inversor", "📓 Libro Diario"])
             
-            # --- NUEVAS FÓRMULAS CONTABLES ---
             cursor.execute("SELECT SUM(saldo_actual) as cap FROM Bolsas_Capital")
             cap = float(cursor.fetchone()['cap'] or 0)
             
@@ -1364,12 +1381,10 @@ try:
             inventario_bodega = float(cursor.fetchone()['inv'] or 0)
             
             cartera_neta_calle = cartera_colocada - cartera_recaudada
-            
             patrimonio_neto = cap + cartera_neta_calle + inventario_bodega - deuda
             
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
-                
                 porcentaje_calle = (cartera_neta_calle / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
                 porcentaje_bodega = (inventario_bodega / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
                 porcentaje_caja = (cap / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
