@@ -1215,17 +1215,37 @@ try:
             
             tab_bi, tab_dian, tab_roi, tab_libro = st.tabs(["🌐 Visión General", "🛡️ Radar Fiscal (DIAN)", "💎 ROI por Inversor", "📓 Libro Diario"])
             
+            # --- NUEVAS FÓRMULAS CONTABLES ---
             cursor.execute("SELECT SUM(saldo_actual) as cap FROM Bolsas_Capital")
             cap = float(cursor.fetchone()['cap'] or 0)
+            
             cursor.execute("SELECT SUM(saldo_pendiente) as deu FROM Deudas_Fondeo")
             deuda = float(cursor.fetchone()['deu'] or 0)
+            
             cursor.execute("SELECT SUM(monto_financiado) as mf FROM Creditos WHERE estado = 'Activo'")
             cartera_colocada = float(cursor.fetchone()['mf'] or 0)
+            
             cursor.execute("SELECT SUM(capital_abonado) as ca FROM Pagos p JOIN Creditos c ON p.id_credito = c.id_credito WHERE c.estado = 'Activo'")
             cartera_recaudada = float(cursor.fetchone()['ca'] or 0)
             
+            # Traer el valor de los activos físicos
+            cursor.execute("SELECT SUM(costo_adquisicion * cantidad) as inv FROM Inventario WHERE estado = 'Disponible'")
+            inventario_bodega = float(cursor.fetchone()['inv'] or 0)
+            
             cartera_neta_calle = cartera_colocada - cartera_recaudada
-            patrimonio_neto = cap + cartera_neta_calle - deuda
+            
+            # EL PATRIMONIO REAL AHORA INCLUYE LA BODEGA
+            patrimonio_neto = cap + cartera_neta_calle + inventario_bodega - deuda
+            
+            with tab_bi:
+                st.markdown("<br>", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); margin-bottom: 25px;">
+                    <h3 style="color:#0052D4; margin:0; font-weight: 700;">VALOR TOTAL DE TU EMPRESA HOY</h3>
+                    <h1 style="color:#1E293B; font-size: 4.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(patrimonio_neto)}</h1>
+                    <p style="color:#64748B; font-size: 15px; margin:0;">Caja Global ({fmt_cop(cap)}) + Cartera ({fmt_cop(cartera_neta_calle)}) + <b>Bodega ({fmt_cop(inventario_bodega)})</b> - Deudas a Socios ({fmt_cop(deuda)})</p>
+                </div>
+                """, unsafe_allow_html=True)
             
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
