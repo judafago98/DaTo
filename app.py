@@ -271,6 +271,9 @@ opc_cuentas = {c['nombre_cuenta']: c['id_cuenta'] for c in lista_cuentas}
 # ==========================================
 # LOGIN DUAL
 # ==========================================
+# ==========================================
+# 🔐 LOGIN DUAL (UI REDISEÑADA)
+# ==========================================
 try:
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
     if 'id_usuario' not in st.session_state: st.session_state['id_usuario'] = None
@@ -278,39 +281,46 @@ try:
     if 'rol' not in st.session_state: st.session_state['rol'] = None
 
     if not st.session_state['logeado']:
-        st.markdown("<div style='height: 10vh;'></div>", unsafe_allow_html=True)
-        col_espacio1, col_centro, col_espacio2 = st.columns([1, 2, 1], gap="large")
+        # Centrado perfecto para pantallas anchas
+        _, col_centro, _ = st.columns([1.5, 2.5, 1.5], gap="large")
         
         with col_centro:
+            st.markdown("<div style='height: 5vh;'></div>", unsafe_allow_html=True)
             renderizar_logo(es_sidebar=False)
-            tab_cliente, tab_admin = st.tabs(["👤 Portal Clientes", "💼 Equipo DaTo"])
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            tab_cliente, tab_admin = st.tabs(["👤 Portal de Clientes", "💼 Acceso Equipo DaTo"])
 
             with tab_cliente:
                 with st.form("form_login_cliente"):
-                    st.markdown("<h3 style='color: #0052D4; margin-bottom: 5px;'>Bienvenido a DaTo</h3>", unsafe_allow_html=True)
-                    st.markdown("<p style='color: #64748B; margin-bottom: 20px;'>Consulta tu estado de cuenta y recibos de pago.</p>", unsafe_allow_html=True)
-                    cedula_cliente = st.text_input("Tu Número de Documento (C.C.)")
-                    if st.form_submit_button("Ver mi Estado de Cuenta", width='stretch'):
+                    st.markdown("<h2 style='text-align: center; color: #0052D4; margin-bottom: 5px;'>Bienvenido a DaTo</h2>", unsafe_allow_html=True)
+                    st.markdown("<p style='text-align: center; color: #64748B; margin-bottom: 25px;'>Consulta tu estado de cuenta y descargas de recibos.</p>", unsafe_allow_html=True)
+                    cedula_cliente = st.text_input("Ingresa tu Número de Documento (C.C.)", placeholder="Ej: 1032501660")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.form_submit_button("Consultar Estado de Cuenta", width='stretch'):
                         cursor.execute("SELECT * FROM Clientes WHERE documento = %s", (cedula_cliente,))
                         cli_db = cursor.fetchone()
                         if cli_db:
                             st.session_state.update({'logeado': True, 'rol': 'Cliente', 'id_cliente': cli_db['id_cliente'], 'nombre_cliente': cli_db['nombre_completo']})
                             st.rerun()
-                        else: st.error("No encontramos compras registradas con esta cédula.")
+                        else: st.error("No encontramos compras registradas con esta cédula en DaTo.")
 
             with tab_admin:
                 with st.form("form_login"):
-                    st.markdown("<h3 style='color: #0052D4; margin-bottom: 5px;'>Acceso Corporativo</h3>", unsafe_allow_html=True)
-                    st.markdown("<p style='color: #64748B; margin-bottom: 20px;'>Ingrese sus credenciales de empleado.</p>", unsafe_allow_html=True)
-                    usuario_input = st.text_input("Usuario")
-                    password_input = st.text_input("Contraseña", type="password")
-                    if st.form_submit_button("Ingresar al Sistema", width='stretch'):
+                    st.markdown("<h2 style='text-align: center; color: #0052D4; margin-bottom: 5px;'>Acceso Corporativo</h2>", unsafe_allow_html=True)
+                    st.markdown("<p style='text-align: center; color: #64748B; margin-bottom: 25px;'>Ingrese sus credenciales administrativas.</p>", unsafe_allow_html=True)
+                    usuario_input = st.text_input("Usuario de Sistema")
+                    password_input = st.text_input("Contraseña de Acceso", type="password")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.form_submit_button("Iniciar Sesión", width='stretch'):
                         cursor.execute("SELECT id_usuario, nombre_completo, rol FROM Usuarios WHERE username = %s AND password_hash = %s", (usuario_input, password_input))
                         usuario_db = cursor.fetchone()
                         if usuario_db:
                             st.session_state.update({'logeado': True, 'id_usuario': usuario_db['id_usuario'], 'nombre_usuario': usuario_db['nombre_completo'], 'rol': usuario_db['rol']})
                             st.rerun()
-                        else: st.error("Usuario o contraseña incorrectos.")
+                        else: st.error("Usuario o contraseña incorrectos. Verifica tus credenciales.")
 
     # ==========================================
     # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
