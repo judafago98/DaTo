@@ -1057,67 +1057,80 @@ try:
                     c4.metric("Liquidación (Paz y Salvo)", fmt_cop(paz_y_salvo_total))
                     
                     st.markdown("<h3 style='color:#0052D4; margin-top:20px;'>📥 Recibir Dinero</h3>", unsafe_allow_html=True)
-                    with st.form("f_pago", clear_on_submit=True):
-                        x1, x2 = st.columns(2)
-                        with x1: 
-                            monto = st.number_input("Dinero Recibido del Cliente ($)", value=v_cuota_bd, min_value=0, step=10000)
-                            render_traductor(monto)
-                        with x2: fecha_pago_efectiva = st.date_input("Fecha en que entregó el dinero", value=None)
-                        
-                        y1, y2 = st.columns(2)
-                        with y1: tipo = st.selectbox("Comportamiento del Pago", ["Pago de Cuota Mensual", "Abono Extra (Reduce el valor de la cuota)", "Abono Extra (Reduce el tiempo del crédito)"], index=0)
-                        with y2: cuenta_sel = st.selectbox("¿A qué cuenta te pagó?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."])
-                        
-                        nueva_cuenta = ""
-                        if cuenta_sel == "➕ Añadir nueva cuenta...":
-                            nueva_cuenta = st.text_input("Nombre de la nueva cuenta (Ej: Daviplata - Carlos)")
+                    
+                    x1, x2 = st.columns(2)
+                    with x1: 
+                        monto = st.number_input("Dinero Recibido del Cliente ($)", value=v_cuota_bd, min_value=0, step=10000, key="pago_monto")
+                        render_traductor(monto)
+                    with x2: 
+                        fecha_pago_efectiva = st.date_input("Fecha en que entregó el dinero", value=None, key="pago_fecha")
+                    
+                    y1, y2 = st.columns(2)
+                    with y1: 
+                        tipo = st.selectbox("Comportamiento del Pago", ["Pago de Cuota Mensual", "Abono Extra (Reduce el valor de la cuota)", "Abono Extra (Reduce el tiempo del crédito)"], index=0, key="pago_tipo")
+                    with y2: 
+                        cuenta_sel = st.selectbox("¿A qué cuenta te pagó?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."], key="pago_cuenta")
+                    
+                    nueva_cuenta = ""
+                    if cuenta_sel == "➕ Añadir nueva cuenta...":
+                        nueva_cuenta = st.text_input("Nombre de la nueva cuenta (Ej: Daviplata - Carlos)", key="pago_nueva_cta")
 
-                        st.markdown("<br>", unsafe_allow_html=True)
-                        if st.form_submit_button("Registrar Pago", width='stretch'):
-                            if monto <= 0: st.error("El monto debe ser mayor a cero.")
-                            elif fecha_pago_efectiva is None: st.error("Seleccione la fecha de pago.")
-                            elif cuenta_sel == "➕ Añadir nueva cuenta..." and not nueva_cuenta: st.error("Escribe el nombre de la cuenta.")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    if st.button("Registrar Pago", type="primary", use_container_width=True):
+                        if monto <= 0: st.error("El monto debe ser mayor a cero.")
+                        elif fecha_pago_efectiva is None: st.error("Seleccione la fecha de pago.")
+                        elif cuenta_sel == "➕ Añadir nueva cuenta..." and not nueva_cuenta: st.error("Escribe el nombre de la cuenta.")
+                        else:
+                            if cuenta_sel == "➕ Añadir nueva cuenta...":
+                                cursor.execute("INSERT INTO Cuentas_Bancarias (nombre_cuenta) VALUES (%s)", (nueva_cuenta,))
+                                id_cuenta_final = cursor.lastrowid
                             else:
-                                if cuenta_sel == "➕ Añadir nueva cuenta...":
-                                    cursor.execute("INSERT INTO Cuentas_Bancarias (nombre_cuenta) VALUES (%s)", (nueva_cuenta,))
-                                    id_cuenta_final = cursor.lastrowid
-                                else:
-                                    id_cuenta_final = opc_cuentas[cuenta_sel]
+                                id_cuenta_final = opc_cuentas[cuenta_sel]
 
-                                interes = round(s_pend * float(dat['tasa_interes_mensual']), 2)
-                                cap_abono = 0.0 if monto <= interes else monto - interes
-                                
-                                cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", (dat['id_credito'], monto, tipo, cap_abono, min(monto, interes), fecha_pago_efectiva.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, 'Pago Cuotas'))
-                                cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (monto,))
-                                
-                                nuevo_saldo = s_pend - cap_abono
-                                if nuevo_saldo <= 0: 
-                                    cursor.execute("UPDATE Creditos SET estado = 'Pagado' WHERE id_credito = %s", (dat['id_credito'],))
-                                    st.balloons()
-                                else:
-                                    if "Reduce el valor de la cuota" in tipo:
-                                        i_m = float(dat['tasa_interes_mensual'])
-                                        cuota_actual = float(dat['valor_cuota'])
-                                        meses_restantes_previos = dat['plazo_meses']
+                            interes = round(s_pend * float(dat['tasa_interes_mensual']), 2)
+                            cap_abono = 0.0 if monto <= interes else monto - interes
+                            
+                            cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", (dat['id_credito'], monto, tipo, cap_abono, min(monto, interes), fecha_pago_efectiva.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, 'Pago Cuotas'))
+                            cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (monto,))
+                            
+                            nuevo_saldo = s_pend - cap_abono
+                            if nuevo_saldo <= 0: 
+                                cursor.execute("UPDATE Creditos SET estado = 'Pagado' WHERE id_credito = %s", (dat['id_credito'],))
+                                st.balloons()
+                            else:
+                                if "Reduce el valor de la cuota" in tipo:
+                                    i_m = float(dat['tasa_interes_mensual'])
+                                    cuota_actual = float(dat['valor_cuota'])
+                                    meses_restantes_previos = dat['plazo_meses']
+                                    
+                                    if i_m > 0 and cuota_actual > 0:
+                                        val_to_log = 1 - (i_m * s_pend / cuota_actual)
+                                        if val_to_log > 0:
+                                            meses_restantes_previos = round(-math.log(val_to_log) / math.log(1 + i_m))
+                                    elif i_m == 0 and cuota_actual > 0:
+                                        meses_restantes_previos = round(s_pend / cuota_actual)
                                         
-                                        if i_m > 0 and cuota_actual > 0:
-                                            val_to_log = 1 - (i_m * s_pend / cuota_actual)
-                                            if val_to_log > 0:
-                                                meses_restantes_previos = round(-math.log(val_to_log) / math.log(1 + i_m))
-                                        elif i_m == 0 and cuota_actual > 0:
-                                            meses_restantes_previos = round(s_pend / cuota_actual)
-                                            
-                                        meses_restantes_nuevos = meses_restantes_previos - 1
-                                        if meses_restantes_nuevos < 1: meses_restantes_nuevos = 1
+                                    meses_restantes_nuevos = meses_restantes_previos - 1
+                                    if meses_restantes_nuevos < 1: meses_restantes_nuevos = 1
+                                    
+                                    if i_m > 0:
+                                        nueva_cuota = nuevo_saldo * (i_m * (1 + i_m)**meses_restantes_nuevos) / (((1 + i_m)**meses_restantes_nuevos) - 1)
+                                    else:
+                                        nueva_cuota = nuevo_saldo / meses_restantes_nuevos
                                         
-                                        if i_m > 0:
-                                            nueva_cuota = nuevo_saldo * (i_m * (1 + i_m)**meses_restantes_nuevos) / (((1 + i_m)**meses_restantes_nuevos) - 1)
-                                        else:
-                                            nueva_cuota = nuevo_saldo / meses_restantes_nuevos
-                                            
-                                        cursor.execute("UPDATE Creditos SET valor_cuota = %s WHERE id_credito = %s", (int(round(nueva_cuota)), dat['id_credito']))
-                                
-                                conn.commit(); st.toast("Dinero ingresado a la cuenta correcta.", icon='✅'); time.sleep(1.5); st.rerun()
+                                    cursor.execute("UPDATE Creditos SET valor_cuota = %s WHERE id_credito = %s", (int(round(nueva_cuota)), dat['id_credito']))
+                            
+                            conn.commit()
+                            st.toast("Dinero ingresado a la cuenta correcta.", icon='✅')
+                            time.sleep(1.5)
+                            
+                            # Limpiador de caché para vaciar los campos sin usar st.form
+                            for k in list(st.session_state.keys()):
+                                if k.startswith("pago_"):
+                                    del st.session_state[k]
+                                    
+                            st.rerun()
 
                     st.markdown("<br>### 💸 Historial de este Crédito", unsafe_allow_html=True)
                     if hist:
