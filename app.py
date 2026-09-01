@@ -755,7 +755,7 @@ try:
                     st.dataframe(df_mostrar[columnas_ordenadas], width='stretch', hide_index=True)
 
             with tab_nuevo:
-                with st.form("f_cli"):
+                with st.form("formulario_creacion_cliente_unico"):
                     st.subheader("Crear Perfil de Cliente")
                     c1, c2, c3 = st.columns(3)
                     doc = c1.text_input("Número de Cédula / ID Consecutivo")
