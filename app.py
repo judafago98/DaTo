@@ -538,7 +538,6 @@ try:
 
             with tab_inv2:
                 st.markdown("<br>", unsafe_allow_html=True)
-                # Bolsas/Bolsillos representan el capital u origen de la inversión
                 cursor.execute("SELECT id_bolsa, nombre_bolsa, saldo_actual FROM Bolsas_Capital")
                 opc_bolsas = {f"Bolsillo de Inversión: {b['nombre_bolsa']} (Disponible: {fmt_cop(b['saldo_actual'])})": b for b in cursor.fetchall()}
 
@@ -552,14 +551,18 @@ try:
                         with c3:
                             marca_fin = st.text_input("Ingresar Marca Manual:") if marca_sel == "Otra Marca..." else marca_sel
                             mod = st.selectbox("Modelo", CATALOGO[cat_sel][marca_sel], index=None, placeholder="Seleccione Modelo...")
-                            if mod: mod_fin = st.text_input("Ingresar Modelo Manual:") if mod in ["Otro...", "Escribir manual..."] else mod
+                            mod_fin = ""
+                            if mod: 
+                                mod_fin = st.text_input("Ingresar Modelo Manual:") if mod in ["Otro...", "Escribir manual..."] else mod
                         with c4:
+                            cap_fin = ""
                             if mod:
-                                opc_cap = CAPACIDADES_PC if "Cómputo" in cat_sel or "💻" in cat_sel else (CAPACIDADES_ELECTRO if "Electrónica" in cat_sel or "📺" in cat_sel else CAPACIDADES_MOVILES)
+                                opc_cap = CAPACIDADES_PC if "Cómputo" in cat_sel or "💻" in cat_sel else (CAPACIDADES_ELECTRO if "Electrodomesticos" in cat_sel or "📺" in cat_sel else CAPACIDADES_MOVILES)
                                 cap = st.selectbox("Capacidad", opc_cap, index=None, placeholder="Seleccione Capacidad...")
-                                if cap: cap_fin = "" if cap == "No Aplica" else (st.text_input("Capacidad Manual:") if cap == "Escribir manual..." else cap)
+                                if cap: 
+                                    cap_fin = "" if cap == "No Aplica" else (st.text_input("Capacidad Manual:") if cap == "Escribir manual..." else cap)
 
-                        if mod and cap:
+                        if mod_fin:
                             with st.form("f_inv"):
                                 st.markdown("#### Datos de la Compra")
                                 l1, l2, l3, l4 = st.columns(4)
@@ -584,14 +587,15 @@ try:
                                     dat_b = opc_bolsas[bolsa]
                                     costo_total = costo * cantidad
                                     if costo_total > float(dat_b['saldo_actual']): st.error("Ese bolsillo de inversión no tiene suficiente dinero para pagar esta mercancía.")
-                                    elif not mod_fin: st.warning("El modelo es obligatorio.")
                                     else:
+                                        cat_clean = cat_sel.split(" ", 1)[1] if " " in cat_sel else cat_sel
+                                        modelo_final = f"{mod_fin} {cap_fin}".strip()
                                         for _ in range(cantidad):
-                                            imei_final = imei_in if (cantidad == 1 and imei_in) else f"SYS-{str(uuid.uuid4())[:8].upper()}"
+                                            imei_final = imei_in.strip() if (cantidad == 1 and imei_in.strip()) else f"SYS-{str(uuid.uuid4())[:8].upper()}"
                                             cursor.execute("""
                                                 INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
                                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
-                                            """, (imei_final, cat_sel.split(" ")[1] if " " in cat_sel else cat_sel, marca_fin, f"{mod_fin} {cap_fin}".strip(), cond, dat_b['id_bolsa'], costo, precio_venta, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
+                                            """, (imei_final, cat_clean, marca_fin, modelo_final, cond, dat_b['id_bolsa'], costo, precio_venta, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
                                         cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
                                         conn.commit(); st.toast('Equipos agregados con éxito.'); time.sleep(1.5); st.rerun()
 
@@ -855,20 +859,25 @@ try:
                         st.markdown("<div style='background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>", unsafe_allow_html=True)
                         r1, r2, r3 = st.columns(3)
                         cat_retoma = r1.selectbox("Categoría Retoma", list(CATALOGO.keys()))
+                        marca_retoma, mod_retoma = "", ""
                         if cat_retoma:
                             marca_retoma = r2.selectbox("Marca Retoma", list(CATALOGO[cat_retoma].keys()))
-                            if marca_retoma: mod_retoma = r3.selectbox("Modelo Retoma", CATALOGO[cat_retoma][marca_retoma])
+                            if marca_retoma: 
+                                mod_retoma = r3.selectbox("Modelo Retoma", CATALOGO[cat_retoma][marca_retoma])
+                        
+                        r_m1, r_m2 = st.columns(2)
+                        marca_man = r_m1.text_input("Ingresar Marca Manual (Retoma):") if marca_retoma == "Otra Marca..." else marca_retoma
+                        mod_man = r_m2.text_input("Ingresar Modelo Manual (Retoma):") if mod_retoma in ["Otro...", "Escribir manual..."] else mod_retoma
                                 
                         r4, r5 = st.columns(2)
-                        imei_retoma = r4.text_input("IMEI del equipo usado")
+                        imei_retoma = r4.text_input("IMEI del equipo usado (Déjalo vacío para auto-generar)")
                         val_retoma = r5.number_input("Valor tasado (Abono por Retoma) ($)", min_value=0, step=10000, value=0)
                         st.markdown("</div>", unsafe_allow_html=True)
                         
-                        # Limpieza de variables para DB
-                        if cat_retoma and marca_retoma and mod_retoma:
-                            cat_f = cat_retoma.split(" ")[1] if " " in cat_retoma else cat_retoma
-                            marca_f = marca_retoma if marca_retoma != "Otra Marca..." else "Genérica"
-                            mod_f = mod_retoma if mod_retoma not in ["Otro...", "Escribir manual..."] else "Genérico"
+                        if cat_retoma and marca_man and mod_man:
+                            cat_f = cat_retoma.split(" ", 1)[1] if " " in cat_retoma else cat_retoma
+                            marca_f = marca_man
+                            mod_f = mod_man
 
                     st.markdown("#### Tiempos del Crédito", unsafe_allow_html=True)
                     c_f1, c_f2 = st.columns(2)
@@ -959,7 +968,8 @@ try:
                         if not equipos_sel: st.error("Debes seleccionar mínimo un equipo para vender.")
                         elif p_final <= 0: st.error("El valor de la factura debe ser mayor a cero.")
                         elif cuenta_sel == "➕ Añadir nueva cuenta..." and not nueva_cuenta: st.error("Escribe el nombre de la nueva cuenta bancaria.")
-                        elif retoma_activa and (val_retoma <= 0 or not imei_retoma): st.error("Completa el IMEI y Valor de la retoma.")
+                        elif retoma_activa and val_retoma <= 0: st.error("Ingresa el valor tasado de la retoma.")
+                        elif retoma_activa and not mod_f: st.error("Especifica el modelo del equipo de retoma.")
                         else:
                             vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..." else None)
                             if comis > 0 and not vendedor_final: st.error("Asigna un vendedor para pagarle su comisión.")
@@ -970,7 +980,6 @@ try:
                                         try: cursor.execute("INSERT INTO Vendedores (nombre) VALUES (%s)", (nuevo_vendedor,))
                                         except: pass
                                     
-                                    # Gestionar la creación dinámica de la cuenta bancaria
                                     if cuenta_sel == "➕ Añadir nueva cuenta...":
                                         cursor.execute("INSERT INTO Cuentas_Bancarias (nombre_cuenta) VALUES (%s)", (nueva_cuenta,))
                                         id_cuenta_final = cursor.lastrowid
@@ -996,27 +1005,24 @@ try:
                                     if "Separé" in tipo_v:
                                         for n_c, v_c, f_c in c_pers: cursor.execute("INSERT INTO Cuotas_Programadas (id_credito, numero_cuota, monto_esperado, fecha_vencimiento) VALUES (%s, %s, %s, %s)", (id_cr, n_c, v_c, f_c.strftime('%Y-%m-%d')))
                                     
-                                    i# ESCUDO FISCAL Y RADAR BODEGA
                                     if ("Contado" not in tipo_v and ab_init > 0) or "Contado" in tipo_v: 
                                         dinero_efectivo = abono_efectivo if "Contado" not in tipo_v else (p_final - val_retoma)
                                         
-                                        # 1. Pago Real en Efectivo/Bancos (Suma a la Caja Física)
                                         if dinero_efectivo > 0:
                                             motivo_in = 'Pago Contado' if "Contado" in tipo_v else 'Abono Inicial'
                                             cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (dinero_efectivo,))
                                             cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, 0, %s, %s, %s, %s)", (id_cr, dinero_efectivo, motivo_in, dinero_efectivo, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, motivo_in))
                                         
-                                        # 2. Pago en Especie / Retoma (NO suma a la Caja, inyecta a Bodega)
                                         if retoma_activa and val_retoma > 0:
                                             cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, 'Pago en Especie / Retoma', %s, 0, %s, %s, %s, 'Ingreso Retoma Bodega')", (id_cr, val_retoma, val_retoma, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final))
                                             
-                                            # Inyectar Retoma al Inventario automáticamente (Se ancla a la bolsa base por reglas de DB)
+                                            imei_final_retoma = imei_retoma.strip() if imei_retoma.strip() else f"SYS-{str(uuid.uuid4())[:8].upper()}"
                                             cursor.execute("SELECT id_bolsa FROM Bolsas_Capital ORDER BY id_bolsa ASC LIMIT 1")
                                             bolsa_base = cursor.fetchone()['id_bolsa']
                                             cursor.execute("""
                                                 INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, fecha_compra) 
                                                 VALUES (%s, %s, %s, %s, 'Retoma', %s, %s, 0, 'Disponible', %s, 1, %s)
-                                            """, (imei_retoma, cat_f, marca_f, mod_f, bolsa_base, val_retoma, st.session_state['id_usuario'], fecha_venta.strftime('%Y-%m-%d')))
+                                            """, (imei_final_retoma, cat_f, marca_f, mod_f, bolsa_base, val_retoma, st.session_state['id_usuario'], fecha_venta.strftime('%Y-%m-%d')))
                                             
                                     if comis > 0 and vendedor_final:
                                         cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, vendedor, id_credito, id_usuario_registro, tipo_gasto) VALUES (%s, %s, %s, 'Por Pagar', %s, %s, %s, 'Gasto Operativo')", (f"Comisión Venta - {vendedor_final} (Cliente: {cliente_sel.split(' - ')[1]})", comis, datetime.date.today(), vendedor_final, id_cr, st.session_state['id_usuario']))
@@ -1027,7 +1033,7 @@ try:
                                     time.sleep(2)
                                     st.rerun()
                                 except mysql.connector.Error as err:
-                                    st.error(f"❌ Error al guardar en base de datos. Por favor avisa a soporte con este código: {err}")
+                                    st.error(f"❌ Error al guardar en base de datos: {err}")
 
         elif menu_seleccionado == "pagos":
             st.markdown("<h2>Caja y Recaudos 💰</h2>", unsafe_allow_html=True)
