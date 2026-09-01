@@ -668,12 +668,12 @@ try:
                     
                     opc_cli_buscar = {f"{c['documento']} - {c['nombre_completo']}": c for c in clientes_db}
                     
-                    # Cambio a index=None para forzar la selección explícita
                     cliente_seleccionado = st.selectbox(
                         "Escribe el nombre o número de cédula del cliente:", 
                         options=list(opc_cli_buscar.keys()), 
                         index=None, 
-                        placeholder="Haz clic aquí y escribe para buscar..."
+                        placeholder="Haz clic aquí y escribe para buscar...",
+                        key="buscador_vista_general" # Clave única obligatoria
                     )
 
                     # Preparar el DataFrame maestro
@@ -738,7 +738,7 @@ try:
                         else:
                             st.info("El cliente no ha realizado abonos o pagos en el sistema todavía.")
                             
-                        # BLINDAJE DEL FILTRO: Forzar a texto ambos lados para evitar errores de pandas
+                        # FILTRO SEGURO: Convertimos a string para evitar choques con pandas
                         df_mostrar = df_todos[df_todos['Cédula'].astype(str) == str(c['documento'])]
                         
                     else:
@@ -755,7 +755,7 @@ try:
                     st.dataframe(df_mostrar[columnas_ordenadas], width='stretch', hide_index=True)
 
             with tab_nuevo:
-                with st.form("formulario_creacion_cliente_unico"):
+                with st.form("formulario_creacion_cliente_unico_01"):
                     st.subheader("Crear Perfil de Cliente")
                     c1, c2, c3 = st.columns(3)
                     doc = c1.text_input("Número de Cédula / ID Consecutivo")
@@ -787,12 +787,17 @@ try:
                 if clientes_db:
                     opc_edit_cli = {f"{c['documento']} - {c['nombre_completo']}": c for c in clientes_db}
                     
-                    # Ahora cargará correctamente la lista en la pestaña de edición
-                    cli_a_editar = st.selectbox("Seleccione el cliente a actualizar:", list(opc_edit_cli.keys()), index=None, placeholder="Buscar cliente a editar...")
+                    cli_a_editar = st.selectbox(
+                        "Seleccione el cliente a actualizar:", 
+                        list(opc_edit_cli.keys()), 
+                        index=None, 
+                        placeholder="Buscar cliente a editar...",
+                        key="buscador_vista_edicion" # Clave única obligatoria
+                    )
                     
                     if cli_a_editar:
                         dat_c = opc_edit_cli[cli_a_editar]
-                        with st.form("f_edit_cli"):
+                        with st.form("formulario_edicion_cliente_unico_02"):
                             st.write(f"Actualizando datos del ID en sistema: **{dat_c['id_cliente']}**")
                             e_doc = st.text_input("Número de Cédula / Documento", value=dat_c['documento'])
                             e_nom = st.text_input("Nombre Completo", value=dat_c['nombre_completo'])
@@ -806,62 +811,6 @@ try:
                             e_bar = st.text_input("Barrio", value=dat_c['barrio'] if dat_c['barrio'] != '0' else "")
                             e_dir = st.text_input("Dirección", value=dat_c['direccion'] if dat_c['direccion'] != '0' else "")
                             e_emp = st.text_input("Trabajo / Empresa", value=dat_c['empresa'] if dat_c['empresa'] != '0' else "")
-                            
-                            if st.form_submit_button("Actualizar Datos en DB", width='stretch'):
-                                try:
-                                    cursor.execute("""
-                                        UPDATE Clientes SET documento=%s, nombre_completo=%s, telefono=%s, correo=%s, ciudad=%s, barrio=%s, direccion=%s, empresa=%s WHERE id_cliente=%s
-                                    """, (e_doc, e_nom, e_tel, e_cor, e_ciu, e_bar, e_dir, e_emp, dat_c['id_cliente']))
-                                    conn.commit(); st.toast("Datos actualizados."); time.sleep(1); st.rerun()
-                                except mysql.connector.Error: st.error("Error: Esa cédula ya está registrada a nombre de otro cliente.")
-
-            with tab_nuevo:
-                with st.form("f_cli"):
-                    st.subheader("Crear Perfil de Cliente")
-                    c1, c2, c3 = st.columns(3)
-                    doc = c1.text_input("Número de Cédula / ID Consecutivo")
-                    nom = c2.text_input("Nombre Completo / Temporal")
-                    tel = c3.text_input("Número Celular")
-                    
-                    c4, c5, c6 = st.columns(3)
-                    correo = c4.text_input("Correo Electrónico")
-                    ciudad_sel = c5.selectbox("Ciudad", CIUDADES_COLOMBIA, index=0)
-                    ciudad = c5.text_input("Especifique ciudad:") if ciudad_sel == "Otra..." else ciudad_sel
-                    barrio = c6.text_input("Barrio")
-                    
-                    c7, c8 = st.columns(2)
-                    direccion = c7.text_input("Dirección de Residencia")
-                    empresa = c8.text_input("Empresa o Negocio donde labora")
-                    
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.form_submit_button("Guardar Nuevo Cliente", width='stretch'):
-                        if doc and nom:
-                            try:
-                                cursor.execute("INSERT INTO Clientes (documento, nombre_completo, telefono, direccion, barrio, ciudad, correo, empresa, fecha_registro, id_usuario_registro) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, CURDATE(), %s)", 
-                                            (doc, nom, tel, direccion, barrio, ciudad, correo, empresa, st.session_state['id_usuario']))
-                                conn.commit(); st.toast("Cliente guardado exitosamente."); time.sleep(1); st.rerun()
-                            except mysql.connector.Error: st.error("Ya existe un cliente con esta cédula.")
-                        else: st.warning("La cédula y el nombre son obligatorios.")
-            
-            with tab_editar:
-                if clientes_db:
-                    opc_edit_cli = {f"{c['documento']} - {c['nombre_completo']}": c for c in clientes_db}
-                    cli_a_editar = st.selectbox("Seleccione el cliente a actualizar:", list(opc_edit_cli.keys()), index=None)
-                    
-                    if cli_a_editar:
-                        dat_c = opc_edit_cli[cli_a_editar]
-                        with st.form("f_edit_cli"):
-                            st.write(f"Actualizando datos del ID en sistema: **{dat_c['id_cliente']}**")
-                            e_doc = st.text_input("Número de Cédula / Documento", value=dat_c['documento'])
-                            e_nom = st.text_input("Nombre Completo", value=dat_c['nombre_completo'])
-                            e_tel = st.text_input("Celular", value=dat_c['telefono'] if dat_c['telefono'] else "")
-                            e_cor = st.text_input("Correo", value=dat_c['correo'] if dat_c['correo'] else "")
-                            idx_c = CIUDADES_COLOMBIA.index(dat_c['ciudad']) if dat_c['ciudad'] in CIUDADES_COLOMBIA else len(CIUDADES_COLOMBIA)-1
-                            e_ciu_sel = st.selectbox("Ciudad", CIUDADES_COLOMBIA, index=idx_c)
-                            e_ciu = st.text_input("Especifique la ciudad", value=dat_c['ciudad']) if e_ciu_sel == "Otra..." else e_ciu_sel
-                            e_bar = st.text_input("Barrio", value=dat_c['barrio'] if dat_c['barrio'] else "")
-                            e_dir = st.text_input("Dirección", value=dat_c['direccion'] if dat_c['direccion'] else "")
-                            e_emp = st.text_input("Trabajo / Empresa", value=dat_c['empresa'] if dat_c['empresa'] else "")
                             
                             if st.form_submit_button("Actualizar Datos en DB", width='stretch'):
                                 try:
