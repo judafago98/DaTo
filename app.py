@@ -339,13 +339,14 @@ try:
                 """, unsafe_allow_html=True)
                 
                 st.markdown("#### 🧾 Historial de tus pagos")
-                cursor.execute("SELECT fecha_pago, monto_recibido FROM Pagos WHERE id_credito = %s ORDER BY fecha_pago DESC", (cred['id_credito'],))
+                # Agregamos 'tipo_pago' a la consulta para mostrar el detalle exacto
+                cursor.execute("SELECT fecha_pago, tipo_pago, monto_recibido FROM Pagos WHERE id_credito = %s ORDER BY fecha_pago DESC", (cred['id_credito'],))
                 pagos = cursor.fetchall()
                 if pagos:
                     df_p = pd.DataFrame(pagos)
-                    df_p.columns = ['Fecha del Pago', 'Valor Abonado']
+                    df_p.columns = ['Fecha del Pago', 'Detalle del Movimiento', 'Valor Abonado']
                     df_p['Valor Abonado'] = df_p['Valor Abonado'].apply(fmt_cop)
-                    st.dataframe(df_p, width='stretch')
+                    st.dataframe(df_p, width='stretch', hide_index=True)
                 else: st.info("Aún no tienes pagos registrados en este contrato.")
 
         if st.button("Cerrar Sesión", type="primary"):
@@ -1173,16 +1174,23 @@ try:
                 
                 if sel_cli:
                     dat = opc_n[sel_cli]
-                    cursor.execute("SELECT SUM(capital_abonado) as cap, MAX(monto_recibido) as last_val, MAX(fecha_pago) as last_date FROM Pagos WHERE id_credito = %s", (dat['id_credito'],))
+                    
+                    # Calcular el capital pagado excluyendo los ingresos iniciales
+                    cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado')", (dat['id_credito'],))
                     res_pag = cursor.fetchone()
                     cap_pag = float(res_pag['cap']) if res_pag and res_pag['cap'] else 0
-                    last_val = float(res_pag['last_val']) if res_pag and res_pag['last_val'] else 0
-                    last_date = res_pag['last_date'] if res_pag and res_pag['last_date'] else None
+                    
+                    # Buscar explícitamente el último pago real del cliente ordenado por fecha
+                    cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado') ORDER BY fecha_pago DESC LIMIT 1", (dat['id_credito'],))
+                    last_pago = cursor.fetchone()
+                    last_val = float(last_pago['monto_recibido']) if last_pago else 0
+                    last_date = last_pago['fecha_pago'] if last_pago else None
 
                     s_act = float(dat['monto_financiado']) - cap_pag
                     paz_y_salvo = s_act + (s_act * float(dat['tasa_interes_mensual']))
                     
-                    msg = f"¡Hola {dat['nombre_completo']}! Te saludamos de DaTo.\n\nEste es el estado de cuenta de tu crédito:\n💵 *Cuota Mensual:* {fmt_cop(dat['valor_cuota'])}\n📉 *Saldo Pendiente:* {fmt_cop(s_act)}\n💳 *Último Pago Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar la totalidad hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nRecuerda que tu fecha límite de pago es el día {str(dat['fecha_primera_cuota'].day)} de cada mes."
+                    # Mensaje estructurado sin el "Saldo Pendiente"
+                    msg = f"¡Hola {dat['nombre_completo']}! Te saludamos de DaTo.\n\nEste es el estado de cuenta de tu crédito:\n💵 *Cuota Mensual:* {fmt_cop(dat['valor_cuota'])}\n💳 *Último Pago Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar la totalidad hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nRecuerda que tu fecha límite de pago es el día {str(dat['fecha_primera_cuota'].day)} de cada mes."
                     
                     c1, c2 = st.columns([1, 1])
                     with c1: st.text_area("Copia este mensaje y envíalo por WhatsApp", value=msg, height=350)
