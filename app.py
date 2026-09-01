@@ -1208,4 +1208,4 @@ try:
     if 'cursor' in locals() and cursor: cursor.close()
     if 'conn' in locals() and conn and conn.is_connected(): conn.close()
 except Exception:
-    pass        
+    pass
