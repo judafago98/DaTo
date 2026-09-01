@@ -235,7 +235,7 @@ try:
     pool = get_connection_pool()
     conn = pool.get_connection()
     cursor = conn.cursor(dictionary=True, buffered=True)
-    auto_fix_db(cursor, conn) # Habilitado temporalmente para asegurar la memoria histórica
+    #auto_fix_db(cursor, conn) # Habilitado temporalmente para asegurar la memoria histórica
 except Exception as e:
     st.error(f"🌐 Servidor de base de datos inalcanzable. Detalle: {e}")
     st.stop()
