@@ -857,9 +857,20 @@ try:
                         st.success(f"✅ Se aplicará un abono automático de {fmt_cop(val_retoma)} por esta retoma.")
                     
                     st.markdown("#### Tiempos del Crédito", unsafe_allow_html=True)
+                    
+                    # Función para forzar el cálculo dinámico en la memoria de Streamlit
+                    def actualizar_fecha_cuota():
+                        st.session_state["ventas_f_cuota"] = sumar_meses_exactos(st.session_state["ventas_f_vta"], 1)
+                    
+                    # Cargar el valor por defecto si es la primera vez que se abre la pestaña
+                    if "ventas_f_cuota" not in st.session_state:
+                        st.session_state["ventas_f_cuota"] = sumar_meses_exactos(datetime.date.today(), 1)
+
                     c_f1, c_f2 = st.columns(2)
-                    with c_f1: fecha_venta = st.date_input("Fecha de Venta", value=datetime.date.today(), key="ventas_f_vta")
-                    with c_f2: f_cuota = st.date_input("Fecha de la Primera Cuota", value=sumar_meses_exactos(fecha_venta, 1), key="ventas_f_cuota")
+                    with c_f1: 
+                        fecha_venta = st.date_input("Fecha de Venta", value=datetime.date.today(), key="ventas_f_vta", on_change=actualizar_fecha_cuota)
+                    with c_f2: 
+                        f_cuota = st.date_input("Fecha de la Primera Cuota", key="ventas_f_cuota")
 
                     c3, c4 = st.columns(2)
                     c_pers, c_fija = [], 0
