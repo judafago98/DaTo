@@ -539,24 +539,48 @@ try:
                 with c1: cat_sel = st.selectbox("Categoría", list(CATALOGO.keys()), index=None, placeholder="Seleccione Categoría...")
                 
                 if cat_sel:
-                    with c2: marca_sel = st.selectbox("Marca", list(CATALOGO[cat_sel].keys()), index=None, placeholder="Seleccione Marca...")
+                    cat_clean = cat_sel.split(" ", 1)[1] if " " in cat_sel else cat_sel
+                    
+                    # 1. Marcas dinámicas cruzando BD + Catálogo
+                    cursor.execute("SELECT DISTINCT marca FROM Inventario WHERE categoria = %s", (cat_clean,))
+                    marcas_db = [m['marca'] for m in cursor.fetchall() if m['marca']]
+                    marcas_base = list(CATALOGO[cat_sel].keys())
+                    if "Otra Marca..." in marcas_base: marcas_base.remove("Otra Marca...")
+                    todas_marcas = sorted(list(set(marcas_base + marcas_db))) + ["Otra Marca..."]
+                    
+                    with c2: marca_sel = st.selectbox("Marca", todas_marcas, index=None, placeholder="Seleccione Marca...")
+                    
                     if marca_sel:
                         c3, c4 = st.columns(2)
                         with c3:
+                            # 2. Modelos dinámicos cruzando BD + Catálogo
+                            marcas_catalogo = list(CATALOGO[cat_sel].keys())
+                            modelos_base = CATALOGO[cat_sel][marca_sel] if marca_sel in marcas_catalogo else []
+                            if "Otro..." in modelos_base: modelos_base.remove("Otro...")
+                            if "Escribir manual..." in modelos_base: modelos_base.remove("Escribir manual...")
+                            
+                            cursor.execute("SELECT DISTINCT modelo FROM Inventario WHERE categoria = %s AND marca = %s", (cat_clean, marca_sel))
+                            modelos_db = [m['modelo'] for m in cursor.fetchall() if m['modelo']]
+                            
+                            todos_modelos = sorted(list(set(modelos_base + modelos_db))) + ["Otro..."]
+                            
                             marca_fin = st.text_input("Ingresar Marca Manual:") if marca_sel == "Otra Marca..." else marca_sel
-                            mod = st.selectbox("Modelo", CATALOGO[cat_sel][marca_sel], index=None, placeholder="Seleccione Modelo...")
+                            mod = st.selectbox("Modelo", todos_modelos, index=None, placeholder="Seleccione Modelo...")
+                            
                             mod_fin = ""
                             if mod: 
                                 mod_fin = st.text_input("Ingresar Modelo Manual:") if mod in ["Otro...", "Escribir manual..."] else mod
+                        
                         with c4:
                             cap_fin = ""
-                            if mod:
+                            # Solo se pide capacidad si el modelo es "Otro..." (los de la BD ya la traen incluida)
+                            if mod and mod in ["Otro...", "Escribir manual..."]:
                                 opc_cap = CAPACIDADES_PC if "Cómputo" in cat_sel or "💻" in cat_sel else (CAPACIDADES_ELECTRO if "Electrodomesticos" in cat_sel or "📺" in cat_sel else CAPACIDADES_MOVILES)
                                 cap = st.selectbox("Capacidad", opc_cap, index=None, placeholder="Seleccione Capacidad...")
                                 if cap: 
                                     cap_fin = "" if cap == "No Aplica" else (st.text_input("Capacidad Manual:") if cap == "Escribir manual..." else cap)
 
-                        if mod_fin:
+                        if mod:
                             with st.form("f_inv"):
                                 st.markdown("#### Datos de la Compra / Ingreso")
                                 l1, l2, l3, l4 = st.columns(4)
@@ -584,10 +608,12 @@ try:
                                 if st.form_submit_button("Guardar en Inventario", width='stretch') and bolsa:
                                     dat_b = opc_bolsas[bolsa]
                                     costo_total = costo * cantidad
-                                    if costo_total > float(dat_b['saldo_actual']): st.error("Ese bolsillo de inversión no tiene suficiente dinero para pagar esta mercancía.")
+                                    if costo_total > float(dat_b['saldo_actual']): 
+                                        st.error("Ese bolsillo de inversión no tiene suficiente dinero para pagar esta mercancía.")
                                     else:
-                                        cat_clean = cat_sel.split(" ", 1)[1] if " " in cat_sel else cat_sel
-                                        modelo_final = f"{mod_fin} {cap_fin}".strip()
+                                        # Determinamos si usamos el modelo cruzado de la BD o el ingresado a mano
+                                        modelo_final = f"{mod_fin} {cap_fin}".strip() if mod in ["Otro...", "Escribir manual..."] else mod
+                                        
                                         for _ in range(cantidad):
                                             imei_final = imei_in.strip() if (cantidad == 1 and imei_in.strip()) else f"SYS-{str(uuid.uuid4())[:8].upper()}"
                                             cursor.execute("""
