@@ -69,9 +69,6 @@ st.set_page_config(page_title="DaTo | Tecnología con Respaldo", layout="wide", 
 # ==========================================
 # 🎨 UI CORPORATIVA Y LIMPIA
 # ==========================================
-# ==========================================
-# 🎨 UI CORPORATIVA (ERP PREMIUM)
-# ==========================================
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
@@ -154,7 +151,7 @@ def renderizar_logo(es_sidebar=False):
     st.markdown(f"<div style='display: flex; justify-content: center; align-items: center; padding: 20px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);'><div>{img_html}</div></div>", unsafe_allow_html=True)
 
 # ==========================================
-# 🛡️ ALGORITMOS FINANCIEROS
+# 🛡️ ALGORITMOS FINANCIEROS Y TRADUCTOR
 # ==========================================
 def fmt_cop(val):
     try: val_int = int(float(val))
@@ -167,6 +164,9 @@ def fmt_cop(val):
     elif len(parts) == 4: res = f"{parts[0]}.{parts[1]}'{parts[2]}.{parts[3]}"
     else: res = s.replace(',', '.')
     return f"-${res}" if is_neg else f"${res}"
+
+def render_traductor(val):
+    st.markdown(f"<div style='text-align: left; color: #0052D4; font-weight: 600; font-size: 13px; margin-top: -12px; margin-bottom: 15px;'><i class='material-icons' style='font-size: 13px; vertical-align: middle;'>payments</i> Traducción: <b>{fmt_cop(val)}</b></div>", unsafe_allow_html=True)
 
 def color_estado(val):
     if val in ['Pagado', 'Pagada', 'Completado']: return 'background-color: #ECFDF5; color: #047857; font-weight: 600;'
@@ -271,10 +271,7 @@ lista_cuentas = cursor.fetchall()
 opc_cuentas = {c['nombre_cuenta']: c['id_cuenta'] for c in lista_cuentas}
 
 # ==========================================
-# LOGIN DUAL
-# ==========================================
-# ==========================================
-# 🔐 LOGIN DUAL (UI REDISEÑADA)
+# 🔐 LOGIN DUAL
 # ==========================================
 try:
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
@@ -283,7 +280,6 @@ try:
     if 'rol' not in st.session_state: st.session_state['rol'] = None
 
     if not st.session_state['logeado']:
-        # Centrado perfecto para pantallas anchas
         _, col_centro, _ = st.columns([1.5, 2.5, 1.5], gap="large")
         
         with col_centro:
@@ -448,9 +444,9 @@ try:
                 col_s1, col_s2 = st.columns(2)
                 with col_s1:
                     sim_precio = st.number_input("Valor del Producto ($)", min_value=0, step=10000, value=0)
-                    st.markdown(f"<div style='text-align: right; color: #0052D4; font-weight: 600; font-size: 13px; margin-top: -10px; margin-bottom: 15px;'>{fmt_cop(sim_precio)}</div>", unsafe_allow_html=True)
+                    render_traductor(sim_precio)
                     sim_abono = st.number_input("Abono Inicial ($)", min_value=0, step=10000, value=0)
-                    st.markdown(f"<div style='text-align: right; color: #0052D4; font-weight: 600; font-size: 13px; margin-top: -10px;'>{fmt_cop(sim_abono)}</div>", unsafe_allow_html=True)
+                    render_traductor(sim_abono)
                 with col_s2:
                     sim_plazo = st.number_input("Meses a Financiar", min_value=1, max_value=72, step=1, value=6)
                     if not modo_cliente:
@@ -493,7 +489,6 @@ try:
 
         elif menu_seleccionado == "inventario":
             st.markdown("<h2>Gestión de Inventario 📦</h2>", unsafe_allow_html=True)
-            # Reemplaza la línea de los tabs por esta:
             tab_inv1, tab_inv2, tab_inv3, tab_inv4 = st.tabs(["📦 Equipos Disponibles", "📥 Ingresar Nuevos", "📜 Historial de Ventas", "📈 Analítica de Rotación"])
             
             with tab_inv1:
@@ -525,7 +520,6 @@ try:
                     df_inventario['Costo Unidad'] = df_inventario['Costo Unidad'].apply(fmt_cop)
                     df_inventario['Precio Sugerido'] = df_inventario['Precio Sugerido'].apply(lambda x: fmt_cop(x) if x else 'N/A')
                     
-                    # Colores automáticos según el estado del equipo
                     def color_condicion(val):
                         if val == 'Nuevo': return 'color: #059669; font-weight: 600;'
                         if val == 'Retoma': return 'color: #D97706; font-weight: 600;'
@@ -564,7 +558,7 @@ try:
 
                         if mod_fin:
                             with st.form("f_inv"):
-                                st.markdown("#### Datos de la Compra")
+                                st.markdown("#### Datos de la Compra / Ingreso")
                                 l1, l2, l3, l4 = st.columns(4)
                                 cantidad = l1.number_input("Cantidad a Ingresar", min_value=1, value=1)
                                 color = l2.text_input("Color")
@@ -573,15 +567,19 @@ try:
                                 
                                 st.markdown("#### Proveedor")
                                 p1, p2, p3, p4 = st.columns(4)
-                                proveedor = p1.text_input("Tienda / Proveedor")
-                                nit = p2.text_input("NIT Proveedor")
-                                cel_prov = p3.text_input("Celular Proveedor")
+                                proveedor = p1.text_input("Tienda / Proveedor / Cliente Retoma")
+                                nit = p2.text_input("NIT Proveedor / C.C. Cliente")
+                                cel_prov = p3.text_input("Celular")
                                 factura = p4.text_input("Factura de Compra")
 
                                 c5, c6, c7 = st.columns(3)
                                 with c5: bolsa = st.selectbox("¿Con la plata de quién se compró?", options=list(opc_bolsas.keys()), index=None)
-                                with c6: costo = st.number_input("Costo de Compra (Por 1 Unidad)", min_value=0, step=10000, value=0)
-                                with c7: precio_venta = st.number_input("Precio Sugerido Venta", min_value=0, step=10000, value=0)
+                                with c6: 
+                                    costo = st.number_input("Costo de Compra o Valor Retoma (Por 1 Unidad)", min_value=0, step=10000, value=0)
+                                    render_traductor(costo)
+                                with c7: 
+                                    precio_venta = st.number_input("Precio Sugerido Venta", min_value=0, step=10000, value=0)
+                                    render_traductor(precio_venta)
 
                                 if st.form_submit_button("Guardar en Inventario", width='stretch') and bolsa:
                                     dat_b = opc_bolsas[bolsa]
@@ -616,7 +614,6 @@ try:
                 st.markdown("<br><h4 style='color:#0052D4;'>📊 Rendimiento del Inventario por Categoría</h4>", unsafe_allow_html=True)
                 st.write("Conoce qué líneas de producto dejan mayor margen y dónde tienes el capital detenido.")
                 
-                # Consulta analítica cruzada (Disponibles vs Vendidos)
                 cursor.execute("""
                     SELECT 
                         categoria AS Categoría,
@@ -631,7 +628,6 @@ try:
                 df_analitica = pd.DataFrame(cursor.fetchall())
                 
                 if not df_analitica.empty:
-                    # Formateo monetario para la tabla
                     df_analitica['Capital Detenido ($) Formateado'] = df_analitica['Capital Detenido ($)'].apply(fmt_cop)
                     df_analitica['Ingreso Potencial Formateado'] = df_analitica['Ingreso Potencial Generado ($)'].apply(fmt_cop)
                     
@@ -641,14 +637,13 @@ try:
                     
                     with c_a2:
                         st.markdown("**Concentración de Inversión**")
-                        # Gráfico rápido de dónde está la plata usando la data cruda
                         st.bar_chart(df_analitica.set_index('Categoría')['Capital Detenido ($)'])
                 else:
                     st.info("No hay suficientes datos procesados para generar el análisis. Carga inventario y registra ventas.")
+
         elif menu_seleccionado == "clientes":
             st.markdown("<h2>Directorio de Clientes 👥</h2>", unsafe_allow_html=True)
             
-            # 1. CONSULTA GLOBAL: Traemos todos los clientes ANTES de las pestañas
             cursor.execute("""
                 SELECT 
                     c.id_cliente, c.documento, c.nombre_completo, c.telefono, c.fecha_registro,
@@ -677,10 +672,9 @@ try:
                         options=list(opc_cli_buscar.keys()), 
                         index=None, 
                         placeholder="Haz clic aquí y escribe para buscar...",
-                        key="buscador_vista_general" # Clave única obligatoria
+                        key="buscador_vista_general"
                     )
 
-                    # Preparar el DataFrame maestro
                     df_todos = pd.DataFrame(clientes_db)
                     df_todos['ltv'] = df_todos['ltv'].apply(float).apply(fmt_cop)
                     df_todos['Estado Crédito'] = df_todos['activos'].apply(lambda x: "🟢 Con Deuda Activa" if x > 0 else "⚪ Sin Créditos")
@@ -741,7 +735,6 @@ try:
                         else:
                             st.info("El cliente no ha realizado abonos o pagos en el sistema todavía.")
                             
-                        # FILTRO SEGURO: Convertimos a string para evitar choques con pandas
                         df_mostrar = df_todos[df_todos['Cédula'].astype(str) == str(c['documento'])]
                         
                     else:
@@ -795,7 +788,7 @@ try:
                         list(opc_edit_cli.keys()), 
                         index=None, 
                         placeholder="Buscar cliente a editar...",
-                        key="buscador_vista_edicion" # Clave única obligatoria
+                        key="buscador_vista_edicion"
                     )
                     
                     if cli_a_editar:
@@ -851,66 +844,6 @@ try:
                         for eq in equipos_sel: st.markdown(f"<span style='color: #0369A1;'>- ✅ {eq}</span>", unsafe_allow_html=True)
                         st.markdown("</div>", unsafe_allow_html=True)
                     
-                    st.markdown("#### 🔄 Configuración de Retoma (Trade-In)", unsafe_allow_html=True)
-                    retoma_activa = st.toggle("El cliente entrega equipo como parte de pago")
-                    
-                    val_retoma, imei_retoma, cat_f, marca_f, mod_f, color_retoma = 0, "", "", "", "", "S/C"
-                    
-                    if retoma_activa:
-                        st.markdown("<div style='background: #FFFBEB; border-left: 4px solid #F59E0B; padding: 15px; border-radius: 8px; margin-bottom: 20px;'>", unsafe_allow_html=True)
-                        r1, r2, r3 = st.columns(3)
-                        cat_retoma = r1.selectbox("Categoría Retoma", list(CATALOGO.keys()))
-                        marca_retoma, mod_retoma = "", ""
-                        
-                        if cat_retoma:
-                            cat_clean = cat_retoma.split(" ", 1)[1] if " " in cat_retoma else cat_retoma
-                            
-                            # 1. Traer marcas dinámicas de la Base de Datos + Catálogo
-                            cursor.execute("SELECT DISTINCT marca FROM Inventario WHERE categoria = %s", (cat_clean,))
-                            marcas_db = [m['marca'] for m in cursor.fetchall() if m['marca']]
-                            marcas_base = list(CATALOGO[cat_retoma].keys())
-                            if "Otra Marca..." in marcas_base: marcas_base.remove("Otra Marca...")
-                            todas_marcas = sorted(list(set(marcas_base + marcas_db))) + ["Otra Marca..."]
-                            
-                            marca_retoma = r2.selectbox("Marca Retoma", todas_marcas)
-                            
-                            if marca_retoma: 
-                                # 2. Traer modelos dinámicos de la Base de Datos + Catálogo
-                                marcas_catalogo = list(CATALOGO[cat_retoma].keys())
-                                modelos_base = CATALOGO[cat_retoma][marca_retoma] if marca_retoma in marcas_catalogo else []
-                                if "Otro..." in modelos_base: modelos_base.remove("Otro...")
-                                if "Escribir manual..." in modelos_base: modelos_base.remove("Escribir manual...")
-                                
-                                cursor.execute("SELECT DISTINCT modelo FROM Inventario WHERE categoria = %s AND marca = %s", (cat_clean, marca_retoma))
-                                modelos_db = [m['modelo'] for m in cursor.fetchall() if m['modelo']]
-                                
-                                todos_modelos = sorted(list(set(modelos_base + modelos_db))) + ["Otro..."]
-                                mod_retoma = r3.selectbox("Modelo Retoma", todos_modelos)
-                        
-                        r_m1, r_m2, r_m3 = st.columns(3)
-                        marca_man = r_m1.text_input("Ingresar Marca Manual:") if marca_retoma == "Otra Marca..." else marca_retoma
-                        mod_man = r_m2.text_input("Ingresar Modelo Manual:") if mod_retoma in ["Otro...", "Escribir manual..."] else mod_retoma
-                                
-                        cap_retoma, cap_fin = "", ""
-                        # Solo pedimos capacidad extra si es un modelo "Otro..." (los de la BD ya la traen incluida)
-                        if mod_man and mod_retoma in ["Otro...", "Escribir manual..."]:
-                            opc_cap = CAPACIDADES_PC if "Cómputo" in cat_retoma or "💻" in cat_retoma else (CAPACIDADES_ELECTRO if "Electrodomesticos" in cat_retoma or "📺" in cat_retoma else CAPACIDADES_MOVILES)
-                            cap_retoma = r_m3.selectbox("Capacidad Retoma", opc_cap, index=None)
-                            if cap_retoma: 
-                                cap_fin = "" if cap_retoma == "No Aplica" else (r_m3.text_input("Capacidad Manual:") if cap_retoma == "Escribir manual..." else cap_retoma)
-
-                        r4, r5, r6 = st.columns(3)
-                        color_retoma = r4.text_input("Color del equipo usado")
-                        imei_retoma = r5.text_input("IMEI (Déjalo vacío para auto-generar)")
-                        val_retoma = r6.number_input("Valor tasado (Abono por Retoma) ($)", min_value=0, step=10000, value=0)
-                        st.markdown("</div>", unsafe_allow_html=True)
-                        
-                        if cat_retoma and marca_man and mod_man:
-                            cat_f = cat_clean
-                            marca_f = marca_man
-                            # Si es un modelo dinámico que ya existe, no le pegamos la capacidad doble
-                            mod_f = mod_man if mod_retoma not in ["Otro...", "Escribir manual..."] else f"{mod_man} {cap_fin}".strip()
-
                     st.markdown("#### Tiempos del Crédito", unsafe_allow_html=True)
                     c_f1, c_f2 = st.columns(2)
                     with c_f1: fecha_venta = st.date_input("Fecha de Venta", value=datetime.date.today())
@@ -918,20 +851,22 @@ try:
 
                     c3, c4 = st.columns(2)
                     c_pers, c_fija = [], 0
-                    p_final, ab_init, abono_efectivo, plazo, tasa, comis = 0, 0, 0, 0, 0.0, 0
+                    p_final, ab_init, plazo, tasa, comis = 0, 0, 0, 0.0, 0
                     vendedor_existente, nuevo_vendedor = None, None
                     
                     if "Financiado" in tipo_v:
                         with c3:
                             p_final = st.number_input("Valor Total Factura ($)", min_value=0, value=0, step=10000)
-                            abono_efectivo = st.number_input("Abono Inicial en Efectivo/Bancos ($)", min_value=0, value=0, step=10000)
-                            ab_init = abono_efectivo + val_retoma
-                            st.markdown(f"<p style='color: #059669; font-weight: 600; font-size: 14px;'>Total Abono Reconocido: {fmt_cop(ab_init)}</p>", unsafe_allow_html=True)
+                            render_traductor(p_final)
+                            ab_init = st.number_input("Abono Inicial Entregado (Efectivo/Transferencia) ($)", min_value=0, value=0, step=10000)
+                            render_traductor(ab_init)
                             plazo = st.number_input("Meses a Pagar", min_value=1, value=6)
                         with c4:
                             st.write("Datos del Asesor")
                             cx1, cx2 = st.columns([1,2])
-                            with cx1: comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
+                            with cx1: 
+                                comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
+                                render_traductor(comis)
                             with cx2: 
                                 vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
                                 nuevo_vendedor = st.text_input("O crear nuevo:")
@@ -958,14 +893,16 @@ try:
                     elif "Separé" in tipo_v:
                         with c3:
                             p_final = st.number_input("Valor Total a Pagar ($)", min_value=0, value=0, step=10000)
-                            abono_efectivo = st.number_input("Abono Inicial (Para separar) ($)", min_value=0, value=0, step=10000)
-                            ab_init = abono_efectivo + val_retoma
-                            st.markdown(f"<p style='color: #059669; font-weight: 600; font-size: 14px;'>Total Abono Reconocido: {fmt_cop(ab_init)}</p>", unsafe_allow_html=True)
+                            render_traductor(p_final)
+                            ab_init = st.number_input("Abono Inicial (Para separar) ($)", min_value=0, value=0, step=10000)
+                            render_traductor(ab_init)
                             plazo = st.number_input("Número de Cuotas", min_value=1, value=2)
                         with c4:
                             st.write("Datos del Asesor")
                             cx1, cx2 = st.columns([1,2])
-                            with cx1: comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
+                            with cx1: 
+                                comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
+                                render_traductor(comis)
                             with cx2: 
                                 vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
                                 nuevo_vendedor = st.text_input("O crear nuevo:")
@@ -980,10 +917,11 @@ try:
                             c_pers.append((idx+1, v_c, f_c))
                     else:
                         p_final = st.number_input("Valor Total Pagado de Contado ($)", min_value=0, value=0, step=10000)
+                        render_traductor(p_final)
                         vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
                         nuevo_vendedor = st.text_input("O crear nuevo:")
                         comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
-                        abono_efectivo = p_final - val_retoma
+                        render_traductor(comis)
                         ab_init, plazo, tasa = p_final, 0, 0.0
 
                     st.divider()
@@ -1000,8 +938,6 @@ try:
                         if not equipos_sel: st.error("Debes seleccionar mínimo un equipo para vender.")
                         elif p_final <= 0: st.error("El valor de la factura debe ser mayor a cero.")
                         elif cuenta_sel == "➕ Añadir nueva cuenta..." and not nueva_cuenta: st.error("Escribe el nombre de la nueva cuenta bancaria.")
-                        elif retoma_activa and val_retoma <= 0: st.error("Ingresa el valor tasado de la retoma.")
-                        elif retoma_activa and not mod_f: st.error("Especifica el modelo del equipo de retoma.")
                         else:
                             vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..." else None)
                             if comis > 0 and not vendedor_final: st.error("Asigna un vendedor para pagarle su comisión.")
@@ -1037,28 +973,11 @@ try:
                                     if "Separé" in tipo_v:
                                         for n_c, v_c, f_c in c_pers: cursor.execute("INSERT INTO Cuotas_Programadas (id_credito, numero_cuota, monto_esperado, fecha_vencimiento) VALUES (%s, %s, %s, %s)", (id_cr, n_c, v_c, f_c.strftime('%Y-%m-%d')))
                                     
-                                    if ("Contado" not in tipo_v and ab_init > 0) or "Contado" in tipo_v: 
-                                        dinero_efectivo = abono_efectivo if "Contado" not in tipo_v else (p_final - val_retoma)
+                                    if ab_init > 0: 
+                                        motivo_in = 'Pago Contado' if "Contado" in tipo_v else 'Abono Inicial'
+                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (ab_init,))
+                                        cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, 0, %s, %s, %s, %s)", (id_cr, ab_init, motivo_in, ab_init, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, motivo_in))
                                         
-                                        if dinero_efectivo > 0:
-                                            motivo_in = 'Pago Contado' if "Contado" in tipo_v else 'Abono Inicial'
-                                            cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (dinero_efectivo,))
-                                            cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, 0, %s, %s, %s, %s)", (id_cr, dinero_efectivo, motivo_in, dinero_efectivo, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, motivo_in))
-                                        
-                                        if retoma_activa and val_retoma > 0:
-                                            cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, 'Pago en Especie / Retoma', %s, 0, %s, %s, %s, 'Ingreso Retoma Bodega')", (id_cr, val_retoma, val_retoma, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final))
-                                            
-                                            # Generación de IMEI y asignación de Color predeterminado si viene vacío
-                                            imei_final_retoma = imei_retoma.strip() if imei_retoma.strip() else f"SYS-{str(uuid.uuid4())[:8].upper()}"
-                                            color_final_retoma = color_retoma.strip() if color_retoma.strip() else "S/C"
-                                            
-                                            cursor.execute("SELECT id_bolsa FROM Bolsas_Capital ORDER BY id_bolsa ASC LIMIT 1")
-                                            bolsa_base = cursor.fetchone()['id_bolsa']
-                                            cursor.execute("""
-                                                INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, fecha_compra, color) 
-                                                VALUES (%s, %s, %s, %s, 'Retoma', %s, %s, 0, 'Disponible', %s, 1, %s, %s)
-                                            """, (imei_final_retoma, cat_f, marca_f, mod_f, bolsa_base, val_retoma, st.session_state['id_usuario'], fecha_venta.strftime('%Y-%m-%d'), color_final_retoma))
-                                            
                                     if comis > 0 and vendedor_final:
                                         cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, vendedor, id_credito, id_usuario_registro, tipo_gasto) VALUES (%s, %s, %s, 'Por Pagar', %s, %s, %s, 'Gasto Operativo')", (f"Comisión Venta - {vendedor_final} (Cliente: {cliente_sel.split(' - ')[1]})", comis, datetime.date.today(), vendedor_final, id_cr, st.session_state['id_usuario']))
                                         
@@ -1102,7 +1021,9 @@ try:
                     st.markdown("<h3 style='color:#0052D4; margin-top:20px;'>📥 Recibir Dinero</h3>", unsafe_allow_html=True)
                     with st.form("f_pago"):
                         x1, x2 = st.columns(2)
-                        with x1: monto = st.number_input("Dinero Recibido del Cliente ($)", value=v_cuota_bd, min_value=0, step=10000)
+                        with x1: 
+                            monto = st.number_input("Dinero Recibido del Cliente ($)", value=v_cuota_bd, min_value=0, step=10000)
+                            render_traductor(monto)
                         with x2: fecha_pago_efectiva = st.date_input("Fecha en que entregó el dinero", value=None)
                         
                         y1, y2 = st.columns(2)
@@ -1291,9 +1212,11 @@ try:
                             inv_sel = st.selectbox("Seleccione el equipo", list(opc_inv.keys()), index=None)
                             if st.form_submit_button("Eliminar y Devolver Dinero a Caja", width='stretch') and inv_sel:
                                 dat_i = opc_inv[inv_sel]
-                                if float(dat_i['costo_adquisicion']) > 0: cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s WHERE id_bolsa = %s", (dat_i['costo_adquisicion'], dat_i['id_bolsa']))
+                                if float(dat_i['costo_adquisicion']) > 0: 
+                                    cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s WHERE id_bolsa = %s", (dat_i['costo_adquisicion'], dat_i['id_bolsa']))
                                 cursor.execute("DELETE FROM Inventario WHERE imei = %s", (dat_i['imei'],))
-                                conn.commit(); st.toast("Equipo eliminado."); time.sleep(1.5); st.rerun()
+                                conn.commit()
+                                st.toast(f"Equipo eliminado y {fmt_cop(dat_i['costo_adquisicion'])} devueltos a caja."); time.sleep(2); st.rerun()
                     else: st.info("Bodega vacía.")
 
         elif menu_seleccionado == "egresos":
@@ -1329,6 +1252,7 @@ try:
                     tipo_g = st.selectbox("Categoría de la Salida de Dinero", ["Gasto Operativo (Luz, Arriendo, Papelería)", "Pago a Proveedor de Mercancía", "Aporte a Cadena / Fondo Fijo"])
                     desc = st.text_input("Detalle (Ej: Pago Arriendo Mes Agosto / Cadena Grupo 2)")
                     m_g = st.number_input("Valor Extraído de la Caja Global ($)", min_value=0, step=10000, value=0)
+                    render_traductor(m_g)
                     if st.form_submit_button("Registrar Salida", width='stretch'):
                         if desc and m_g > 0:
                             cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, id_usuario_registro, tipo_gasto) VALUES (%s, %s, %s, 'Pagado', %s, %s)", (desc, m_g, datetime.date.today(), st.session_state['id_usuario'], tipo_g))
@@ -1364,7 +1288,9 @@ try:
                 with st.form("f_f_in"):
                     prov = st.text_input("Nombre del Socio / Inversor (Ej: Fondo Suárez)")
                     iny = st.number_input("Dinero Invertido (Entra a Caja Global) ($)", min_value=0, step=100000, value=0)
+                    render_traductor(iny)
                     ret = st.number_input("Dinero Total a Devolver (Capital + Ganancia) ($)", min_value=0, step=100000, value=0)
+                    render_traductor(ret)
                     
                     st.markdown("#### Radar DIAN (Origen de la transferencia)")
                     c1, c2 = st.columns(2)
@@ -1378,9 +1304,7 @@ try:
                                 id_c_f = cursor.lastrowid
                             else: id_c_f = opc_cuentas[cta_inv]
 
-                            # Crear la deuda
                             cursor.execute("INSERT INTO Deudas_Fondeo (prestamista, monto_prestado, monto_total_pagar, saldo_pendiente, fecha_prestamo, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, %s, %s, %s, 'Incremento inversión')", (prov, iny, ret, ret, datetime.date.today(), st.session_state['id_usuario'], id_c_f))
-                            # Crear el bolsillo virtual para luego comprar inventario
                             cursor.execute("INSERT INTO Bolsas_Capital (nombre_bolsa, saldo_actual, fecha_creacion) VALUES (%s, %s, CURDATE())", (prov, iny))
                             
                             conn.commit(); st.toast("Plata sumada a la caja global y bolsillo creado."); time.sleep(2); st.rerun()
@@ -1394,6 +1318,7 @@ try:
                     with st.form("f_d_out"):
                         d_sel = st.selectbox("Seleccionar Socio", list(opc_d.keys()), index=None)
                         ab = st.number_input("Dinero a entregar (Se resta de la Caja Global) ($)", min_value=0, step=100000, value=0)
+                        render_traductor(ab)
                         if st.form_submit_button("Registrar Pago a Socio", width='stretch') and d_sel:
                             id_d = opc_d[d_sel]['id_deuda']
                             cursor.execute("INSERT INTO Pagos_Deuda (id_deuda, monto_pagado, fecha_pago, id_usuario_registro) VALUES (%s, %s, %s, %s)", (id_d, ab, datetime.date.today(), st.session_state['id_usuario']))
@@ -1421,19 +1346,16 @@ try:
             cursor.execute("SELECT SUM(capital_abonado) as ca FROM Pagos p JOIN Creditos c ON p.id_credito = c.id_credito WHERE c.estado = 'Activo'")
             cartera_recaudada = float(cursor.fetchone()['ca'] or 0)
             
-            # Traer el valor de los activos físicos
             cursor.execute("SELECT SUM(costo_adquisicion * cantidad) as inv FROM Inventario WHERE estado = 'Disponible'")
             inventario_bodega = float(cursor.fetchone()['inv'] or 0)
             
             cartera_neta_calle = cartera_colocada - cartera_recaudada
             
-            # EL PATRIMONIO REAL AHORA INCLUYE LA BODEGA
             patrimonio_neto = cap + cartera_neta_calle + inventario_bodega - deuda
             
             with tab_bi:
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # Storytelling Financiero: Explicar qué significa el patrimonio
                 porcentaje_calle = (cartera_neta_calle / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
                 porcentaje_bodega = (inventario_bodega / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
                 porcentaje_caja = (cap / patrimonio_neto * 100) if patrimonio_neto > 0 else 0
@@ -1449,13 +1371,11 @@ try:
                 </div>
                 """, unsafe_allow_html=True)
                 
-                # Desglose Visual Rápido
                 c_m1, c_m2, c_m3 = st.columns(3)
                 c_m1.metric("💳 Capital Rotando (Créditos)", fmt_cop(cartera_neta_calle))
                 c_m2.metric("📦 Capital Detenido (Bodega)", fmt_cop(inventario_bodega))
                 c_m3.metric("💰 Liquidez Inmediata (Caja)", fmt_cop(cap))
                 
-                # Alertas Financieras Rápidas
                 recup_perc = (cartera_recaudada / cartera_colocada * 100) if cartera_colocada > 0 else 0
                 st.markdown(f"""
                 <div style="display: flex; gap: 20px; margin-top: 20px;">
