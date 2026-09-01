@@ -254,7 +254,7 @@ try:
     conn = pool.get_connection()
     cursor = conn.cursor(dictionary=True, buffered=True)
     if 'db_fixed_ok' not in st.session_state:
-        auto_fix_db(cursor, conn)
+        #auto_fix_db(cursor, conn)
         st.session_state['db_fixed_ok'] = True
 
     # Cargar Cuentas Bancarias Dinámicas
