@@ -648,10 +648,11 @@ try:
             with tab_ver:
                 st.markdown("<br>", unsafe_allow_html=True)
                 
-                # Súper Query unificada para traer toda la info de una vez (Rápido y eficiente)
+                # 1. Query expandido para traer todos los campos
                 cursor.execute("""
                     SELECT 
-                        c.id_cliente, c.documento, c.nombre_completo, c.telefono, c.ciudad, c.fecha_registro,
+                        c.id_cliente, c.documento, c.nombre_completo, c.telefono, c.fecha_registro,
+                        c.direccion, c.barrio, c.ciudad, c.correo, c.empresa,
                         (SELECT COUNT(id_credito) FROM Creditos WHERE id_cliente = c.id_cliente AND estado = 'Activo') as activos,
                         (SELECT IFNULL(SUM(monto_recibido), 0) FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito WHERE cr.id_cliente = c.id_cliente) as ltv
                     FROM Clientes c
@@ -662,7 +663,6 @@ try:
                 if not clientes_db:
                     st.info("No hay clientes registrados en el sistema.")
                 else:
-                    # --- 1. BUSCADOR INTELIGENTE ---
                     st.markdown("<h4 style='color:#0052D4; margin-bottom: 5px;'>🔍 Buscador de Hojas de Vida</h4>", unsafe_allow_html=True)
                     
                     opc_cli_buscar = {f"{c['documento']} - {c['nombre_completo']}": c for c in clientes_db}
@@ -673,12 +673,47 @@ try:
                         index=0, 
                         format_func=lambda x: "Escribe aquí para buscar..." if x == "" else x
                     )
+
+                    # 2. Preparar el DataFrame maestro con todos los campos
+                    df_todos = pd.DataFrame(clientes_db)
+                    df_todos['ltv'] = df_todos['ltv'].apply(float).apply(fmt_cop)
                     
+                    # Cambio de nomenclatura para evitar confusiones de estado
+                    df_todos['Estado Crédito'] = df_todos['activos'].apply(lambda x: "🟢 Con Deuda Activa" if x > 0 else "⚪ Sin Créditos")
+                    
+                    # Limpiar visualmente los '0' que subieron desde Excel
+                    for col in ['telefono', 'ciudad', 'direccion', 'barrio', 'correo', 'empresa']:
+                        df_todos[col] = df_todos[col].replace('0', 'N/A')
+                        
+                    # Renombrar para la visualización en tabla
+                    df_todos.rename(columns={
+                        'id_cliente': 'ID',
+                        'documento': 'Cédula',
+                        'nombre_completo': 'Nombre',
+                        'telefono': 'Teléfono',
+                        'fecha_registro': 'Registro',
+                        'direccion': 'Dirección',
+                        'barrio': 'Barrio',
+                        'ciudad': 'Ciudad',
+                        'correo': 'Correo',
+                        'empresa': 'Empresa',
+                        'ltv': 'LTV (Ingresos)'
+                    }, inplace=True)
+                    
+                    columnas_ordenadas = ['ID', 'Cédula', 'Nombre', 'Teléfono', 'Estado Crédito', 'Ciudad', 'Dirección', 'Barrio', 'Correo', 'Empresa', 'LTV (Ingresos)', 'Registro']
+
+                    # 3. Lógica de Filtrado y Renderizado
                     if cliente_seleccionado != "":
-                        # --- HOJA DE VIDA INDIVIDUAL ---
                         c = opc_cli_buscar[cliente_seleccionado]
-                        estado_ui = "🟢 Con Créditos Activos" if c['activos'] > 0 else "⚪ A Paz y Salvo"
+                        estado_ui = "🟢 Con Deuda Activa" if c['activos'] > 0 else "⚪ Sin Créditos"
                         ltv = float(c['ltv'])
+                        
+                        # Limpiar visualmente para la tarjeta
+                        tel_ui = c['telefono'] if c['telefono'] != '0' else 'N/A'
+                        ciu_ui = c['ciudad'] if c['ciudad'] != '0' else 'N/A'
+                        dir_ui = c['direccion'] if c['direccion'] != '0' else 'N/A'
+                        bar_ui = c['barrio'] if c['barrio'] != '0' else 'N/A'
+                        cor_ui = c['correo'] if c['correo'] != '0' else 'N/A'
                         
                         st.markdown(f"""
                         <div style='background: #FFFFFF; border: 1px solid #0052D4; border-radius: 12px; padding: 25px; box-shadow: 0 10px 25px rgba(0,82,212,0.1); margin-top: 10px;'>
@@ -688,12 +723,12 @@ try:
                             
                             <div style='display:flex; justify-content:space-between; margin-bottom:15px; margin-top:25px; flex-wrap:wrap; gap:15px;'>
                                 <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
-                                    <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Cliente desde</p>
-                                    <h4 style='margin:0; color:#1E293B; margin-top:5px;'>{c['fecha_registro']}</h4>
+                                    <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Contacto y Ubicación</p>
+                                    <h4 style='margin:0; color:#1E293B; margin-top:5px; font-size:14px;'>📞 {tel_ui} | 📧 {cor_ui}<br>📍 {dir_ui} ({bar_ui}), {ciu_ui}</h4>
                                 </div>
                                 <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
-                                    <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Teléfono / Ciudad</p>
-                                    <h4 style='margin:0; color:#1E293B; margin-top:5px;'>{c['telefono'] if c['telefono'] != '0' else 'Sin registro'} <span style='color:#94A3B8;'>|</span> {c['ciudad'] if c['ciudad'] != '0' else 'Sin ciudad'}</h4>
+                                    <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Cliente desde</p>
+                                    <h4 style='margin:0; color:#1E293B; margin-top:5px; font-size:14px;'>📅 {c['fecha_registro']}</h4>
                                 </div>
                                 <div style='background:#E0F2FE; padding:15px; border-radius:8px; flex:1; border: 1px solid #BAE6FD; min-width:150px;'>
                                     <p style='color:#0369A1; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Valor Histórico (LTV)</p>
@@ -715,31 +750,23 @@ try:
                         else:
                             st.info("El cliente no ha realizado abonos o pagos en el sistema todavía.")
                             
+                        # Filtrar la tabla de abajo para que muestre solo al cliente seleccionado
+                        df_mostrar = df_todos[df_todos['Cédula'] == c['documento']]
+                        
                     else:
-                        # --- 2. VISTA GENERAL (TABLA MASIVA) ---
-                        st.markdown("<hr style='margin: 30px 0; border-color: #E2E8F0;'>", unsafe_allow_html=True)
-                        st.markdown("#### 📋 Directorio General")
-                        st.caption(f"Total registrados: {len(clientes_db)} clientes. Puedes hacer clic en los encabezados para ordenar.")
-                        
-                        df_todos = pd.DataFrame(clientes_db)
-                        df_todos['ltv'] = df_todos['ltv'].apply(float).apply(fmt_cop)
-                        df_todos['Estado'] = df_todos['activos'].apply(lambda x: "🟢 Activo" if x > 0 else "⚪ Inactivo")
-                        df_todos['ciudad'] = df_todos['ciudad'].replace('0', 'N/A')
-                        df_todos['telefono'] = df_todos['telefono'].replace('0', 'N/A')
-                        
-                        df_todos.rename(columns={
-                            'documento': 'Cédula',
-                            'nombre_completo': 'Nombre',
-                            'telefono': 'Teléfono',
-                            'ciudad': 'Ciudad',
-                            'ltv': 'LTV (Dinero Ingresado)'
-                        }, inplace=True)
-                        
-                        st.dataframe(
-                            df_todos[['Cédula', 'Nombre', 'Teléfono', 'Ciudad', 'Estado', 'LTV (Dinero Ingresado)']],
-                            width='stretch',
-                            hide_index=True
-                        )
+                        # Si no hay nadie seleccionado, mostramos todos
+                        df_mostrar = df_todos
+
+                    # 4. Renderizado de la Tabla Principal
+                    st.markdown("<hr style='margin: 30px 0; border-color: #E2E8F0;'>", unsafe_allow_html=True)
+                    st.markdown("#### 📋 Directorio General de Clientes")
+                    
+                    if cliente_seleccionado != "":
+                        st.caption("Mostrando registro filtrado.")
+                    else:
+                        st.caption(f"Total registrados: {len(df_mostrar)} clientes. Puedes hacer clic en los encabezados para ordenar.")
+                    
+                    st.dataframe(df_mostrar[columnas_ordenadas], width='stretch', hide_index=True)
 
             with tab_nuevo:
                 with st.form("f_cli"):
