@@ -1428,7 +1428,9 @@ try:
                     df_p = pd.DataFrame(pends)
                     df_p['Valor a Pagar'] = df_p['monto'].apply(fmt_cop)
                     st.dataframe(df_p[['descripcion', 'vendedor', 'Valor a Pagar']], width='stretch')
-                    with st.form("f_com", clear_on_submit=True):
+                    
+                    # Nombre único para evitar choques
+                    with st.form("f_comisiones_unicas", clear_on_submit=True):
                         sel = st.selectbox("Seleccionar Comisión para Liquidar", list({f"{x['descripcion']} -> {fmt_cop(x['monto'])}": x['id_gasto'] for x in pends}.keys()), index=None)
                         fecha_pago_comision = st.date_input("Fecha en que se pagó la comisión", value=datetime.date.today())
                         
@@ -1443,6 +1445,44 @@ try:
                             if id_credito: cursor.execute("UPDATE Creditos SET estado_comision = 'Pagada', fecha_pago_comision = %s WHERE id_credito = %s", (fecha_pago_comision.strftime('%Y-%m-%d'), id_credito))
                             conn.commit(); st.toast("Comisión liquidada."); time.sleep(1.5); st.rerun()
                 else: st.info("No hay comisiones pendientes de pago.")
+                
+            with tab_gas:
+                st.markdown("<br>", unsafe_allow_html=True)
+                
+                # Nombre único para evitar choques
+                with st.form("f_gastos_unicos", clear_on_submit=True):
+                    tipo_g = st.selectbox("Categoría de la Salida de Dinero", ["Gasto Operativo (Luz, Arriendo, Papelería)", "Pago a Proveedor de Mercancía", "Aporte a Cadena / Fondo Fijo"])
+                    desc = st.text_input("Detalle (Ej: Pago Arriendo Mes Agosto / Cadena Grupo 2)")
+                    m_g = st.number_input("Valor Extraído de la Caja Global ($)", min_value=0, step=10000, value=0)
+                    render_traductor(m_g)
+                    fecha_gasto_ext = st.date_input("Fecha de Salida del Dinero", value=datetime.date.today())
+                    
+                    if st.form_submit_button("Registrar Salida", width='stretch'):
+                        if desc and m_g > 0:
+                            cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, id_usuario_registro, tipo_gasto) VALUES (%s, %s, %s, 'Pagado', %s, %s)", (desc, m_g, fecha_gasto_ext.strftime('%Y-%m-%d'), st.session_state['id_usuario'], tipo_g))
+                            cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (m_g,))
+                            conn.commit(); st.toast("Salida de dinero registrada."); time.sleep(1); st.rerun()
+
+            with tab_hist:
+                st.markdown("<br>#### 📜 Historial de Comisiones Pagadas", unsafe_allow_html=True)
+                cursor.execute("SELECT fecha_gasto as 'Fecha de Pago', vendedor as 'Asesor', descripcion as 'Detalle del Cliente', monto as 'Comisión Pagada' FROM Gastos_Operativos WHERE estado_pago = 'Pagado' AND descripcion LIKE '%Comisión%' ORDER BY fecha_gasto DESC")
+                hist_com = cursor.fetchall()
+                if hist_com:
+                    df_hc = pd.DataFrame(hist_com)
+                    df_hc['Comisión Pagada'] = df_hc['Comisión Pagada'].apply(fmt_cop)
+                    st.dataframe(df_hc, width='stretch', hide_index=True)
+                else:
+                    st.info("No hay historial de comisiones pagadas.")
+                    
+                st.markdown("<br>#### 🧾 Historial de Otros Gastos y Proveedores", unsafe_allow_html=True)
+                cursor.execute("SELECT fecha_gasto as 'Fecha', tipo_gasto as 'Categoría', descripcion as 'Detalle', monto as 'Valor Extraído' FROM Gastos_Operativos WHERE estado_pago = 'Pagado' AND descripcion NOT LIKE '%Comisión%' ORDER BY fecha_gasto DESC")
+                hist_gas = cursor.fetchall()
+                if hist_gas:
+                    df_hg = pd.DataFrame(hist_gas)
+                    df_hg['Valor Extraído'] = df_hg['Valor Extraído'].apply(fmt_cop)
+                    st.dataframe(df_hg, width='stretch', hide_index=True)
+                else:
+                    st.info("No hay historial de gastos registrados.")
                 
             with tab_gas:
                 st.markdown("<br>", unsafe_allow_html=True)
