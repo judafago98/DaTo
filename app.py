@@ -236,22 +236,27 @@ CIUDADES_COLOMBIA = ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena"
 
 # --- CONEXIÓN BLINDADA POR POOL ---
 # Aumentamos el pool_size a 32 para evitar el error "Pool Exhausted" en ráfagas de clics.
-@st.cache_resource
-def get_connection_pool():
-    return pooling.MySQLConnectionPool(
-        pool_name="dato_pool", pool_size=32, pool_reset_session=True,
-        host="gateway01.us-east-1.prod.aws.tidbcloud.com", port=4000,
-        user="2xRKoKTDAr4tRLF.root", password="7KGQVtKygobgy311",
-        database="sistema_creditos", ssl_verify_cert=False,
-        autocommit=True, connection_timeout=15, use_pure=True
+# --- CONEXIÓN DIRECTA Y FRESCA (SIN POOL) ---
+# Evita que TiDB cierre conexiones inactivas y tumbe la app.
+def get_database_connection():
+    return mysql.connector.connect(
+        host="gateway01.us-east-1.prod.aws.tidbcloud.com",
+        port=4000,
+        user="2xRKoKTDAr4tRLF.root",
+        password="7KGQVtKygobgy311",
+        database="sistema_creditos",
+        ssl_verify_cert=False,
+        autocommit=True,
+        connection_timeout=10
     )
 
 conn = None
 cursor = None
 
 try:
-    pool = get_connection_pool()
-    conn = pool.get_connection()
+    conn = get_database_connection()
+    # Este ping revive la conexión automáticamente si se llega a caer a medio camino
+    conn.ping(reconnect=True, attempts=3, delay=1) 
     cursor = conn.cursor(dictionary=True, buffered=True)
     if 'db_fixed_ok' not in st.session_state:
         #auto_fix_db(cursor, conn)
