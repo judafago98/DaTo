@@ -16,36 +16,27 @@ def auto_fix_db(cursor, conn):
     try: cursor.execute("ALTER TABLE Pagos MODIFY COLUMN tipo_pago VARCHAR(255)"); conn.commit()
     except Exception: pass
     
-    # Agregar columnas a Clientes UNA POR UNA para evitar fallos silenciosos
-    cols_clientes = [
-        "ADD COLUMN direccion VARCHAR(255)", "ADD COLUMN barrio VARCHAR(255)", 
-        "ADD COLUMN ciudad VARCHAR(255)", "ADD COLUMN correo VARCHAR(255)", "ADD COLUMN empresa VARCHAR(255)"
-    ]
+    cols_clientes = ["ADD COLUMN direccion VARCHAR(255)", "ADD COLUMN barrio VARCHAR(255)", "ADD COLUMN ciudad VARCHAR(255)", "ADD COLUMN correo VARCHAR(255)", "ADD COLUMN empresa VARCHAR(255)"]
     for c in cols_clientes:
         try: cursor.execute(f"ALTER TABLE Clientes {c}"); conn.commit()
         except Exception: pass
     
-    # Agregar columnas a Inventario UNA POR UNA
-    cols_inv = [
-        "ADD COLUMN cantidad INT DEFAULT 1", "ADD COLUMN color VARCHAR(100)", 
-        "ADD COLUMN fecha_compra DATE", "ADD COLUMN factura VARCHAR(100)", 
-        "ADD COLUMN tienda_proveedor VARCHAR(255)", "ADD COLUMN nit_proveedor VARCHAR(100)", 
-        "ADD COLUMN celular_proveedor VARCHAR(100)"
-    ]
+    cols_inv = ["ADD COLUMN cantidad INT DEFAULT 1", "ADD COLUMN color VARCHAR(100)", "ADD COLUMN fecha_compra DATE", "ADD COLUMN factura VARCHAR(100)", "ADD COLUMN tienda_proveedor VARCHAR(255)", "ADD COLUMN nit_proveedor VARCHAR(100)", "ADD COLUMN celular_proveedor VARCHAR(100)"]
     for c in cols_inv:
         try: cursor.execute(f"ALTER TABLE Inventario {c}"); conn.commit()
         except Exception: pass
     
-    # Agregar columnas a Gastos UNA POR UNA
-    cols_gastos = [
-        "ADD COLUMN estado_pago VARCHAR(50) DEFAULT 'Pagado'", 
-        "ADD COLUMN vendedor VARCHAR(255)", "ADD COLUMN id_credito INT"
-    ]
+    cols_gastos = ["ADD COLUMN estado_pago VARCHAR(50) DEFAULT 'Pagado'", "ADD COLUMN vendedor VARCHAR(255)", "ADD COLUMN id_credito INT"]
     for c in cols_gastos:
         try: cursor.execute(f"ALTER TABLE Gastos_Operativos {c}"); conn.commit()
         except Exception: pass
 
-    # Tablas Adicionales
+    # --- REPARACIÓN DE CRÉDITOS PARA COMISIONES ---
+    cols_creditos = ["ADD COLUMN valor_comision DECIMAL(15,2) DEFAULT 0", "ADD COLUMN asesor_comision VARCHAR(255)", "ADD COLUMN estado_comision VARCHAR(50) DEFAULT 'No Aplica'", "ADD COLUMN fecha_pago_comision DATE"]
+    for c in cols_creditos:
+        try: cursor.execute(f"ALTER TABLE Creditos {c}"); conn.commit()
+        except Exception: pass
+
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Vendedores (id_vendedor INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(255) UNIQUE)"); conn.commit()
     except Exception: pass
     try: cursor.execute("CREATE TABLE IF NOT EXISTS Creditos_Items (id INT AUTO_INCREMENT PRIMARY KEY, id_credito INT, imei VARCHAR(100))"); conn.commit()
@@ -55,59 +46,60 @@ def auto_fix_db(cursor, conn):
 st.set_page_config(page_title="DaTo | Tecnología con Respaldo", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
 # ==========================================
-# 🎨 UI CORPORATIVA (TEMA BLANCO, CERO ROJOS, LOGO2.PNG)
+# 🎨 UI CORPORATIVA (ADIÓS ROJO, TEMA IMPECABLE)
 # ==========================================
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
-        /* FORZAR TEMA CLARO ABSOLUTO */
         :root { color-scheme: light !important; }
         .stApp { background-color: #F8FAFC !important; background-image: none !important; }
 
-        /* TEXTOS A OSCURO CORPORATIVO */
         html, body, [class*="css"], p, span, div, label, li, td, th { font-family: 'Outfit', sans-serif !important; color: #1E293B !important; }
         h1, h2, h3, h4, h5, h6 { color: #0052D4 !important; font-weight: 700 !important; }
 
-        /* PROTEGER ÍCONOS DEL SISTEMA Y BOTÓN DE DESPLEGAR */
         span.material-symbols-rounded, .material-icons, [data-testid="collapsedControl"] * {
-            font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
+            font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important; color: #0052D4 !important;
         }
 
-        /* ELIMINAR EL ROJO DE STREAMLIT POR COMPLETO */
-        
-        /* Pestañas (Tabs) */
+        /* TABS Y PESTAÑAS */
         button[data-baseweb="tab"] { color: #64748B !important; background: transparent !important; }
         button[data-baseweb="tab"][aria-selected="true"] { color: #0052D4 !important; border-bottom-color: #0052D4 !important; }
         div[data-baseweb="tab-highlight"] { background-color: #0052D4 !important; display: none !important; }
         
-        /* Focus y Bordes Activos */
-        div[data-baseweb="input"]:focus-within, 
-        div[data-baseweb="select"]:focus-within,
-        textarea:focus { border-color: #0052D4 !important; box-shadow: 0 0 0 1.5px #0052D4 !important; }
+        /* MULTISELECT TAGS (ADIÓS ROJO) */
+        span[data-baseweb="tag"] {
+            background-color: #E0F2FE !important;
+            color: #0052D4 !important;
+            border: 1px solid #7DD3FC !important;
+            border-radius: 6px !important;
+        }
+        span[data-baseweb="tag"] span { color: #0052D4 !important; }
+        span[data-baseweb="tag"] svg { fill: #0052D4 !important; }
+        
+        /* INPUTS ACTIVOS */
+        div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within, textarea:focus { 
+            border-color: #0052D4 !important; box-shadow: 0 0 0 1.5px #0052D4 !important; 
+        }
 
-        /* Interruptores (Toggles) */
+        /* TOGGLES */
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div { background-color: #CBD5E1 !important; }
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div[aria-checked="true"] { background-color: #0052D4 !important; }
 
-        /* Botones Principales */
+        /* BOTONES MAESTROS */
         .stButton > button {
             background-color: #0052D4 !important; color: #FFFFFF !important; border: 1px solid #0052D4 !important;
             border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s; width: 100% !important;
         }
         .stButton > button:hover { background-color: #003366 !important; border-color: #003366 !important; transform: translateY(-1px); }
-        .stButton > button:active, .stButton > button:focus { border-color: #003366 !important; color: #FFFFFF !important; }
 
-        /* Botones Numéricos (+ / -) */
         [data-testid="stNumberInput"] button { background-color: #F1F5F9 !important; border: 1px solid #CBD5E1 !important; color: #0052D4 !important; border-radius: 6px !important; }
 
-        /* CONTENEDORES BLANCOS */
         div[data-testid="stForm"], .card-panel, [data-testid="stSidebar"] {
             background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important;
             border-radius: 12px !important; box-shadow: 0 2px 10px rgba(0,0,0,0.02) !important;
         }
 
-        /* INPUTS BASE */
         input, textarea, select, div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
             background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; border-radius: 8px !important; color: #0F172A !important;
         }
@@ -128,30 +120,18 @@ st.markdown("""
 
 def get_base64_image(image_path):
     if os.path.exists(image_path):
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
+        with open(image_path, "rb") as img_file: return base64.b64encode(img_file.read()).decode()
     return None
 
 def renderizar_logo(es_sidebar=False):
     b64_img = get_base64_image("logo2.png")
-    if not b64_img:
-        b64_img = get_base64_image("logo.png")
-        
+    if not b64_img: b64_img = get_base64_image("logo.png")
     width = "180px" if es_sidebar else "300px"
-    
-    if b64_img:
-        img_html = f'<img src="data:image/png;base64,{b64_img}" style="max-width: {width}; height: auto; display: block; margin: 0 auto;">'
-    else:
-        img_html = f"<h1 style='color: #0052D4; font-weight: 800; text-align: center; margin: 0;'>⚡ DaTo</h1><p style='text-align: center; color: #64748B; margin: 0;'>Tecnología con respaldo</p>"
-        
-    st.markdown(f"""
-    <div style='display: flex; justify-content: center; align-items: center; padding: 20px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);'>
-        <div>{img_html}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    img_html = f'<img src="data:image/png;base64,{b64_img}" style="max-width: {width}; height: auto; display: block; margin: 0 auto;">' if b64_img else f"<h1 style='color: #0052D4; font-weight: 800; text-align: center; margin: 0;'>⚡ DaTo</h1><p style='text-align: center; color: #64748B; margin: 0;'>Tecnología con respaldo</p>"
+    st.markdown(f"<div style='display: flex; justify-content: center; align-items: center; padding: 20px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);'><div>{img_html}</div></div>", unsafe_allow_html=True)
 
 # ==========================================
-# 🛡️ ALGORITMOS DE FORMATO Y COLORES
+# 🛡️ ALGORITMOS FINANCIEROS
 # ==========================================
 def fmt_cop(val):
     try: val_int = int(float(val))
@@ -239,7 +219,6 @@ CAPACIDADES_MOVILES = ["64GB", "128GB", "256GB", "512GB", "1TB", "Otra..."]
 CAPACIDADES_PC = ["8GB RAM / 256GB SSD", "16GB RAM / 512GB SSD", "16GB RAM / 1TB SSD", "32GB RAM / 1TB SSD", "Otra..."]
 CAPACIDADES_ELECTRO = ["No Aplica", "32 Pulgadas", "50 Pulgadas", "65 Pulgadas", "Escribir manual..."]
 
-# Base de datos de ciudades para estandarizar
 CIUDADES_COLOMBIA = ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga", "Cúcuta", "Pereira", "Santa Marta", "Ibagué", "Pasto", "Manizales", "Neiva", "Villavicencio", "Armenia", "Valledupar", "Montería", "Sincelejo", "Popayán", "Tunja", "Riohacha", "Florencia", "Quibdó", "Arauca", "Yopal", "Leticia", "San Andrés", "Otra..."]
 
 # --- CONEXIÓN BLINDADA POR POOL ---
@@ -263,7 +242,7 @@ except Exception as e:
     st.stop()
 
 # ==========================================
-# LOGIN DUAL (Portal Clientes Primero)
+# LOGIN DUAL
 # ==========================================
 try:
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
@@ -277,7 +256,6 @@ try:
         
         with col_centro:
             renderizar_logo(es_sidebar=False)
-            # AHORA EL PORTAL DE CLIENTES ES EL PRIMER TAB
             tab_cliente, tab_admin = st.tabs(["👤 Portal Clientes", "💼 Equipo DaTo"])
 
             with tab_cliente:
@@ -394,8 +372,7 @@ try:
             """, unsafe_allow_html=True)
             
             menu_map = {"🏠 Panel Principal": "inicio"} 
-            if es_admin:
-                menu_map.update(MODULOS_TOTALES)
+            if es_admin: menu_map.update(MODULOS_TOTALES)
             else:
                 cursor.execute("SELECT m.nombre_interno FROM Modulos_Sistema m JOIN Permisos_Rol p ON m.id_modulo = p.id_modulo JOIN Roles r ON p.id_role = r.id_role WHERE r.nombre_rol = %s", (st.session_state['rol'],))
                 for m in cursor.fetchall(): 
@@ -406,8 +383,7 @@ try:
             menu_seleccionado = menu_map[menu_seleccionado_texto]
             
             st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-            if st.sidebar.button("Cerrar Sesión", width='stretch'):
-                st.session_state['logeado'] = False; st.rerun()
+            if st.sidebar.button("Cerrar Sesión", width='stretch'): st.session_state['logeado'] = False; st.rerun()
 
         if menu_seleccionado == "inicio":
             st.markdown("<div style='height: 4vh;'></div>", unsafe_allow_html=True)
@@ -437,13 +413,11 @@ try:
                     st.markdown(f"<div style='text-align: right; color: #0052D4; font-weight: 600; font-size: 13px; margin-top: -10px;'>{fmt_cop(sim_abono)}</div>", unsafe_allow_html=True)
                 with col_s2:
                     sim_plazo = st.number_input("Meses a Financiar", min_value=1, max_value=72, step=1, value=6)
-                    
                     if not modo_cliente:
                         idx_tasa = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0].index(st.session_state['tasa_simulador']) if st.session_state['tasa_simulador'] in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0] else 3
                         sim_tasa = st.selectbox("Tasa de Interés Mensual (%)", [0.0, 1.0, 2.0, 3.0, 4.0, 5.0], index=idx_tasa)
                         st.session_state['tasa_simulador'] = sim_tasa
-                    else:
-                        sim_tasa = st.session_state['tasa_simulador']
+                    else: sim_tasa = st.session_state['tasa_simulador']
                     
                 sim_capital = sim_precio - sim_abono
                 if sim_capital > 0:
@@ -475,9 +449,7 @@ try:
                             <p style="color:#64748B; font-size: 14px; margin:0;">Saldo a Capital ({fmt_cop(saldo_capital)}) + Interés de este Mes ({fmt_cop(interes_mes)})</p>
                         </div>
                         """, unsafe_allow_html=True)
-                        
-                        df_plan = generar_plan_pagos_real(datos_paz['id_credito'], cursor)
-                        st.dataframe(df_plan.style.map(color_estado_cuota, subset=['Estado Actual']), width='stretch')
+                        st.dataframe(generar_plan_pagos_real(datos_paz['id_credito'], cursor).style.map(color_estado_cuota, subset=['Estado Actual']), width='stretch')
 
         elif menu_seleccionado == "inventario":
             st.markdown("<h2>Gestión de Inventario 📦</h2>", unsafe_allow_html=True)
@@ -537,12 +509,9 @@ try:
                                 factura = p4.text_input("Factura de Compra")
 
                                 c5, c6, c7 = st.columns(3)
-                                with c5:
-                                    bolsa = st.selectbox("¿De qué caja salió la plata?", options=list(opc_bolsas.keys()), index=None)
-                                with c6:
-                                    costo = st.number_input("Costo de Compra (Por 1 Unidad)", min_value=0, step=10000, value=0)
-                                with c7:
-                                    precio_venta = st.number_input("Precio Sugerido Venta", min_value=0, step=10000, value=0)
+                                with c5: bolsa = st.selectbox("¿De qué caja salió la plata?", options=list(opc_bolsas.keys()), index=None)
+                                with c6: costo = st.number_input("Costo de Compra (Por 1 Unidad)", min_value=0, step=10000, value=0)
+                                with c7: precio_venta = st.number_input("Precio Sugerido Venta", min_value=0, step=10000, value=0)
 
                                 if st.form_submit_button("Guardar en Inventario", width='stretch') and bolsa:
                                     dat_b = opc_bolsas[bolsa]
@@ -556,7 +525,6 @@ try:
                                                 INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
                                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
                                             """, (imei_final, cat_sel.split(" ")[1] if " " in cat_sel else cat_sel, marca_fin, f"{mod_fin} {cap_fin}".strip(), cond, dat_b['id_bolsa'], costo, precio_venta, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
-                                        
                                         cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
                                         conn.commit(); st.toast('Equipos agregados con éxito.'); time.sleep(1.5); st.rerun()
 
@@ -620,11 +588,9 @@ try:
                             e_nom = st.text_input("Nombre Completo", value=dat_c['nombre_completo'])
                             e_tel = st.text_input("Celular", value=dat_c['telefono'] if dat_c['telefono'] else "")
                             e_cor = st.text_input("Correo", value=dat_c['correo'] if dat_c['correo'] else "")
-                            
                             idx_c = CIUDADES_COLOMBIA.index(dat_c['ciudad']) if dat_c['ciudad'] in CIUDADES_COLOMBIA else len(CIUDADES_COLOMBIA)-1
                             e_ciu_sel = st.selectbox("Ciudad", CIUDADES_COLOMBIA, index=idx_c)
                             e_ciu = st.text_input("Especifique la ciudad", value=dat_c['ciudad']) if e_ciu_sel == "Otra..." else e_ciu_sel
-                            
                             e_bar = st.text_input("Barrio", value=dat_c['barrio'] if dat_c['barrio'] else "")
                             e_dir = st.text_input("Dirección", value=dat_c['direccion'] if dat_c['direccion'] else "")
                             e_emp = st.text_input("Trabajo / Empresa", value=dat_c['empresa'] if dat_c['empresa'] else "")
@@ -632,13 +598,10 @@ try:
                             if st.form_submit_button("Actualizar Datos en DB", width='stretch'):
                                 try:
                                     cursor.execute("""
-                                        UPDATE Clientes 
-                                        SET documento=%s, nombre_completo=%s, telefono=%s, correo=%s, ciudad=%s, barrio=%s, direccion=%s, empresa=%s 
-                                        WHERE id_cliente=%s
+                                        UPDATE Clientes SET documento=%s, nombre_completo=%s, telefono=%s, correo=%s, ciudad=%s, barrio=%s, direccion=%s, empresa=%s WHERE id_cliente=%s
                                     """, (e_doc, e_nom, e_tel, e_cor, e_ciu, e_bar, e_dir, e_emp, dat_c['id_cliente']))
                                     conn.commit(); st.toast("Datos del cliente actualizados."); time.sleep(1); st.rerun()
-                                except mysql.connector.Error: 
-                                    st.error("Error: Esa cédula ya está registrada a nombre de otro cliente.")
+                                except mysql.connector.Error: st.error("Error: Esa cédula ya está registrada a nombre de otro cliente.")
                 else: st.info("No hay clientes creados.")
             
             st.divider()
@@ -655,10 +618,12 @@ try:
             cursor.execute("SELECT nombre FROM Vendedores")
             vendedores = [v['nombre'] for v in cursor.fetchall()]
             
-            if not clientes: st.warning("⚠️ No hay clientes creados. Ve al Directorio de Clientes primero.")
-            if not inventario: st.warning("⚠️ No hay equipos disponibles en bodega. Ingresa stock primero.")
-            
-            if clientes and inventario:
+            # --- Alertas Intuitivas Gigantes (No te dejan seguir si hay un problema) ---
+            if not clientes: 
+                st.error("⚠️ **ALERTA:** No tienes ningún cliente registrado en el sistema. Para realizar una venta, primero ve al menú lateral 'Directorio de Clientes' y crea uno.")
+            elif not inventario: 
+                st.error("⚠️ **ALERTA:** La bodega está completamente vacía (No hay equipos disponibles). Ingresa inventario en el menú lateral 'Gestión de Inventario' para poder vender.")
+            else:
                 opc_cli = {f"{c['documento']} - {c['nombre_completo']}": c['id_cliente'] for c in clientes}
                 opc_eq = {f"[{e['categoria']}] {e['marca']} {e['modelo']} (Cod: {e['imei']})": e['imei'] for e in inventario}
                 
@@ -666,103 +631,119 @@ try:
                 st.divider()
                 
                 if tipo_v:
-                    with st.form("f_venta"):
-                        cliente_sel = st.selectbox("Seleccionar Cliente", list(opc_cli.keys()))
-                        equipos_sel = st.multiselect("Selecciona uno o más equipos de la bodega:", list(opc_eq.keys()))
-                        
-                        st.markdown("#### Tiempos del Crédito")
-                        c_f1, c_f2 = st.columns(2)
-                        with c_f1: fecha_venta = st.date_input("Fecha de Venta", value=datetime.date.today())
-                        with c_f2: f_cuota = st.date_input("Fecha de la Primera Cuota", value=sumar_meses_exactos(fecha_venta, 1))
+                    # NOTA: Rompimos el bloque "st.form" a propósito aquí para que el simulador reaccione en VIVO al teclear.
+                    st.markdown("#### Selección de Cliente y Productos")
+                    cliente_sel = st.selectbox("Seleccionar Cliente", list(opc_cli.keys()))
+                    equipos_sel = st.multiselect("Selecciona uno o más equipos de la bodega:", list(opc_eq.keys()))
+                    
+                    st.markdown("<br>#### Tiempos del Crédito", unsafe_allow_html=True)
+                    c_f1, c_f2 = st.columns(2)
+                    with c_f1: fecha_venta = st.date_input("Fecha de Venta", value=datetime.date.today())
+                    with c_f2: f_cuota = st.date_input("Fecha de la Primera Cuota", value=sumar_meses_exactos(fecha_venta, 1))
 
-                        c3, c4 = st.columns(2)
-                        c_pers, c_fija = [], 0
+                    c3, c4 = st.columns(2)
+                    c_pers, c_fija = [], 0
+                    p_final, ab_init, plazo, tasa, comis = 0, 0, 0, 0.0, 0
+                    vendedor_existente, nuevo_vendedor = None, None
+                    
+                    if "Financiado" in tipo_v:
+                        with c3:
+                            p_final = st.number_input("Valor Total Factura ($)", min_value=0, value=0, step=10000)
+                            ab_init = st.number_input("Abono Inicial Entregado ($)", min_value=0, value=0, step=10000)
+                            plazo = st.number_input("Meses a Pagar", min_value=1, value=6)
+                        with c4:
+                            st.write("Datos del Asesor")
+                            cx1, cx2 = st.columns([1,2])
+                            with cx1: comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
+                            with cx2: 
+                                vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
+                                nuevo_vendedor = st.text_input("O crear nuevo:")
+                            tasa = st.selectbox("Tasa de Interés Mensual (%)", [0.0, 1.0, 2.0, 3.0, 4.0, 5.0], index=3)
                         
-                        if "Financiado" in tipo_v:
-                            with c3:
-                                p_final = st.number_input("Valor Total Factura ($)", min_value=0, value=0, step=10000)
-                                ab_init = st.number_input("Abono Inicial Entregado ($)", min_value=0, value=0, step=10000)
-                                plazo = st.number_input("Meses a Pagar", min_value=1, value=6)
-                            with c4:
-                                st.write("Datos del Asesor")
-                                cx1, cx2 = st.columns([1,2])
-                                with cx1: comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
-                                with cx2: 
-                                    vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
-                                    nuevo_vendedor = st.text_input("O crear nuevo:")
-                                tasa = st.selectbox("Tasa de Interés Mensual (%)", [0.0, 1.0, 2.0, 3.0, 4.0, 5.0], index=3)
+                        m_f = p_final - ab_init
+                        if m_f > 0 and plazo > 0:
+                            i_m = tasa / 100.0
+                            c_fija = int(round(m_f * (i_m * (1 + i_m)**plazo) / (((1 + i_m)**plazo) - 1))) if tasa > 0 else int(round(m_f / plazo))
                             
-                            m_f = p_final - ab_init
-                            if m_f > 0 and plazo > 0:
-                                i_m = tasa / 100.0
-                                c_fija = int(round(m_f * (i_m * (1 + i_m)**plazo) / (((1 + i_m)**plazo) - 1))) if tasa > 0 else int(round(m_f / plazo))
-                                st.info(f"🔹 **Cuota Mensual Exacta:** {fmt_cop(c_fija)}")
-                        
-                        elif "Separé" in tipo_v:
-                            with c3:
-                                p_final = st.number_input("Valor Total a Pagar ($)", min_value=0, value=0, step=10000)
-                                ab_init = st.number_input("Abono Inicial (Para separar) ($)", min_value=0, value=0, step=10000)
-                                plazo = st.number_input("Número de Cuotas", min_value=1, value=2)
-                            with c4:
-                                st.write("Datos del Asesor")
-                                cx1, cx2 = st.columns([1,2])
-                                with cx1: comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
-                                with cx2: 
-                                    vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
-                                    nuevo_vendedor = st.text_input("O crear nuevo:")
-                            tasa, s_dif, s_cuotas = 0.0, p_final - ab_init, 0
-                            st.write(f"Saldo pendiente a diferir: {fmt_cop(s_dif)}")
-                            for idx in range(plazo):
-                                x1, x2 = st.columns(2)
-                                with x1:
-                                    v_c = st.number_input(f"Valor Cuota {idx+1}", min_value=0, value=int(s_dif/plazo), step=10000, key=f"v_{idx}")
-                                    s_cuotas += v_c
-                                with x2: 
-                                    f_c = st.date_input(f"Fecha Límite Cuota {idx+1}", value=sumar_meses_exactos(f_cuota, idx), key=f"f_{idx}")
-                                c_pers.append((idx+1, v_c, f_c))
-                        else:
-                            p_final = st.number_input("Valor Total Pagado de Contado ($)", min_value=0, value=0, step=10000)
-                            vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
-                            nuevo_vendedor = st.text_input("O crear nuevo:")
-                            comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
-                            ab_init, plazo, tasa = p_final, 0, 0.0
+                            total_a_pagar = c_fija * plazo
+                            total_interes = total_a_pagar - m_f
+                            
+                            st.markdown(f"""
+                            <div style='background: #F0FDF4; border: 1px solid #10B981; border-radius: 12px; padding: 20px; margin-top: 20px;'>
+                                <h4 style='color: #047857; margin-top:0;'>📊 Proyección y Ganancia del Crédito</h4>
+                                <div style='display: flex; justify-content: space-between;'>
+                                    <div><p style='margin: 0; color: #065F46;'><b>Cuota Mensual Exacta:</b></p><h2 style='color:#10B981; margin:0;'>{fmt_cop(c_fija)}</h2></div>
+                                    <div><p style='margin: 0; color: #065F46;'><b>Interés Total a Ganar:</b></p><h2 style='color:#10B981; margin:0;'>{fmt_cop(total_interes)}</h2></div>
+                                    <div><p style='margin: 0; color: #065F46;'><b>Valor Final del Negocio:</b></p><h2 style='color:#10B981; margin:0;'>{fmt_cop(total_a_pagar + ab_init)}</h2></div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                    
+                    elif "Separé" in tipo_v:
+                        with c3:
+                            p_final = st.number_input("Valor Total a Pagar ($)", min_value=0, value=0, step=10000)
+                            ab_init = st.number_input("Abono Inicial (Para separar) ($)", min_value=0, value=0, step=10000)
+                            plazo = st.number_input("Número de Cuotas", min_value=1, value=2)
+                        with c4:
+                            st.write("Datos del Asesor")
+                            cx1, cx2 = st.columns([1,2])
+                            with cx1: comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
+                            with cx2: 
+                                vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
+                                nuevo_vendedor = st.text_input("O crear nuevo:")
+                        tasa, s_dif, s_cuotas = 0.0, p_final - ab_init, 0
+                        st.markdown(f"<p style='color: #0052D4; font-weight: bold;'>Saldo pendiente a diferir: {fmt_cop(s_dif)}</p>", unsafe_allow_html=True)
+                        for idx in range(plazo):
+                            x1, x2 = st.columns(2)
+                            with x1:
+                                v_c = st.number_input(f"Valor Cuota {idx+1}", min_value=0, value=int(s_dif/plazo), step=10000, key=f"v_{idx}")
+                                s_cuotas += v_c
+                            with x2: f_c = st.date_input(f"Fecha Límite Cuota {idx+1}", value=sumar_meses_exactos(f_cuota, idx), key=f"f_{idx}")
+                            c_pers.append((idx+1, v_c, f_c))
+                    else:
+                        p_final = st.number_input("Valor Total Pagado de Contado ($)", min_value=0, value=0, step=10000)
+                        vendedor_existente = st.selectbox("Vendedor", ["Seleccionar..."] + vendedores)
+                        nuevo_vendedor = st.text_input("O crear nuevo:")
+                        comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
+                        ab_init, plazo, tasa = p_final, 0, 0.0
 
-                        st.divider()
-                        if st.form_submit_button("Registrar Venta en Sistema", width='stretch'):
-                            if not equipos_sel: st.error("Debes seleccionar mínimo un equipo para vender.")
-                            elif p_final <= 0: st.error("El valor de la factura debe ser mayor a cero.")
+                    st.divider()
+                    if st.button("Registrar Venta en Sistema", type="primary", use_container_width=True):
+                        if not equipos_sel: st.error("Debes seleccionar mínimo un equipo para vender.")
+                        elif p_final <= 0: st.error("El valor de la factura debe ser mayor a cero.")
+                        else:
+                            vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..." else None)
+                            if comis > 0 and not vendedor_final: st.error("Asigna un vendedor para pagarle su comisión.")
+                            elif "Separé" in tipo_v and s_cuotas != (p_final - ab_init): st.error("Las cuotas no suman el total de la deuda.")
                             else:
-                                vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..." else None)
-                                if comis > 0 and not vendedor_final: st.error("Asigna un vendedor para pagarle su comisión.")
-                                elif "Separé" in tipo_v and s_cuotas != (p_final - ab_init): st.error("Las cuotas no suman el total de la deuda.")
-                                else:
-                                    if nuevo_vendedor:
-                                        try: cursor.execute("INSERT INTO Vendedores (nombre) VALUES (%s)", (nuevo_vendedor,))
-                                        except: pass
-                                        
-                                    m_f = p_final - ab_init if "Contado" not in tipo_v else 0
-                                    e_f = 'Activo' if "Contado" not in tipo_v else 'Pagado'
-                                    v_c_bd = c_fija if "Financiado" in tipo_v else (c_pers[0][1] if "Separé" in tipo_v else 0)
+                                if nuevo_vendedor:
+                                    try: cursor.execute("INSERT INTO Vendedores (nombre) VALUES (%s)", (nuevo_vendedor,))
+                                    except: pass
                                     
-                                    primer_imei = opc_eq[equipos_sel[0]]
-                                    cursor.execute("""INSERT INTO Creditos (id_cliente, imei, precio_venta, abono_inicial, monto_financiado, tasa_interes_mensual, plazo_meses, valor_cuota, estado, fecha_inicio, fecha_primera_cuota, valor_comision, asesor_comision, estado_comision, id_usuario_registro) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (opc_cli[cliente_sel], primer_imei, p_final, ab_init, m_f, tasa/100.0, plazo, v_c_bd, e_f, fecha_venta.strftime('%Y-%m-%d'), f_cuota.strftime('%Y-%m-%d'), comis, vendedor_final, 'Por Pagar' if comis > 0 else 'No Aplica', st.session_state['id_usuario']))
-                                    id_cr = cursor.lastrowid
+                                m_f = p_final - ab_init if "Contado" not in tipo_v else 0
+                                e_f = 'Activo' if "Contado" not in tipo_v else 'Pagado'
+                                v_c_bd = c_fija if "Financiado" in tipo_v else (c_pers[0][1] if "Separé" in tipo_v else 0)
+                                
+                                primer_imei = opc_eq[equipos_sel[0]]
+                                cursor.execute("""INSERT INTO Creditos (id_cliente, imei, precio_venta, abono_inicial, monto_financiado, tasa_interes_mensual, plazo_meses, valor_cuota, estado, fecha_inicio, fecha_primera_cuota, valor_comision, asesor_comision, estado_comision, id_usuario_registro) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (opc_cli[cliente_sel], primer_imei, p_final, ab_init, m_f, tasa/100.0, plazo, v_c_bd, e_f, fecha_venta.strftime('%Y-%m-%d'), f_cuota.strftime('%Y-%m-%d'), comis, vendedor_final, 'Por Pagar' if comis > 0 else 'No Aplica', st.session_state['id_usuario']))
+                                id_cr = cursor.lastrowid
+                                
+                                for eq in equipos_sel:
+                                    imei_eq = opc_eq[eq]
+                                    cursor.execute("INSERT INTO Creditos_Items (id_credito, imei) VALUES (%s, %s)", (id_cr, imei_eq))
+                                    cursor.execute("UPDATE Inventario SET estado = 'Vendido' WHERE imei = %s", (imei_eq,))
+                                
+                                if "Separé" in tipo_v:
+                                    for n_c, v_c, f_c in c_pers: cursor.execute("INSERT INTO Cuotas_Programadas (id_credito, numero_cuota, monto_esperado, fecha_vencimiento) VALUES (%s, %s, %s, %s)", (id_cr, n_c, v_c, f_c.strftime('%Y-%m-%d')))
+                                
+                                if ("Contado" not in tipo_v and ab_init > 0) or "Contado" in tipo_v: 
+                                    cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (ab_init if "Contado" not in tipo_v else p_final,))
                                     
-                                    for eq in equipos_sel:
-                                        imei_eq = opc_eq[eq]
-                                        cursor.execute("INSERT INTO Creditos_Items (id_credito, imei) VALUES (%s, %s)", (id_cr, imei_eq))
-                                        cursor.execute("UPDATE Inventario SET estado = 'Vendido' WHERE imei = %s", (imei_eq,))
+                                if comis > 0 and vendedor_final:
+                                    cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, vendedor, id_credito, id_usuario_registro) VALUES (%s, %s, %s, 'Por Pagar', %s, %s, %s)", (f"Comisión Venta - {vendedor_final} (Cliente: {cliente_sel.split(' - ')[1]})", comis, datetime.date.today(), vendedor_final, id_cr, st.session_state['id_usuario']))
                                     
-                                    if "Separé" in tipo_v:
-                                        for n_c, v_c, f_c in c_pers: cursor.execute("INSERT INTO Cuotas_Programadas (id_credito, numero_cuota, monto_esperado, fecha_vencimiento) VALUES (%s, %s, %s, %s)", (id_cr, n_c, v_c, f_c.strftime('%Y-%m-%d')))
-                                    
-                                    if ("Contado" not in tipo_v and ab_init > 0) or "Contado" in tipo_v: 
-                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (ab_init if "Contado" not in tipo_v else p_final,))
-                                        
-                                    if comis > 0 and vendedor_final:
-                                        cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, vendedor, id_credito, id_usuario_registro) VALUES (%s, %s, %s, 'Por Pagar', %s, %s, %s)", (f"Comisión Venta - {vendedor_final} (Cliente: {cliente_sel.split(' - ')[1]})", comis, datetime.date.today(), vendedor_final, id_cr, st.session_state['id_usuario']))
-                                        
-                                    conn.commit(); st.toast("Venta y contrato guardados exitosamente."); time.sleep(1.5); st.rerun()
+                                conn.commit(); st.toast("Venta y contrato guardados exitosamente."); time.sleep(1.5); st.rerun()
+
         elif menu_seleccionado == "pagos":
             st.markdown("<h2>Caja y Recaudos 💰</h2>", unsafe_allow_html=True)
             cursor.execute("SELECT c.id_credito, cl.nombre_completo, c.imei, c.monto_financiado, c.tasa_interes_mensual, c.valor_cuota, c.plazo_meses, i.marca, i.modelo FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei WHERE c.estado = 'Activo'")
@@ -1243,9 +1224,7 @@ try:
                             except Exception as e: st.error(f"Error: {e}")
 
 finally:
-    # === SEGURO ANTI-FUGAS DE MEMORIA ===
     try:
         if 'cursor' in locals() and cursor: cursor.close()
         if 'conn' in locals() and conn and conn.is_connected(): conn.close()
-    except Exception:
-        pass
+    except Exception: pass
