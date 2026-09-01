@@ -1100,8 +1100,8 @@ try:
                                         else:
                                             id_cuenta_final = opc_cuentas[cuenta_sel]
                                         
-                                    m_f = p_final - ab_init if "Contado" not in tipo_v else 0
-                                    e_f = 'Activo' if "Contado" not in tipo_v else 'Pagado'
+                                    m_f = p_final - ab_init if "Contado" not in tipo_v else 
+                                    e_f = 'Activo' if ("Contado" not in tipo_v and m_f > 0) else 'Pagado'
                                     v_c_bd = c_fija if ("Financiado" in tipo_v or "Fondeo Externo" in tipo_v) else (c_pers[0][1] if "Separé" in tipo_v else 0)
                                     
                                     propietario_db = 'Fondo Externo' if "Fondeo Externo" in tipo_v else 'DaTo'
@@ -1279,7 +1279,11 @@ try:
                 SELECT cl.nombre_completo AS 'Cliente', cl.telefono AS 'Celular', c.valor_cuota AS 'Cuota Mensual', c.fecha_primera_cuota AS 'Día de Pago', 
                 (c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito), 0)) AS 'Saldo Capital',
                 c.estado AS 'Estado', c.tasa_interes_mensual
-                FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente WHERE c.estado = 'Activo' ORDER BY c.fecha_primera_cuota ASC
+                FROM Creditos c 
+                JOIN Clientes cl ON c.id_cliente = cl.id_cliente 
+                WHERE c.estado = 'Activo' 
+                AND (c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito), 0)) > 0
+                ORDER BY c.fecha_primera_cuota ASC
             """)
             df = pd.DataFrame(cursor.fetchall())
             if df.empty: st.info("No hay carteras activas.")
