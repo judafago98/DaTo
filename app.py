@@ -298,11 +298,15 @@ try:
     # ==========================================
     # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
     # ==========================================
+    # ==========================================
+    # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
+    # ==========================================
     elif st.session_state['rol'] == 'Cliente':
+        import math
         st.markdown(f"<h1 style='text-align:center;'>👋 ¡Hola, {st.session_state['nombre_cliente'].split()[0]}!</h1>", unsafe_allow_html=True)
         st.markdown("<p style='text-align:center; color:#64748B; font-size: 1.1rem;'>Este es el resumen de tus productos activos con nosotros.</p><br>", unsafe_allow_html=True)
         
-        cursor.execute("SELECT c.id_credito, c.monto_financiado, c.valor_cuota, c.fecha_primera_cuota, c.tasa_interes_mensual FROM Creditos c WHERE c.id_cliente = %s AND c.estado = 'Activo'", (st.session_state['id_cliente'],))
+        cursor.execute("SELECT * FROM Creditos WHERE id_cliente = %s AND estado = 'Activo'", (st.session_state['id_cliente'],))
         creditos_cliente = cursor.fetchall()
         
         if not creditos_cliente:
@@ -310,6 +314,7 @@ try:
             st.markdown("""<div style="text-align:center;"><img src="https://media.giphy.com/media/3o7aD2saalEvTehEX2/giphy.gif" style="max-width:300px; border-radius:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>""", unsafe_allow_html=True)
         else:
             for cred in creditos_cliente:
+                # 1. Buscar Equipos
                 cursor.execute("SELECT i.marca, i.modelo FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = %s", (cred['id_credito'],))
                 equipos = cursor.fetchall()
                 if not equipos: 
@@ -317,20 +322,107 @@ try:
                     equipos = cursor.fetchall()
                 nombres_equipos = " + ".join([f"{e['marca']} {e['modelo']}" for e in equipos])
                 
+                # 2. Cálculos de Saldos
                 cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega')", (cred['id_credito'],))
                 cap_pag = cursor.fetchone()['cap'] or 0
                 saldo_actual = float(cred['monto_financiado']) - float(cap_pag)
                 pago_total = saldo_actual + (saldo_actual * float(cred['tasa_interes_mensual']))
                 
+                # 3. Buscar Último Pago Real (Dinero físico del cliente)
+                cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado') ORDER BY fecha_pago DESC LIMIT 1", (cred['id_credito'],))
+                last_pago = cursor.fetchone()
+                last_val = fmt_cop(last_pago['monto_recibido']) if last_pago else "$0"
+                last_date = last_pago['fecha_pago'].strftime('%Y-%m-%d') if last_pago else "N/A"
+                
+                # 4. Matemáticas de Altura y Proyección de Cuotas
+                df_plan = generar_plan_pagos_real(cred['id_credito'], cursor)
+                cuotas_pagadas_completas = len(df_plan[df_plan['Estado Actual'] == 'Pagada'])
+                
+                i_m = float(cred['tasa_interes_mensual'])
+                cuota_actual = float(cred['valor_cuota'])
+                
+                if i_m > 0 and cuota_actual > 0:
+                    val_to_log = 1 - (i_m * saldo_actual / cuota_actual)
+                    meses_restantes = math.ceil(-math.log(val_to_log) / math.log(1 + i_m)) if val_to_log > 0 else 1
+                elif i_m == 0 and cuota_actual > 0:
+                    meses_restantes = math.ceil(saldo_actual / cuota_actual)
+                else:
+                    meses_restantes = 0
+                
+                if meses_restantes < 0: meses_restantes = 0
+                
+                plazo_actual_proyectado = cuotas_pagadas_completas + meses_restantes
+                plazo_original = int(cred['plazo_meses'])
+                
+                # Lógica de Storytelling para el Cliente
+                if plazo_actual_proyectado < plazo_original:
+                    texto_plazo = f"<span style='color:#10B981; font-weight:bold;'>¡Redujiste tu plazo a {plazo_actual_proyectado} meses! 🎉</span>"
+                elif plazo_actual_proyectado > plazo_original:
+                    texto_plazo = f"<span style='color:#F59E0B; font-weight:bold;'>Proyección a {plazo_actual_proyectado} meses</span>"
+                else:
+                    texto_plazo = f"<span style='color:#1E293B; font-weight:600;'>Mantiene los {plazo_original} meses</span>"
+
                 st.markdown(f"""
                 <div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>
-                    <h3 style='text-align:center; color:#0052D4;'>📱 {nombres_equipos}</h3>
+                    <h3 style='text-align:center; color:#0052D4; margin-top:0;'>📱 {nombres_equipos}</h3>
+                    
+                    <!-- Fila 1: Condiciones Iniciales -->
+                    <div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px; margin-top: 15px;'>
+                        <p style='color:#0052D4; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>📋 Condiciones Iniciales del Contrato</p>
+                        <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>
+                            <div style='flex:1; min-width:120px;'>
+                                <span style='font-size:12px; color:#64748B;'>Valor Total Venta:</span><br>
+                                <b style='color:#1E293B; font-size:15px;'>{fmt_cop(cred['precio_venta'])}</b>
+                            </div>
+                            <div style='flex:1; min-width:120px;'>
+                                <span style='font-size:12px; color:#64748B;'>Crédito Financiado:</span><br>
+                                <b style='color:#1E293B; font-size:15px;'>{fmt_cop(cred['monto_financiado'])}</b>
+                            </div>
+                            <div style='flex:1; min-width:120px;'>
+                                <span style='font-size:12px; color:#64748B;'>Fecha Desembolso:</span><br>
+                                <b style='color:#1E293B; font-size:15px;'>{cred['fecha_inicio']}</b>
+                            </div>
+                            <div style='flex:1; min-width:120px;'>
+                                <span style='font-size:12px; color:#64748B;'>Plazo Pactado:</span><br>
+                                <b style='color:#1E293B; font-size:15px;'>{plazo_original} Meses</b>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila 2: Condiciones Actuales (Altura) -->
+                    <div style='background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 15px; margin-top: 15px;'>
+                        <p style='color:#0369A1; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>⚡ Estado Actual</p>
+                        <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>
+                            <div style='flex:1; min-width:120px;'>
+                                <span style='font-size:12px; color:#0369A1;'>Altura del Crédito:</span><br>
+                                <b style='color:#1D4ED8; font-size:16px;'>{cuotas_pagadas_completas} / {plazo_actual_proyectado}</b>
+                            </div>
+                            <div style='flex:1; min-width:120px;'>
+                                <span style='font-size:12px; color:#0369A1;'>Cuotas Pendientes:</span><br>
+                                <b style='color:#1D4ED8; font-size:16px;'>{meses_restantes}</b>
+                            </div>
+                            <div style='flex:2; min-width:200px;'>
+                                <span style='font-size:12px; color:#0369A1;'>Proyección Actual:</span><br>
+                                <span style='font-size:15px;'>{texto_plazo}</span>
+                            </div>
+                            <div style='flex:1; min-width:120px;'>
+                                <span style='font-size:12px; color:#0369A1;'>Último Pago:</span><br>
+                                <b style='color:#1D4ED8; font-size:15px;'>{last_val} <span style='font-size:12px; color:#64748B;'>({last_date})</span></b>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Fila 3: Cajas de Pago Grandes -->
                     <div style='display:flex; justify-content:space-around; margin-top:20px; flex-wrap: wrap; gap: 20px;'>
-                        <div style='text-align:center; background: #F8FAFC; padding: 20px; border-radius: 12px; border: 1px solid #E2E8F0; min-width: 200px;'>
-                            <p style='color:#64748B; margin-bottom:5px; font-weight: 600;'>Cuota Mensual</p>
+                        <div style='text-align:center; background: #F8FAFC; padding: 20px; border-radius: 12px; border: 1px solid #E2E8F0; flex:1; min-width: 200px;'>
+                            <p style='color:#64748B; margin-bottom:5px; font-weight: 600;'>Cuota Mensual Actual</p>
                             <h2 style='color:#0052D4; margin:0;'>{fmt_cop(cred['valor_cuota'])}</h2>
                         </div>
-                        <div style='text-align:center; background: #ECFDF5; padding: 20px; border-radius: 12px; min-width: 200px; border: 1px solid #A7F3D0;'>
+                        <div style='text-align:center; background: #FFF1F2; padding: 20px; border-radius: 12px; border: 1px solid #FECACA; flex:1; min-width: 200px;'>
+                            <p style='color:#BE123C; margin-bottom:5px; font-weight: 600;'>Saldo Pendiente a Capital</p>
+                            <h2 style='color:#E11D48; margin:0;'>{fmt_cop(saldo_actual)}</h2>
+                        </div>
+                        <div style='text-align:center; background: #ECFDF5; padding: 20px; border-radius: 12px; border: 1px solid #A7F3D0; flex:1; min-width: 200px;'>
                             <p style='color:#047857; margin-bottom:5px; font-weight: 600;'>Pago Total para Liquidar Hoy</p>
                             <h2 style='color:#10B981; margin:0;'>{fmt_cop(pago_total)}</h2>
                         </div>
@@ -339,18 +431,16 @@ try:
                 """, unsafe_allow_html=True)
                 
                 st.markdown("#### 🧾 Historial de tus pagos")
-                # Agregamos 'tipo_pago' a la consulta para mostrar el detalle exacto
                 cursor.execute("SELECT fecha_pago, tipo_pago, monto_recibido FROM Pagos WHERE id_credito = %s ORDER BY fecha_pago DESC", (cred['id_credito'],))
                 pagos = cursor.fetchall()
                 if pagos:
                     df_p = pd.DataFrame(pagos)
-                    df_p.columns = ['Fecha del Pago', 'Detalle del Movimiento', 'Valor Abonado']
-                    df_p['Valor Abonado'] = df_p['Valor Abonado'].apply(fmt_cop)
+                    df_p.columns = ['Fecha del Movimiento', 'Detalle del Pago / Concepto', 'Valor']
+                    df_p['Valor'] = df_p['Valor'].apply(fmt_cop)
                     st.dataframe(df_p, width='stretch', hide_index=True)
                 else: st.info("Aún no tienes pagos registrados en este contrato.")
 
         if st.button("Cerrar Sesión", type="primary"):
-            st.session_state['logeado'] = False; st.rerun()
 
     # ==========================================
     # 💼 VISTA DE ADMINISTRADOR
