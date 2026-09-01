@@ -1189,7 +1189,6 @@ try:
                             for id_mod, marcado in check_resultados.items():
                                 if marcado: cursor.execute("INSERT INTO Permisos_Rol (id_role, id_modulo) VALUES (%s, %s)", (id_r_actual, id_mod))
                             conn.commit(); st.toast("Permisos guardados."); time.sleep(1); st.rerun()
-
             with tab_c3:
                 st.markdown("<br>", unsafe_allow_html=True)
                 with st.form("form_nuevo_rol"):
@@ -1209,4 +1208,4 @@ try:
     if 'cursor' in locals() and cursor: cursor.close()
     if 'conn' in locals() and conn and conn.is_connected(): conn.close()
 except Exception:
-    pass
+    pass        
