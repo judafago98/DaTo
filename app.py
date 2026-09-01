@@ -8,7 +8,9 @@ import uuid
 import calendar
 import os
 
-# --- EJECUCIÓN INVISIBLE: Autocorrección de la Base de Datos ---
+# ==========================================
+# 🛠️ AUTO-MIGRACIÓN DE BASE DE DATOS
+# ==========================================
 def auto_fix_db(cursor, conn):
     try:
         cursor.execute("ALTER TABLE Pagos MODIFY COLUMN tipo_pago VARCHAR(255)")
@@ -35,18 +37,6 @@ def auto_fix_db(cursor, conn):
 
 # --- Configuración visual de la app ---
 st.set_page_config(page_title="DaTo Workspace", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
-
-# --- CINTURÓN DE SEGURIDAD PARA ASSETS VISUALES ---
-def renderizar_logo(es_sidebar=False):
-    alto = "90px" if es_sidebar else "160px"
-    fuente = "2.2rem" if es_sidebar else "4rem"
-    sub_fuente = "0.9rem" if es_sidebar else "1.3rem"
-    st.markdown(f"""
-    <div style='display: flex; flex-direction: column; align-items: center; justify-content: center; height: {alto}; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04); margin-bottom: 20px;'>
-        <h1 style='color: #0052D4; font-size: {fuente}; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin:0;'>⚡ DaTo</h1>
-        <p style='color: #64748B; margin: 0; font-weight: 500; font-size: {sub_fuente};'>Tecnología con respaldo</p>
-    </div>
-    """, unsafe_allow_html=True)
 
 # --- DISEÑO BLANCO CORPORATIVO FORZADO ---
 st.markdown("""
@@ -122,8 +112,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+def renderizar_logo(es_sidebar=False):
+    alto = "90px" if es_sidebar else "160px"
+    fuente = "2.2rem" if es_sidebar else "4rem"
+    sub_fuente = "0.9rem" if es_sidebar else "1.3rem"
+    st.markdown(f"""
+    <div style='display: flex; flex-direction: column; align-items: center; justify-content: center; height: {alto}; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04); margin-bottom: 20px;'>
+        <h1 style='color: #0052D4; font-size: {fuente}; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin:0;'>⚡ DaTo</h1>
+        <p style='color: #64748B; margin: 0; font-weight: 500; font-size: {sub_fuente};'>Tecnología con respaldo</p>
+    </div>
+    """, unsafe_allow_html=True)
+
 # ==========================================
-# 🛡️ ALGORITMOS DE FORMATO Y CONVERSIÓN Financiera
+# 🛡️ ALGORITMOS DE FORMATO Y COLORES
 # ==========================================
 def fmt_cop(val):
     try: val_int = int(float(val))
@@ -148,6 +149,10 @@ def color_estado_cuota(val):
     if 'Pagada' in val: return 'background-color: #ECFDF5; color: #047857; font-weight: 600;'
     elif 'Parcial' in val: return 'background-color: #EFF6FF; color: #2563EB; font-weight: 600;'
     else: return 'color: #DC2626; font-weight: 500;'
+
+def color_ganancia_real(val):
+    if '-' in str(val): return 'color: #DC2626; font-weight: 600;'
+    return 'color: #059669; font-weight: 600;'
 
 def sumar_meses_exactos(fecha_base, meses_a_sumar):
     mes = fecha_base.month - 1 + meses_a_sumar
@@ -224,11 +229,11 @@ try:
     cursor = conn.cursor(dictionary=True, buffered=True)
     auto_fix_db(cursor, conn)
 except Exception as e:
-    st.error(f"🌐 Servidor de base de datos inalcanzable. Reintente en unos segundos. Detalle: {e}")
+    st.error(f"🌐 Servidor de base de datos inalcanzable. Detalle: {e}")
     st.stop()
 
 # ==========================================
-# SISTEMA DE CAPAS DE SEGURIDAD OPERATIVA (Y PORTAL CLIENTE)
+# LOGIN (ADMINISTRATIVO Y CLIENTE)
 # ==========================================
 try:
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
@@ -242,7 +247,7 @@ try:
         
         with col_centro:
             renderizar_logo(es_sidebar=False)
-            tab_admin, tab_cliente = st.tabs(["💼 Equipo DaTo", "👤 Autogestión Clientes"])
+            tab_admin, tab_cliente = st.tabs(["💼 Equipo DaTo", "👤 Portal Clientes"])
 
             with tab_admin:
                 with st.form("form_login"):
@@ -285,16 +290,15 @@ try:
             st.success("¡Felicidades! Actualmente estás a Paz y Salvo con DaTo.")
         else:
             for cred in creditos_cliente:
-                # Buscar equipos multi-producto o modelo antiguo
+                # Equipos
                 cursor.execute("SELECT i.marca, i.modelo FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = %s", (cred['id_credito'],))
                 equipos = cursor.fetchall()
                 if not equipos: 
                     cursor.execute("SELECT i.marca, i.modelo FROM Creditos c JOIN Inventario i ON c.imei = i.imei WHERE c.id_credito = %s", (cred['id_credito'],))
                     equipos = cursor.fetchall()
-                
                 nombres_equipos = " + ".join([f"{e['marca']} {e['modelo']}" for e in equipos])
                 
-                # Matemáticas simples
+                # Matemáticas
                 cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s", (cred['id_credito'],))
                 cap_pag = cursor.fetchone()['cap'] or 0
                 saldo_actual = float(cred['monto_financiado']) - float(cap_pag)
@@ -330,7 +334,7 @@ try:
             st.session_state['logeado'] = False; st.rerun()
 
     # ==========================================
-    # 💼 VISTA DE ADMINISTRADOR (TU CÓDIGO ORIGINAL)
+    # 💼 VISTA DE ADMINISTRADOR
     # ==========================================
     else:
         es_admin = st.session_state['rol'] in ['Admin', 'Administrador']
@@ -395,13 +399,11 @@ try:
             
             with tab_sim:
                 st.markdown("<br>", unsafe_allow_html=True)
-                # AQUÍ ESTÁ EL TOGGLE QUE ME PEDISTE NO QUITAR
                 modo_cliente = st.toggle("📸 Activar Vista Cliente (Oculta información sensible)")
                 if 'tasa_simulador' not in st.session_state: st.session_state['tasa_simulador'] = 3.0
                     
                 col_s1, col_s2 = st.columns(2)
                 with col_s1:
-                    # Inicia en ceros según tu petición
                     sim_precio = st.number_input("Valor del Producto ($)", min_value=0, step=10000, value=0)
                     st.markdown(f"<div style='text-align: right; color: #0052D4; font-weight: 600; font-size: 13px; margin-top: -10px; margin-bottom: 15px;'>{fmt_cop(sim_precio)}</div>", unsafe_allow_html=True)
                     sim_abono = st.number_input("Abono Inicial ($)", min_value=0, step=10000, value=0)
@@ -490,7 +492,6 @@ try:
                                 if cap: cap_fin = "" if cap == "No Aplica" else (st.text_input("Capacidad Manual:") if cap == "Escribir manual..." else cap)
 
                         if mod and cap:
-                            # Nuevos campos de Lotes y Trazabilidad
                             st.markdown("#### Datos de la Compra")
                             l1, l2, l3, l4 = st.columns(4)
                             cantidad = l1.number_input("Cantidad a Ingresar", min_value=1, value=1)
@@ -517,14 +518,12 @@ try:
                                         if costo_total > float(dat_b['saldo_actual']): st.error("No hay suficiente dinero en esa caja para pagar esta mercancía.")
                                         elif not mod_fin: st.warning("El modelo es obligatorio.")
                                         else:
-                                            # Insertar ciclo por cantidad
                                             for _ in range(cantidad):
                                                 imei_final = imei_in if (cantidad == 1 and imei_in) else f"SYS-{str(uuid.uuid4())[:8].upper()}"
                                                 cursor.execute("""
                                                     INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
                                                     VALUES (%s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
                                                 """, (imei_final, cat_sel.split(" ")[1] if " " in cat_sel else cat_sel, marca_fin, f"{mod_fin} {cap_fin}".strip(), cond, dat_b['id_bolsa'], costo, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
-                                            
                                             cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
                                             conn.commit(); st.toast('Equipos agregados con éxito.'); time.sleep(1.5); st.rerun()
 
@@ -543,31 +542,62 @@ try:
 
         elif menu_seleccionado == "clientes":
             st.markdown("<h2>Directorio de Clientes 👥</h2>", unsafe_allow_html=True)
-            with st.form("f_cli"):
-                st.subheader("Crear Perfil de Cliente")
-                c1, c2, c3 = st.columns(3)
-                doc = c1.text_input("Número de Cédula")
-                nom = c2.text_input("Nombre Completo")
-                tel = c3.text_input("Número Celular")
-                
-                c4, c5, c6 = st.columns(3)
-                correo = c4.text_input("Correo Electrónico")
-                ciudad = c5.text_input("Ciudad")
-                barrio = c6.text_input("Barrio")
-                
-                c7, c8 = st.columns(2)
-                direccion = c7.text_input("Dirección de Residencia")
-                empresa = c8.text_input("Empresa o Negocio donde labora")
-                
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.form_submit_button("Guardar Cliente", width='stretch'):
-                    if doc and nom:
-                        try:
-                            cursor.execute("INSERT INTO Clientes (documento, nombre_completo, telefono, direccion, barrio, ciudad, correo, empresa, id_usuario_registro) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", 
-                                           (doc, nom, tel, direccion, barrio, ciudad, correo, empresa, st.session_state['id_usuario']))
-                            conn.commit(); st.toast("Cliente guardado exitosamente."); time.sleep(1); st.rerun()
-                        except mysql.connector.Error: st.error("Ya existe un cliente con esta cédula.")
-                    else: st.warning("La cédula y el nombre son obligatorios.")
+            tab_nuevo, tab_editar = st.tabs(["➕ Nuevo Cliente", "✏️ Editar Cliente Existente"])
+            
+            with tab_nuevo:
+                with st.form("f_cli"):
+                    st.subheader("Crear Perfil de Cliente")
+                    c1, c2, c3 = st.columns(3)
+                    doc = c1.text_input("Número de Cédula / ID Consecutivo")
+                    nom = c2.text_input("Nombre Completo / Temporal")
+                    tel = c3.text_input("Número Celular")
+                    
+                    c4, c5, c6 = st.columns(3)
+                    correo = c4.text_input("Correo Electrónico")
+                    ciudad = c5.text_input("Ciudad")
+                    barrio = c6.text_input("Barrio")
+                    
+                    c7, c8 = st.columns(2)
+                    direccion = c7.text_input("Dirección de Residencia")
+                    empresa = c8.text_input("Empresa o Negocio donde labora")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.form_submit_button("Guardar Nuevo Cliente", width='stretch'):
+                        if doc and nom:
+                            try:
+                                cursor.execute("INSERT INTO Clientes (documento, nombre_completo, telefono, direccion, barrio, ciudad, correo, empresa, id_usuario_registro) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)", 
+                                            (doc, nom, tel, direccion, barrio, ciudad, correo, empresa, st.session_state['id_usuario']))
+                                conn.commit(); st.toast("Cliente guardado exitosamente."); time.sleep(1); st.rerun()
+                            except mysql.connector.Error: st.error("Ya existe un cliente con esta cédula.")
+                        else: st.warning("La cédula y el nombre son obligatorios.")
+            
+            with tab_editar:
+                cursor.execute("SELECT * FROM Clientes")
+                todos_clientes = cursor.fetchall()
+                if todos_clientes:
+                    opc_edit_cli = {f"{c['documento']} - {c['nombre_completo']}": c for c in todos_clientes}
+                    cli_a_editar = st.selectbox("Seleccione el cliente a actualizar:", list(opc_edit_cli.keys()), index=None)
+                    
+                    if cli_a_editar:
+                        dat_c = opc_edit_cli[cli_a_editar]
+                        with st.form("f_edit_cli"):
+                            st.write(f"Actualizando datos de: **{dat_c['documento']}**")
+                            e_nom = st.text_input("Nombre Completo", value=dat_c['nombre_completo'])
+                            e_tel = st.text_input("Celular", value=dat_c['telefono'] if dat_c['telefono'] else "")
+                            e_cor = st.text_input("Correo", value=dat_c['correo'] if dat_c['correo'] else "")
+                            e_ciu = st.text_input("Ciudad", value=dat_c['ciudad'] if dat_c['ciudad'] else "")
+                            e_bar = st.text_input("Barrio", value=dat_c['barrio'] if dat_c['barrio'] else "")
+                            e_dir = st.text_input("Dirección", value=dat_c['direccion'] if dat_c['direccion'] else "")
+                            e_emp = st.text_input("Trabajo / Empresa", value=dat_c['empresa'] if dat_c['empresa'] else "")
+                            
+                            if st.form_submit_button("Actualizar Datos en DB", width='stretch'):
+                                cursor.execute("""
+                                    UPDATE Clientes 
+                                    SET nombre_completo=%s, telefono=%s, correo=%s, ciudad=%s, barrio=%s, direccion=%s, empresa=%s 
+                                    WHERE id_cliente=%s
+                                """, (e_nom, e_tel, e_cor, e_ciu, e_bar, e_dir, e_emp, dat_c['id_cliente']))
+                                conn.commit(); st.toast("Datos del cliente actualizados."); time.sleep(1); st.rerun()
+                else: st.info("No hay clientes creados.")
             
             st.divider()
             cursor.execute("SELECT documento AS 'Cédula', nombre_completo AS 'Nombre', telefono AS 'Celular', ciudad AS 'Ciudad', empresa AS 'Trabajo' FROM Clientes")
@@ -583,8 +613,7 @@ try:
             cursor.execute("SELECT nombre FROM Vendedores")
             vendedores = [v['nombre'] for v in cursor.fetchall()]
             
-            # Avisos separados para que sea más claro
-            if not clientes: st.warning("⚠️ No hay clientes creados. Ve a la pestaña 'Directorio de Clientes' para crear uno primero.")
+            if not clientes: st.warning("⚠️ No hay clientes creados. Ve al Directorio de Clientes primero.")
             if not inventario: st.warning("⚠️ No hay equipos disponibles en bodega. Ingresa stock primero.")
             
             if clientes and inventario:
@@ -597,9 +626,6 @@ try:
                 if tipo_v:
                     with st.form("f_venta"):
                         cliente_sel = st.selectbox("Seleccionar Cliente", list(opc_cli.keys()))
-                        
-                        # MULTIPRODUCTO
-                        st.markdown("#### Productos a llevar el cliente")
                         equipos_sel = st.multiselect("Selecciona uno o más equipos de la bodega:", list(opc_eq.keys()))
                         
                         st.markdown("#### Tiempos del Crédito")
@@ -680,7 +706,6 @@ try:
                                     cursor.execute("""INSERT INTO Creditos (id_cliente, imei, precio_venta, abono_inicial, monto_financiado, tasa_interes_mensual, plazo_meses, valor_cuota, estado, fecha_inicio, fecha_primera_cuota, valor_comision, asesor_comision, estado_comision, id_usuario_registro) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""", (opc_cli[cliente_sel], primer_imei, p_final, ab_init, m_f, tasa/100.0, plazo, v_c_bd, e_f, fecha_venta.strftime('%Y-%m-%d'), f_cuota.strftime('%Y-%m-%d'), comis, vendedor_final, 'Por Pagar' if comis > 0 else 'No Aplica', st.session_state['id_usuario']))
                                     id_cr = cursor.lastrowid
                                     
-                                    # MULTIPRODUCTO GUARDADO:
                                     for eq in equipos_sel:
                                         imei_eq = opc_eq[eq]
                                         cursor.execute("INSERT INTO Creditos_Items (id_credito, imei) VALUES (%s, %s)", (id_cr, imei_eq))
@@ -704,7 +729,7 @@ try:
             
             if not activos: st.info("No hay créditos pendientes por cobrar.")
             else:
-                opc_c = {f"{c['nombre_completo']} (Equipo: {c['marca']} {c['modelo']})": c for c in activos}
+                opc_c = {f"{c['nombre_completo']} (Credito #{c['id_credito']})": c for c in activos}
                 sel_titular = st.selectbox("Buscar Cliente para recibir pago:", list(opc_c.keys()), index=None, placeholder="Escribe el nombre del cliente...")
                 
                 if sel_titular:
@@ -717,7 +742,6 @@ try:
                     s_pend = float(dat['monto_financiado']) - cap_pagado
                     v_cuota_bd = int(dat['valor_cuota']) if dat['valor_cuota'] else 0
                     
-                    # CÁLCULO PAZ Y SALVO
                     interes_mes_paz = s_pend * float(dat['tasa_interes_mensual'])
                     paz_y_salvo_total = s_pend + interes_mes_paz
                     
@@ -851,11 +875,11 @@ try:
                 c1, c2, c3 = st.columns(3)
                 
                 with c1:
-                    st.markdown("<h4 style='color:#0052D4;'>📥 Anular un Pago Recibido</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0052D4;'>📥 Anular un Pago</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT p.id_pago, cl.nombre_completo, p.monto_recibido, p.fecha_pago, p.tipo_pago FROM Pagos p JOIN Creditos c ON p.id_credito = c.id_credito JOIN Clientes cl ON c.id_cliente = cl.id_cliente ORDER BY p.id_pago DESC LIMIT 50")
                     pagos_db = cursor.fetchall()
                     if pagos_db:
-                        opc_pagos = {f"[{p['fecha_pago'].strftime('%Y-%m-%d')}] {p['nombre_completo']} ({fmt_cop(p['monto_recibido'])}) - {p['tipo_pago']}": p for p in pagos_db}
+                        opc_pagos = {f"[{p['fecha_pago'].strftime('%Y-%m-%d')}] {p['nombre_completo']} ({fmt_cop(p['monto_recibido'])})": p for p in pagos_db}
                         with st.form("f_anular_pago"):
                             pago_sel = st.selectbox("Seleccione el pago a borrar", list(opc_pagos.keys()), index=None)
                             if st.form_submit_button("Eliminar Pago", width='stretch') and pago_sel:
@@ -866,10 +890,10 @@ try:
                                 cursor.execute("DELETE FROM Pagos WHERE id_pago = %s", (dat_p['id_pago'],))
                                 cursor.execute("UPDATE Creditos SET estado = 'Activo' WHERE id_credito = %s", (id_c,))
                                 conn.commit(); st.toast("Pago eliminado."); time.sleep(1.5); st.rerun()
-                    else: st.info("No hay pagos recientes.")
+                    else: st.info("No hay pagos.")
 
                 with c2:
-                    st.markdown("<h4 style='color:#0052D4;'>🚨 Anular Venta Completa</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0052D4;'>🚨 Anular Venta</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT c.id_credito, cl.nombre_completo, i.modelo, c.imei, c.abono_inicial FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei ORDER BY c.id_credito DESC")
                     creds_db = cursor.fetchall()
                     if creds_db:
@@ -884,7 +908,6 @@ try:
                                 plata_a_restar = float(dat_c['abono_inicial']) + float(res_t['t'] if res_t and res_t['t'] else 0)
                                 if plata_a_restar > 0: cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (plata_a_restar,))
                                 
-                                # Multi-product revert
                                 cursor.execute("SELECT imei FROM Creditos_Items WHERE id_credito = %s", (dat_c['id_credito'],))
                                 for item in cursor.fetchall(): cursor.execute("UPDATE Inventario SET estado = 'Disponible' WHERE imei = %s", (item['imei'],))
                                 cursor.execute("DELETE FROM Creditos_Items WHERE id_credito = %s", (dat_c['id_credito'],))
@@ -896,22 +919,22 @@ try:
                                 cursor.execute("DELETE FROM Creditos WHERE id_credito = %s", (dat_c['id_credito'],))
                                 cursor.execute("SET FOREIGN_KEY_CHECKS = 1;")
                                 conn.commit(); st.toast("Venta eliminada."); time.sleep(1.5); st.rerun()
-                    else: st.info("No hay ventas para anular.")
+                    else: st.info("No hay ventas.")
                     
                 with c3:
-                    st.markdown("<h4 style='color:#0052D4;'>📦 Eliminar Equipo de Bodega</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0052D4;'>📦 Eliminar de Bodega</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT imei, marca, modelo, costo_adquisicion, id_bolsa FROM Inventario WHERE estado = 'Disponible'")
                     inv_db = cursor.fetchall()
                     if inv_db:
                         opc_inv = {f"{i['marca']} {i['modelo']} ({i['imei']})": i for i in inv_db}
                         with st.form("f_anular_hardware"):
-                            inv_sel = st.selectbox("Seleccione el equipo a borrar", list(opc_inv.keys()), index=None)
+                            inv_sel = st.selectbox("Seleccione el equipo", list(opc_inv.keys()), index=None)
                             if st.form_submit_button("Eliminar y Devolver Dinero a Caja", width='stretch') and inv_sel:
                                 dat_i = opc_inv[inv_sel]
                                 if float(dat_i['costo_adquisicion']) > 0: cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s WHERE id_bolsa = %s", (dat_i['costo_adquisicion'], dat_i['id_bolsa']))
                                 cursor.execute("DELETE FROM Inventario WHERE imei = %s", (dat_i['imei'],))
                                 conn.commit(); st.toast("Equipo eliminado."); time.sleep(1.5); st.rerun()
-                    else: st.info("No hay equipos en bodega.")
+                    else: st.info("Bodega vacía.")
 
         elif menu_seleccionado == "egresos":
             st.markdown("<h2>Egresos y Gastos 💸</h2>", unsafe_allow_html=True)
@@ -1116,7 +1139,7 @@ try:
                     with st.form("f_newUser"):
                         n_user = st.text_input("Usuario para entrar al sistema")
                         n_pass = st.text_input("Contraseña", type="password")
-                        n_nombre = st.text_input("Nombre Completo")
+                        n_nombre = st.text_input("Nombre Real del Empleado")
                         n_rol = st.selectbox("Perfil / Cargo", opc_r)
                         if st.form_submit_button("Guardar Empleado", width='stretch'):
                             if n_user and n_pass and n_nombre:
@@ -1178,10 +1201,9 @@ try:
                                     conn.commit(); st.toast("Cargo creado."); time.sleep(1); st.rerun()
                             except Exception as e: st.error(f"Error: {e}")
 
-finally:
-    # === SEGURO ANTI-FUGAS DE MEMORIA ===
-    try:
-        if 'cursor' in locals() and cursor: cursor.close()
-        if 'conn' in locals() and conn and conn.is_connected(): conn.close()
-    except Exception:
-        pass
+# === SEGURO ANTI-FUGAS DE MEMORIA ===
+try:
+    if 'cursor' in locals() and cursor: cursor.close()
+    if 'conn' in locals() and conn and conn.is_connected(): conn.close()
+except Exception:
+    pass
