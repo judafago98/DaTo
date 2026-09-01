@@ -1229,7 +1229,7 @@ try:
                                 cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (monto,))
                             
                             nuevo_saldo = s_pend - cap_abono
-                            if nuevo_saldo <= 0: 
+                            if nuevo_saldo < 1: 
                                 cursor.execute("UPDATE Creditos SET estado = 'Pagado' WHERE id_credito = %s", (dat['id_credito'],))
                                 st.balloons()
                             else:
@@ -1282,7 +1282,7 @@ try:
                 FROM Creditos c 
                 JOIN Clientes cl ON c.id_cliente = cl.id_cliente 
                 WHERE c.estado = 'Activo'
-                HAVING `Saldo Capital` > 0
+                HAVING `Saldo Capital` >= 1
                 ORDER BY c.fecha_primera_cuota ASC
             """)
             df = pd.DataFrame(cursor.fetchall())
