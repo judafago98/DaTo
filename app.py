@@ -8,6 +8,7 @@ import uuid
 import calendar
 import os
 import base64
+import math
 
 # ==========================================
 # 🛠️ AUTO-MIGRACIÓN ROBUSTA DE BASE DE DATOS
@@ -42,7 +43,6 @@ def auto_fix_db(cursor, conn):
         try: cursor.execute(f"ALTER TABLE Gastos_Operativos {c}"); conn.commit()
         except Exception: pass
 
-    # Se agrega la columna para memoria histórica de la cuota original
     cols_creditos = ["ADD COLUMN precio_venta DECIMAL(15,2) DEFAULT 0", "ADD COLUMN abono_inicial DECIMAL(15,2) DEFAULT 0", "ADD COLUMN valor_comision DECIMAL(15,2) DEFAULT 0", "ADD COLUMN asesor_comision VARCHAR(255)", "ADD COLUMN estado_comision VARCHAR(255) DEFAULT 'No Aplica'", "ADD COLUMN fecha_pago_comision DATE", "ADD COLUMN id_cuenta INT", "ADD COLUMN valor_cuota_original DECIMAL(15,2)"]
     for c in cols_creditos:
         try: cursor.execute(f"ALTER TABLE Creditos {c}"); conn.commit()
@@ -235,7 +235,7 @@ try:
     pool = get_connection_pool()
     conn = pool.get_connection()
     cursor = conn.cursor(dictionary=True, buffered=True)
-    #auto_fix_db(cursor, conn) # Habilitado temporalmente para asegurar la memoria histórica
+    # auto_fix_db(cursor, conn) # <-- Apagado para evitar ralentizaciones
 except Exception as e:
     st.error(f"🌐 Servidor de base de datos inalcanzable. Detalle: {e}")
     st.stop()
@@ -448,7 +448,7 @@ try:
                     
                     if sel_paz:
                         datos_paz = opc_paz[sel_paz]
-                        cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega')", (datos_paz['id_credito'],))
+                        cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado')", (datos_paz['id_credito'],))
                         res = cursor.fetchone()
                         saldo_capital = float(datos_paz['monto_financiado']) - float(res['cap'] if res and res['cap'] else 0.0)
                         interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
@@ -646,7 +646,7 @@ try:
                     c.id_cliente, c.documento, c.nombre_completo, c.telefono, c.fecha_registro,
                     c.direccion, c.barrio, c.ciudad, c.correo, c.empresa,
                     (SELECT COUNT(id_credito) FROM Creditos WHERE id_cliente = c.id_cliente AND estado = 'Activo') as activos,
-                    (SELECT IFNULL(SUM(monto_recibido), 0) FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito WHERE cr.id_cliente = c.id_cliente) as ltv
+                    (SELECT IFNULL(SUM(monto_recibido), 0) FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito WHERE cr.id_cliente = c.id_cliente AND p.motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Ingreso Retoma Bodega')) as ltv
                 FROM Clientes c
                 ORDER BY c.fecha_registro DESC
             """)
@@ -858,19 +858,14 @@ try:
                     
                     st.markdown("#### Tiempos del Crédito", unsafe_allow_html=True)
                     
-                    # Función para forzar el cálculo dinámico en la memoria de Streamlit
                     def actualizar_fecha_cuota():
                         st.session_state["ventas_f_cuota"] = sumar_meses_exactos(st.session_state["ventas_f_vta"], 1)
-                    
-                    # Cargar el valor por defecto si es la primera vez que se abre la pestaña
                     if "ventas_f_cuota" not in st.session_state:
                         st.session_state["ventas_f_cuota"] = sumar_meses_exactos(datetime.date.today(), 1)
-
+                        
                     c_f1, c_f2 = st.columns(2)
-                    with c_f1: 
-                        fecha_venta = st.date_input("Fecha de Venta", value=datetime.date.today(), key="ventas_f_vta", on_change=actualizar_fecha_cuota)
-                    with c_f2: 
-                        f_cuota = st.date_input("Fecha de la Primera Cuota", key="ventas_f_cuota")
+                    with c_f1: fecha_venta = st.date_input("Fecha de Venta", value=datetime.date.today(), key="ventas_f_vta", on_change=actualizar_fecha_cuota)
+                    with c_f2: f_cuota = st.date_input("Fecha de la Primera Cuota", key="ventas_f_cuota")
 
                     c3, c4 = st.columns(2)
                     c_pers, c_fija = [], 0
@@ -956,10 +951,11 @@ try:
                     
                     if dinero_efectivo > 0:
                         st.divider()
-                        st.markdown("#### Origen de Fondos (Para Radar DIAN)")
+                        st.markdown(f"#### 🏦 Destino del Dinero ({fmt_cop(dinero_efectivo)})")
+                        st.info("Como estás recibiendo dinero en efectivo/transferencia en este momento, indica a qué cuenta ingresa.")
                         c_acc1, c_acc2 = st.columns(2)
                         with c_acc1: 
-                            cuenta_sel = st.selectbox("¿A dónde ingresó la plata del abono/contado?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."], key="ventas_cta")
+                            cuenta_sel = st.selectbox("¿A dónde ingresó la plata?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."], key="ventas_cta")
                         with c_acc2:
                             nueva_cuenta = ""
                             if cuenta_sel == "➕ Añadir nueva cuenta...":
@@ -1100,13 +1096,25 @@ try:
                                     st.balloons()
                                 else:
                                     if "Reduce el valor de la cuota" in tipo:
-                                        v_orig = float(dat.get('valor_cuota_original') or dat['valor_cuota'])
-                                        meses_ya_cubiertos = int((cap_pagado + cap_abono) / v_orig) if v_orig > 0 else 0
-                                        meses_restantes = dat['plazo_meses'] - meses_ya_cubiertos
-                                        if meses_restantes <= 0: meses_restantes = 1
-                                        
                                         i_m = float(dat['tasa_interes_mensual'])
-                                        nueva_cuota = nuevo_saldo * (i_m * (1 + i_m)**meses_restantes) / (((1 + i_m)**meses_restantes) - 1) if i_m > 0 else nuevo_saldo / meses_restantes
+                                        cuota_actual = float(dat['valor_cuota'])
+                                        meses_restantes_previos = dat['plazo_meses']
+                                        
+                                        if i_m > 0 and cuota_actual > 0:
+                                            val_to_log = 1 - (i_m * s_pend / cuota_actual)
+                                            if val_to_log > 0:
+                                                meses_restantes_previos = round(-math.log(val_to_log) / math.log(1 + i_m))
+                                        elif i_m == 0 and cuota_actual > 0:
+                                            meses_restantes_previos = round(s_pend / cuota_actual)
+                                            
+                                        meses_restantes_nuevos = meses_restantes_previos - 1
+                                        if meses_restantes_nuevos < 1: meses_restantes_nuevos = 1
+                                        
+                                        if i_m > 0:
+                                            nueva_cuota = nuevo_saldo * (i_m * (1 + i_m)**meses_restantes_nuevos) / (((1 + i_m)**meses_restantes_nuevos) - 1)
+                                        else:
+                                            nueva_cuota = nuevo_saldo / meses_restantes_nuevos
+                                            
                                         cursor.execute("UPDATE Creditos SET valor_cuota = %s WHERE id_credito = %s", (int(round(nueva_cuota)), dat['id_credito']))
                                 
                                 conn.commit(); st.toast("Dinero ingresado a la cuenta correcta.", icon='✅'); time.sleep(1.5); st.rerun()
