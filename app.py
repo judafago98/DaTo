@@ -301,6 +301,9 @@ try:
     # ==========================================
     # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
     # ==========================================
+    # ==========================================
+    # 📱 VISTA EXCLUSIVA PARA EL CLIENTE
+    # ==========================================
     elif st.session_state['rol'] == 'Cliente':
         import math
         st.markdown(f"<h1 style='text-align:center;'>👋 ¡Hola, {st.session_state['nombre_cliente'].split()[0]}!</h1>", unsafe_allow_html=True)
@@ -366,7 +369,6 @@ try:
                 <div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>
                     <h3 style='text-align:center; color:#0052D4; margin-top:0;'>📱 {nombres_equipos}</h3>
                     
-                    <!-- Fila 1: Condiciones Iniciales -->
                     <div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px; margin-top: 15px;'>
                         <p style='color:#0052D4; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>📋 Condiciones Iniciales del Contrato</p>
                         <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>
@@ -389,7 +391,6 @@ try:
                         </div>
                     </div>
 
-                    <!-- Fila 2: Condiciones Actuales (Altura) -->
                     <div style='background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 15px; margin-top: 15px;'>
                         <p style='color:#0369A1; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>⚡ Estado Actual</p>
                         <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>
@@ -412,7 +413,6 @@ try:
                         </div>
                     </div>
 
-                    <!-- Fila 3: Cajas de Pago Grandes -->
                     <div style='display:flex; justify-content:space-around; margin-top:20px; flex-wrap: wrap; gap: 20px;'>
                         <div style='text-align:center; background: #F8FAFC; padding: 20px; border-radius: 12px; border: 1px solid #E2E8F0; flex:1; min-width: 200px;'>
                             <p style='color:#64748B; margin-bottom:5px; font-weight: 600;'>Cuota Mensual Actual</p>
@@ -441,6 +441,8 @@ try:
                 else: st.info("Aún no tienes pagos registrados en este contrato.")
 
         if st.button("Cerrar Sesión", type="primary"):
+            st.session_state['logeado'] = False
+            st.rerun()
 
     # ==========================================
     # 💼 VISTA DE ADMINISTRADOR
