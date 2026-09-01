@@ -705,26 +705,25 @@ try:
                         cor_ui = c['correo'] if c['correo'] != '0' else 'N/A'
                         
                         st.markdown(f"""
-                        <div style='background: #FFFFFF; border: 1px solid #0052D4; border-radius: 12px; padding: 25px; box-shadow: 0 10px 25px rgba(0,82,212,0.1); margin-top: 10px;'>
-                            <h3 style='margin-top:0; margin-bottom:5px; color:#1E293B;'>👤 {c['nombre_completo']}</h3>
-                            <span style='font-size:15px; color:#0052D4; font-weight:600; background:#EFF6FF; padding:4px 12px; border-radius:20px;'>C.C. {c['documento']}</span>
-                            <span style='font-size:15px; color:#475569; font-weight:600; background:#F1F5F9; padding:4px 12px; border-radius:20px; margin-left:10px;'>{estado_ui}</span>
-                            
-                            <div style='display:flex; justify-content:space-between; margin-bottom:15px; margin-top:25px; flex-wrap:wrap; gap:15px;'>
-                                <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
-                                    <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Contacto y Ubicación</p>
-                                    <h4 style='margin:0; color:#1E293B; margin-top:5px; font-size:14px;'>📞 {tel_ui} | 📧 {cor_ui}<br>📍 {dir_ui} ({bar_ui}), {ciu_ui}</h4>
-                                </div>
-                                <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
-                                    <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Cliente desde</p>
-                                    <h4 style='margin:0; color:#1E293B; margin-top:5px; font-size:14px;'>📅 {c['fecha_registro']}</h4>
-                                </div>
-                                <div style='background:#E0F2FE; padding:15px; border-radius:8px; flex:1; border: 1px solid #BAE6FD; min-width:150px;'>
-                                    <p style='color:#0369A1; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Valor Histórico (LTV)</p>
-                                    <h4 style='margin:0; color:#0284C7; margin-top:5px;'>{fmt_cop(ltv)}</h4>
-                                </div>
-                            </div>
-                        </div>
+<div style='background: #FFFFFF; border: 1px solid #0052D4; border-radius: 12px; padding: 25px; box-shadow: 0 10px 25px rgba(0,82,212,0.1); margin-top: 10px;'>
+    <h3 style='margin-top:0; margin-bottom:5px; color:#1E293B;'>👤 {c['nombre_completo']}</h3>
+    <span style='font-size:15px; color:#0052D4; font-weight:600; background:#EFF6FF; padding:4px 12px; border-radius:20px;'>C.C. {c['documento']}</span>
+    <span style='font-size:15px; color:#475569; font-weight:600; background:#F1F5F9; padding:4px 12px; border-radius:20px; margin-left:10px;'>{estado_ui}</span>
+    <div style='display:flex; justify-content:space-between; margin-bottom:15px; margin-top:25px; flex-wrap:wrap; gap:15px;'>
+        <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
+            <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Contacto y Ubicación</p>
+            <h4 style='margin:0; color:#1E293B; margin-top:5px; font-size:14px;'>📞 {tel_ui} | 📧 {cor_ui}<br>📍 {dir_ui} ({bar_ui}), {ciu_ui}</h4>
+        </div>
+        <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
+            <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Cliente desde</p>
+            <h4 style='margin:0; color:#1E293B; margin-top:5px; font-size:14px;'>📅 {c['fecha_registro']}</h4>
+        </div>
+        <div style='background:#E0F2FE; padding:15px; border-radius:8px; flex:1; border: 1px solid #BAE6FD; min-width:150px;'>
+            <p style='color:#0369A1; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Valor Histórico (LTV)</p>
+            <h4 style='margin:0; color:#0284C7; margin-top:5px;'>{fmt_cop(ltv)}</h4>
+        </div>
+    </div>
+</div>
                         """, unsafe_allow_html=True)
                         
                         st.markdown("<br>**📜 Historial de Transacciones de este Cliente**", unsafe_allow_html=True)
