@@ -235,37 +235,36 @@ CAPACIDADES_ELECTRO = ["No Aplica", "32 Pulgadas", "50 Pulgadas", "65 Pulgadas",
 CIUDADES_COLOMBIA = ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga", "Cúcuta", "Pereira", "Santa Marta", "Ibagué", "Pasto", "Manizales", "Neiva", "Villavicencio", "Armenia", "Valledupar", "Montería", "Sincelejo", "Popayán", "Tunja", "Riohacha", "Florencia", "Quibdó", "Arauca", "Yopal", "Leticia", "San Andrés", "Otra..."]
 
 # --- CONEXIÓN BLINDADA POR POOL ---
+# Aumentamos el pool_size a 32 para evitar el error "Pool Exhausted" en ráfagas de clics.
 @st.cache_resource
 def get_connection_pool():
     return pooling.MySQLConnectionPool(
-        pool_name="dato_pool", pool_size=10, pool_reset_session=True,
+        pool_name="dato_pool", pool_size=32, pool_reset_session=True,
         host="gateway01.us-east-1.prod.aws.tidbcloud.com", port=4000,
         user="2xRKoKTDAr4tRLF.root", password="7KGQVtKygobgy311",
         database="sistema_creditos", ssl_verify_cert=False,
         autocommit=True, connection_timeout=15, use_pure=True
     )
 
+conn = None
+cursor = None
+
 try:
     pool = get_connection_pool()
     conn = pool.get_connection()
     cursor = conn.cursor(dictionary=True, buffered=True)
-    # Seguro para que auto_fix_db no ponga lenta la aplicación con cada clic
     if 'db_fixed_ok' not in st.session_state:
         auto_fix_db(cursor, conn)
         st.session_state['db_fixed_ok'] = True
-except Exception as e:
-    st.error(f"🌐 Servidor de base de datos inalcanzable. Detalle: {e}")
-    st.stop()
 
-# Cargar Cuentas Bancarias Dinámicas
-cursor.execute("SELECT id_cuenta, nombre_cuenta FROM Cuentas_Bancarias")
-lista_cuentas = cursor.fetchall()
-opc_cuentas = {c['nombre_cuenta']: c['id_cuenta'] for c in lista_cuentas}
+    # Cargar Cuentas Bancarias Dinámicas
+    cursor.execute("SELECT id_cuenta, nombre_cuenta FROM Cuentas_Bancarias")
+    lista_cuentas = cursor.fetchall()
+    opc_cuentas = {c['nombre_cuenta']: c['id_cuenta'] for c in lista_cuentas}
 
-# ==========================================
-# 🔐 LOGIN DUAL
-# ==========================================
-try:
+    # ==========================================
+    # 🔐 LOGIN DUAL
+    # ==========================================
     if 'logeado' not in st.session_state: st.session_state['logeado'] = False
     if 'id_usuario' not in st.session_state: st.session_state['id_usuario'] = None
     if 'nombre_usuario' not in st.session_state: st.session_state['nombre_usuario'] = None
@@ -327,7 +326,6 @@ try:
             st.markdown("""<div style="text-align:center;"><img src="https://media.giphy.com/media/3o7aD2saalEvTehEX2/giphy.gif" style="max-width:300px; border-radius:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>""", unsafe_allow_html=True)
         else:
             for cred in creditos_cliente:
-                # 1. Buscar Equipos
                 cursor.execute("SELECT i.marca, i.modelo FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = %s", (cred['id_credito'],))
                 equipos = cursor.fetchall()
                 if not equipos: 
@@ -335,19 +333,16 @@ try:
                     equipos = cursor.fetchall()
                 nombres_equipos = " + ".join([f"{e['marca']} {e['modelo']}" for e in equipos])
                 
-                # 2. Cálculos de Saldos
                 cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')", (cred['id_credito'],))
                 cap_pag = cursor.fetchone()['cap'] or 0
                 saldo_actual = float(cred['monto_financiado']) - float(cap_pag)
                 pago_total = saldo_actual + (saldo_actual * float(cred['tasa_interes_mensual']))
                 
-                # 3. Buscar Último Pago Real
                 cursor.execute("SELECT monto_recibido, fecha_pago FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Pago Contado', 'Venta de Cartera a Externo') ORDER BY fecha_pago DESC LIMIT 1", (cred['id_credito'],))
                 last_pago = cursor.fetchone()
                 last_val = fmt_cop(last_pago['monto_recibido']) if last_pago else "$0"
                 last_date = last_pago['fecha_pago'].strftime('%Y-%m-%d') if last_pago else "N/A"
                 
-                # 4. Matemáticas de Altura y Proyección de Cuotas
                 df_plan = generar_plan_pagos_real(cred['id_credito'], cursor)
                 cuotas_pagadas_completas = len(df_plan[df_plan['Estado Actual'] == 'Pagada'])
                 
@@ -374,7 +369,6 @@ try:
                 else:
                     texto_plazo = f"<span style='color:#1E293B; font-weight:600;'>Mantiene los {plazo_original} meses</span>"
 
-                # ---------------- REEMPLAZO SEGURO HTML (Evita que el editor lo vuelva código gris) ----------------
                 html_tarjeta = (
                     "<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>"
                         f"<h3 style='text-align:center; color:#0052D4; margin-top:0;'>📱 {nombres_equipos}</h3>"
@@ -716,7 +710,7 @@ try:
                 else: st.info("Registro vacío.")
                     
             with tab_inv4:
-                st.markdown("<br><h4 style='color:#0052D4;'>📊 Rendimiento del Inventario por Categoría</h4>", unsafe_allow_html=True)
+                st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>📊 Rendimiento del Inventario por Categoría</h4>", unsafe_allow_html=True)
                 st.write("Conoce qué líneas de producto dejan mayor margen y dónde tienes el capital detenido.")
                 
                 cursor.execute("""
@@ -768,7 +762,7 @@ try:
                 if not clientes_db:
                     st.info("No hay clientes registrados en el sistema.")
                 else:
-                    st.markdown("<h4 style='color:#0052D4; margin-bottom: 5px;'>🔍 Buscador de Hojas de Vida</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0052D4; margin-top:0;'>🔍 Buscador de Hojas de Vida</h4>", unsafe_allow_html=True)
                     
                     opc_cli_buscar = {f"{c['documento']} - {c['nombre_completo']}": c for c in clientes_db}
                     
@@ -829,7 +823,7 @@ try:
 </div>
                         """, unsafe_allow_html=True)
                         
-                        st.markdown("<br>**📜 Historial de Transacciones de este Cliente**", unsafe_allow_html=True)
+                        st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>📜 Historial de Transacciones de este Cliente</h4>", unsafe_allow_html=True)
                         cursor.execute("SELECT p.fecha_pago AS 'Fecha', p.monto_recibido AS 'Valor Pagado', p.tipo_pago AS 'Concepto', cb.nombre_cuenta AS 'Cuenta Destino' FROM Pagos p JOIN Creditos cr ON p.id_credito = cr.id_credito LEFT JOIN Cuentas_Bancarias cb ON p.id_cuenta = cb.id_cuenta WHERE cr.id_cliente = %s AND p.motivo_ingreso NOT IN ('Venta de Cartera a Externo') ORDER BY p.fecha_pago DESC", (c['id_cliente'],))
                         hist_pagos = cursor.fetchall()
                         
@@ -847,7 +841,7 @@ try:
                         df_mostrar = df_todos
 
                     st.markdown("<hr style='margin: 30px 0; border-color: #E2E8F0;'>", unsafe_allow_html=True)
-                    st.markdown("#### 📋 Directorio General de Clientes")
+                    st.markdown("<h4 style='color:#0052D4; margin-top:0;'>📋 Directorio General de Clientes</h4>", unsafe_allow_html=True)
                     
                     if cliente_seleccionado:
                         st.caption("Mostrando registro filtrado.")
@@ -943,7 +937,7 @@ try:
                 st.divider()
                 
                 if tipo_v:
-                    st.markdown("#### Selección de Cliente y Productos")
+                    st.markdown("<h4 style='color:#0052D4; margin-top:0;'>Selección de Cliente y Productos</h4>", unsafe_allow_html=True)
                     cliente_sel = st.selectbox("Seleccionar Cliente", list(opc_cli.keys()), key="ventas_cli")
                     equipos_sel = st.multiselect("Selecciona uno o más equipos de la bodega para VENDER:", list(opc_eq.keys()), key="ventas_eq")
                     
@@ -952,7 +946,7 @@ try:
                         for eq in equipos_sel: st.markdown(f"<span style='color: #0369A1;'>- ✅ {eq}</span>", unsafe_allow_html=True)
                         st.markdown("</div>", unsafe_allow_html=True)
                     
-                    st.markdown("#### 🔄 Vincular Equipo de Retoma", unsafe_allow_html=True)
+                    st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>🔄 Vincular Equipo de Retoma</h4>", unsafe_allow_html=True)
                     retoma_vinculada = st.selectbox(
                         "¿El cliente entrega como parte de pago un equipo que ya ingresaste a bodega?", 
                         ["No aplica"] + list(opc_retomas.keys()),
@@ -965,7 +959,7 @@ try:
                         val_retoma = float(opc_retomas[retoma_vinculada]['costo_adquisicion'])
                         st.success(f"✅ Se aplicará un abono automático de {fmt_cop(val_retoma)} por esta retoma.")
                     
-                    st.markdown("#### Tiempos del Crédito", unsafe_allow_html=True)
+                    st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>Tiempos del Crédito</h4>", unsafe_allow_html=True)
                     
                     def actualizar_fecha_cuota():
                         st.session_state["ventas_f_cuota"] = sumar_meses_exactos(st.session_state["ventas_f_vta"], 1)
@@ -1066,7 +1060,7 @@ try:
                     
                     if dinero_a_caja_hoy > 0:
                         st.divider()
-                        st.markdown(f"#### 🏦 Destino del Dinero ({fmt_cop(dinero_a_caja_hoy)})")
+                        st.markdown(f"<h4 style='color:#0052D4; margin-top:0;'>🏦 Destino del Dinero ({fmt_cop(dinero_a_caja_hoy)})</h4>", unsafe_allow_html=True)
                         st.info("Ingresa a qué cuenta bancaria de DaTo está entrando este dinero hoy.")
                         c_acc1, c_acc2 = st.columns(2)
                         with c_acc1: 
@@ -1122,7 +1116,6 @@ try:
                                     if "Separé" in tipo_v:
                                         for n_c, v_c, f_c in c_pers: cursor.execute("INSERT INTO Cuotas_Programadas (id_credito, numero_cuota, monto_esperado, fecha_vencimiento) VALUES (%s, %s, %s, %s)", (id_cr, n_c, v_c, f_c.strftime('%Y-%m-%d')))
                                     
-                                    # LÓGICA FINANCIERA (FLUJO DE CAJA)
                                     if "Fondeo Externo" in tipo_v:
                                         if abono_efectivo > 0:
                                             cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (abono_efectivo,))
@@ -1262,7 +1255,7 @@ try:
                                 if k.startswith("pago_"): del st.session_state[k]
                             st.rerun()
 
-                    st.markdown("<br>### 💸 Historial de este Crédito", unsafe_allow_html=True)
+                    st.markdown("<br><h3 style='color:#0052D4; margin-top:0;'>💸 Historial de este Crédito</h3>", unsafe_allow_html=True)
                     if hist:
                         df_trans = pd.DataFrame(hist)
                         df_trans.rename(columns={'fecha_pago': 'Fecha', 'tipo_pago': 'Motivo', 'monto_recibido': 'Dinero Entregado', 'capital_abonado': 'Abono a Capital', 'interes_cobrado': 'Cobro de Interés', 'nombre_cuenta': 'Destino'}, inplace=True)
@@ -1271,7 +1264,7 @@ try:
                     else:
                         st.info("Sin registros de pagos.")
 
-                    st.markdown("<br>### 🧾 Plan de Pagos", unsafe_allow_html=True)
+                    st.markdown("<br><h3 style='color:#0052D4; margin-top:0;'>🧾 Plan de Pagos</h3>", unsafe_allow_html=True)
                     df_plan = generar_plan_pagos_real(dat['id_credito'], cursor)
                     st.dataframe(df_plan.style.map(color_estado_cuota, subset=['Estado Actual']), width='stretch')
 
@@ -1360,7 +1353,7 @@ try:
                 c1, c2, c3 = st.columns(3)
                 
                 with c1:
-                    st.markdown("<h4 style='color:#0052D4;'>📥 Anular un Pago</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0052D4; margin-top:0;'>📥 Anular un Pago</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT p.id_pago, cl.nombre_completo, p.monto_recibido, p.fecha_pago, p.tipo_pago FROM Pagos p JOIN Creditos c ON p.id_credito = c.id_credito JOIN Clientes cl ON c.id_cliente = cl.id_cliente ORDER BY p.id_pago DESC LIMIT 50")
                     pagos_db = cursor.fetchall()
                     if pagos_db:
@@ -1381,7 +1374,7 @@ try:
                     else: st.info("No hay pagos.")
 
                 with c2:
-                    st.markdown("<h4 style='color:#0052D4;'>🚨 Anular Venta</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0052D4; margin-top:0;'>🚨 Anular Venta</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT c.id_credito, cl.nombre_completo FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente ORDER BY c.id_credito DESC")
                     creds_db = cursor.fetchall()
                     if creds_db:
@@ -1411,7 +1404,7 @@ try:
                     else: st.info("No hay ventas.")
                     
                 with c3:
-                    st.markdown("<h4 style='color:#0052D4;'>📦 Eliminar de Bodega</h4>", unsafe_allow_html=True)
+                    st.markdown("<h4 style='color:#0052D4; margin-top:0;'>📦 Eliminar de Bodega</h4>", unsafe_allow_html=True)
                     cursor.execute("SELECT imei, marca, modelo, costo_adquisicion, id_bolsa FROM Inventario WHERE estado = 'Disponible'")
                     inv_db = cursor.fetchall()
                     if inv_db:
@@ -1460,6 +1453,7 @@ try:
                 
             with tab_gas:
                 st.markdown("<br>", unsafe_allow_html=True)
+                
                 with st.form("f_gastos_unicos", clear_on_submit=True):
                     tipo_g = st.selectbox("Categoría de la Salida de Dinero", ["Gasto Operativo (Luz, Arriendo, Papelería)", "Pago a Proveedor de Mercancía", "Aporte a Cadena / Fondo Fijo"])
                     desc = st.text_input("Detalle (Ej: Pago Arriendo Mes Agosto / Cadena Grupo 2)")
@@ -1474,7 +1468,7 @@ try:
                             conn.commit(); st.toast("Salida de dinero registrada."); time.sleep(1); st.rerun()
 
             with tab_hist:
-                st.markdown("<br>#### 📜 Historial de Comisiones Pagadas", unsafe_allow_html=True)
+                st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>📜 Historial de Comisiones Pagadas</h4>", unsafe_allow_html=True)
                 cursor.execute("SELECT fecha_gasto as 'Fecha de Pago', vendedor as 'Asesor', descripcion as 'Detalle del Cliente', monto as 'Comisión Pagada' FROM Gastos_Operativos WHERE estado_pago = 'Pagado' AND descripcion LIKE '%Comisión%' ORDER BY fecha_gasto DESC")
                 hist_com = cursor.fetchall()
                 if hist_com:
@@ -1484,7 +1478,7 @@ try:
                 else:
                     st.info("No hay historial de comisiones pagadas.")
                     
-                st.markdown("<br>#### 🧾 Historial de Otros Gastos y Proveedores", unsafe_allow_html=True)
+                st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>🧾 Historial de Otros Gastos y Proveedores</h4>", unsafe_allow_html=True)
                 cursor.execute("SELECT fecha_gasto as 'Fecha', tipo_gasto as 'Categoría', descripcion as 'Detalle', monto as 'Valor Extraído' FROM Gastos_Operativos WHERE estado_pago = 'Pagado' AND descripcion NOT LIKE '%Comisión%' ORDER BY fecha_gasto DESC")
                 hist_gas = cursor.fetchall()
                 if hist_gas:
@@ -1527,7 +1521,7 @@ try:
                     ret = st.number_input("Dinero Total a Devolver (Capital + Ganancia) ($)", min_value=0, step=100000, value=0)
                     render_traductor(ret)
                     
-                    st.markdown("#### Radar DIAN (Origen de la transferencia)")
+                    st.markdown("<h4 style='color:#0052D4; margin-top:0;'>🛡️ Radar DIAN (Origen de la transferencia)</h4>", unsafe_allow_html=True)
                     c1, c2 = st.columns(2)
                     with c1: cta_inv = st.selectbox("¿A qué cuenta bancaria te consignó?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."])
                     with c2: cta_nueva_inv = st.text_input("Si es nueva, escribe el nombre:")
@@ -1645,7 +1639,7 @@ try:
                     """, unsafe_allow_html=True)
 
             with tab_dian:
-                st.markdown("<br><h4 style='color:#0052D4;'>🛡️ Radar DIAN y Topes Bancarios</h4>", unsafe_allow_html=True)
+                st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>🛡️ Radar DIAN y Topes Bancarios</h4>", unsafe_allow_html=True)
                 st.write("Suma total de ingresos rastreados durante este año para vigilar los límites de declaración de renta. (El 'Efectivo' físico no suma a los bancos).")
                 
                 query_dian = """
@@ -1669,7 +1663,7 @@ try:
                 else: st.info("No hay ingresos bancarios rastreados este año.")
 
             with tab_roi:
-                st.markdown("<br><h4 style='color:#0052D4;'>💎 Rentabilidad Exacta por Socio (ROI)</h4>", unsafe_allow_html=True)
+                st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>💎 Rentabilidad Exacta por Socio (ROI)</h4>", unsafe_allow_html=True)
                 st.write("Cruza el costo de los equipos comprados con el bolsillo de cada inversor frente al valor al que fueron vendidos.")
                 
                 query_roi = """
@@ -1692,7 +1686,7 @@ try:
                 else: st.info("Aún no hay equipos marcados por bolsillo que hayan sido vendidos.")
 
             with tab_libro:
-                st.markdown("<br><h4 style='color:#0052D4;'>📓 Histórico de Movimientos de Caja (Libro Diario)</h4>", unsafe_allow_html=True)
+                st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>📓 Histórico de Movimientos de Caja (Libro Diario)</h4>", unsafe_allow_html=True)
                 st.write("Extracto cronológico de todas las entradas y salidas de dinero de tu Caja Global.")
                 
                 query_flujo = """
@@ -1797,6 +1791,8 @@ try:
 
 finally:
     try:
-        if 'cursor' in locals() and cursor: cursor.close()
-        if 'conn' in locals() and conn and conn.is_connected(): conn.close()
+        if cursor: cursor.close()
+    except Exception: pass
+    try:
+        if conn and conn.is_connected(): conn.close()
     except Exception: pass
