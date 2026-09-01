@@ -366,68 +366,71 @@ try:
                     texto_plazo = f"<span style='color:#1E293B; font-weight:600;'>Mantiene los {plazo_original} meses</span>"
 
                 st.markdown(f"""
-                <div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>
-                    <h3 style='text-align:center; color:#0052D4; margin-top:0;'>📱 {nombres_equipos}</h3>
-                    
-                    <div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px; margin-top: 15px;'>
-                        <p style='color:#0052D4; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>📋 Condiciones Iniciales del Contrato</p>
-                        <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>
-                            <div style='flex:1; min-width:120px;'>
-                                <span style='font-size:12px; color:#64748B;'>Valor Total Venta:</span><br>
-                                <b style='color:#1E293B; font-size:15px;'>{fmt_cop(cred['precio_venta'])}</b>
-                            </div>
-                            <div style='flex:1; min-width:120px;'>
-                                <span style='font-size:12px; color:#64748B;'>Crédito Financiado:</span><br>
-                                <b style='color:#1E293B; font-size:15px;'>{fmt_cop(cred['monto_financiado'])}</b>
-                            </div>
-                            <div style='flex:1; min-width:120px;'>
-                                <span style='font-size:12px; color:#64748B;'>Fecha Desembolso:</span><br>
-                                <b style='color:#1E293B; font-size:15px;'>{cred['fecha_inicio']}</b>
-                            </div>
-                            <div style='flex:1; min-width:120px;'>
-                                <span style='font-size:12px; color:#64748B;'>Plazo Pactado:</span><br>
-                                <b style='color:#1E293B; font-size:15px;'>{plazo_original} Meses</b>
-                            </div>
-                        </div>
-                    </div>
+<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>
+    <h3 style='text-align:center; color:#0052D4; margin-top:0;'>📱 {nombres_equipos}</h3>
+    
+    <!-- Fila 1: Condiciones Iniciales -->
+    <div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px; margin-top: 15px;'>
+        <p style='color:#0052D4; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>📋 Condiciones Iniciales del Contrato</p>
+        <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>
+            <div style='flex:1; min-width:120px;'>
+                <span style='font-size:12px; color:#64748B;'>Valor Total Venta:</span><br>
+                <b style='color:#1E293B; font-size:15px;'>{fmt_cop(cred['precio_venta'])}</b>
+            </div>
+            <div style='flex:1; min-width:120px;'>
+                <span style='font-size:12px; color:#64748B;'>Crédito Financiado:</span><br>
+                <b style='color:#1E293B; font-size:15px;'>{fmt_cop(cred['monto_financiado'])}</b>
+            </div>
+            <div style='flex:1; min-width:120px;'>
+                <span style='font-size:12px; color:#64748B;'>Fecha Desembolso:</span><br>
+                <b style='color:#1E293B; font-size:15px;'>{cred['fecha_inicio']}</b>
+            </div>
+            <div style='flex:1; min-width:120px;'>
+                <span style='font-size:12px; color:#64748B;'>Plazo Pactado:</span><br>
+                <b style='color:#1E293B; font-size:15px;'>{plazo_original} Meses</b>
+            </div>
+        </div>
+    </div>
 
-                    <div style='background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 15px; margin-top: 15px;'>
-                        <p style='color:#0369A1; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>⚡ Estado Actual</p>
-                        <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>
-                            <div style='flex:1; min-width:120px;'>
-                                <span style='font-size:12px; color:#0369A1;'>Altura del Crédito:</span><br>
-                                <b style='color:#1D4ED8; font-size:16px;'>{cuotas_pagadas_completas} / {plazo_actual_proyectado}</b>
-                            </div>
-                            <div style='flex:1; min-width:120px;'>
-                                <span style='font-size:12px; color:#0369A1;'>Cuotas Pendientes:</span><br>
-                                <b style='color:#1D4ED8; font-size:16px;'>{meses_restantes}</b>
-                            </div>
-                            <div style='flex:2; min-width:200px;'>
-                                <span style='font-size:12px; color:#0369A1;'>Proyección Actual:</span><br>
-                                <span style='font-size:15px;'>{texto_plazo}</span>
-                            </div>
-                            <div style='flex:1; min-width:120px;'>
-                                <span style='font-size:12px; color:#0369A1;'>Último Pago:</span><br>
-                                <b style='color:#1D4ED8; font-size:15px;'>{last_val} <span style='font-size:12px; color:#64748B;'>({last_date})</span></b>
-                            </div>
-                        </div>
-                    </div>
+    <!-- Fila 2: Condiciones Actuales (Altura) -->
+    <div style='background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 15px; margin-top: 15px;'>
+        <p style='color:#0369A1; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>⚡ Estado Actual</p>
+        <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>
+            <div style='flex:1; min-width:120px;'>
+                <span style='font-size:12px; color:#0369A1;'>Altura del Crédito:</span><br>
+                <b style='color:#1D4ED8; font-size:16px;'>{cuotas_pagadas_completas} / {plazo_actual_proyectado}</b>
+            </div>
+            <div style='flex:1; min-width:120px;'>
+                <span style='font-size:12px; color:#0369A1;'>Cuotas Pendientes:</span><br>
+                <b style='color:#1D4ED8; font-size:16px;'>{meses_restantes}</b>
+            </div>
+            <div style='flex:2; min-width:200px;'>
+                <span style='font-size:12px; color:#0369A1;'>Proyección Actual:</span><br>
+                <span style='font-size:15px;'>{texto_plazo}</span>
+            </div>
+            <div style='flex:1; min-width:120px;'>
+                <span style='font-size:12px; color:#0369A1;'>Último Pago:</span><br>
+                <b style='color:#1D4ED8; font-size:15px;'>{last_val} <span style='font-size:12px; color:#64748B;'>({last_date})</span></b>
+            </div>
+        </div>
+    </div>
 
-                    <div style='display:flex; justify-content:space-around; margin-top:20px; flex-wrap: wrap; gap: 20px;'>
-                        <div style='text-align:center; background: #F8FAFC; padding: 20px; border-radius: 12px; border: 1px solid #E2E8F0; flex:1; min-width: 200px;'>
-                            <p style='color:#64748B; margin-bottom:5px; font-weight: 600;'>Cuota Mensual Actual</p>
-                            <h2 style='color:#0052D4; margin:0;'>{fmt_cop(cred['valor_cuota'])}</h2>
-                        </div>
-                        <div style='text-align:center; background: #FFF1F2; padding: 20px; border-radius: 12px; border: 1px solid #FECACA; flex:1; min-width: 200px;'>
-                            <p style='color:#BE123C; margin-bottom:5px; font-weight: 600;'>Saldo Pendiente a Capital</p>
-                            <h2 style='color:#E11D48; margin:0;'>{fmt_cop(saldo_actual)}</h2>
-                        </div>
-                        <div style='text-align:center; background: #ECFDF5; padding: 20px; border-radius: 12px; border: 1px solid #A7F3D0; flex:1; min-width: 200px;'>
-                            <p style='color:#047857; margin-bottom:5px; font-weight: 600;'>Pago Total para Liquidar Hoy</p>
-                            <h2 style='color:#10B981; margin:0;'>{fmt_cop(pago_total)}</h2>
-                        </div>
-                    </div>
-                </div>
+    <!-- Fila 3: Cajas de Pago Grandes -->
+    <div style='display:flex; justify-content:space-around; margin-top:20px; flex-wrap: wrap; gap: 20px;'>
+        <div style='text-align:center; background: #F8FAFC; padding: 20px; border-radius: 12px; border: 1px solid #E2E8F0; flex:1; min-width: 200px;'>
+            <p style='color:#64748B; margin-bottom:5px; font-weight: 600;'>Cuota Mensual Actual</p>
+            <h2 style='color:#0052D4; margin:0;'>{fmt_cop(cred['valor_cuota'])}</h2>
+        </div>
+        <div style='text-align:center; background: #FFF1F2; padding: 20px; border-radius: 12px; border: 1px solid #FECACA; flex:1; min-width: 200px;'>
+            <p style='color:#BE123C; margin-bottom:5px; font-weight: 600;'>Saldo Pendiente a Capital</p>
+            <h2 style='color:#E11D48; margin:0;'>{fmt_cop(saldo_actual)}</h2>
+        </div>
+        <div style='text-align:center; background: #ECFDF5; padding: 20px; border-radius: 12px; border: 1px solid #A7F3D0; flex:1; min-width: 200px;'>
+            <p style='color:#047857; margin-bottom:5px; font-weight: 600;'>Pago Total para Liquidar Hoy</p>
+            <h2 style='color:#10B981; margin:0;'>{fmt_cop(pago_total)}</h2>
+        </div>
+    </div>
+</div>
                 """, unsafe_allow_html=True)
                 
                 st.markdown("#### 🧾 Historial de tus pagos")
