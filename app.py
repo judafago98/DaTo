@@ -69,58 +69,74 @@ st.set_page_config(page_title="DaTo | Tecnología con Respaldo", layout="wide", 
 # ==========================================
 # 🎨 UI CORPORATIVA Y LIMPIA
 # ==========================================
+# ==========================================
+# 🎨 UI CORPORATIVA (ERP PREMIUM)
+# ==========================================
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
-        :root { color-scheme: light !important; }
-        .stApp { background-color: #F8FAFC !important; background-image: none !important; }
+        /* FORZAR TEMA CLARO ABSOLUTO EN TODA LA APP */
+        :root, [data-theme="dark"] { color-scheme: light !important; }
+        .stApp, header, .stApp > header { background-color: #F8FAFC !important; background-image: none !important; }
 
+        /* TIPOGRAFÍA Y COLOR DE TEXTO GLOBAL */
         p, span, div, label, li, td, th { font-family: 'Outfit', sans-serif; color: #1E293B !important; }
-        h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; color: #0052D4 !important; font-weight: 700 !important; }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; color: #0052D4 !important; font-weight: 700 !important; letter-spacing: -0.5px; }
 
+        /* ÍCONOS DEL SISTEMA */
         .material-symbols-rounded, .material-icons, i, [data-testid="collapsedControl"] * {
             font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important; color: #0052D4 !important;
         }
         
-        button[data-baseweb="tab"] { color: #64748B !important; background: transparent !important; }
-        button[data-baseweb="tab"][aria-selected="true"] { color: #0052D4 !important; border-bottom-color: #0052D4 !important; }
-        div[data-baseweb="tab-highlight"] { background-color: #0052D4 !important; display: none !important; }
+        /* PESTAÑAS (TABS) - REEMPLAZAR ROJO POR AZUL CORPORATIVO */
+        button[data-baseweb="tab"] { color: #64748B !important; background: transparent !important; border-bottom: 2px solid transparent !important; }
+        button[data-baseweb="tab"][aria-selected="true"] { color: #0052D4 !important; border-bottom: 2px solid #0052D4 !important; }
+        div[data-baseweb="tab-highlight"] { background-color: #0052D4 !important; display: none !important; } /* Oculta la línea roja nativa */
         
-        /* ADIOS ETIQUETAS ROJAS */
-        span[data-baseweb="tag"] { background-color: #E0F2FE !important; color: #0369A1 !important; border: 1px solid #7DD3FC !important; border-radius: 8px !important; padding: 5px 10px !important; }
+        /* MULTISELECT (ADIÓS ETIQUETAS ROJAS) */
+        span[data-baseweb="tag"] { background-color: #E0F2FE !important; color: #0369A1 !important; border: 1px solid #7DD3FC !important; border-radius: 6px !important; padding: 4px 12px !important; }
         span[data-baseweb="tag"] span { color: #0369A1 !important; font-weight: 600 !important; }
         span[data-baseweb="tag"] svg { fill: #0369A1 !important; }
 
-        div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within, textarea:focus { border-color: #0052D4 !important; box-shadow: 0 0 0 1.5px #0052D4 !important; }
+        /* ELIMINAR BORDES ROJOS EN INPUTS Y LISTAS DESPLEGABLES */
+        div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { border: 1px solid #CBD5E1 !important; background-color: #FFFFFF !important; transition: 0.2s; border-radius: 8px !important; }
+        div[data-baseweb="input"]:focus-within > div, div[data-baseweb="select"]:focus-within > div { border-color: #0052D4 !important; box-shadow: 0 0 0 2px rgba(0, 82, 212, 0.2) !important; }
+        
+        /* REPARACIÓN DE LAS LISTAS DESPLEGABLES NEGRAS (POPOVERS) */
+        div[data-baseweb="popover"], ul[role="listbox"] { background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important; border-radius: 8px !important; box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important; }
+        li[role="option"] { background-color: #FFFFFF !important; color: #1E293B !important; padding: 10px 15px !important; transition: 0.1s; }
+        li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #F1F5F9 !important; color: #0052D4 !important; font-weight: 600 !important; }
 
+        /* TOGGLES */
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div { background-color: #CBD5E1 !important; }
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div[aria-checked="true"] { background-color: #0052D4 !important; }
 
+        /* BOTONES PREMIUM (Call to Action) */
         .stButton > button {
-            background-color: #0052D4 !important; color: #FFFFFF !important; border: 1px solid #0052D4 !important;
-            border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s; width: 100% !important; box-shadow: 0 4px 6px rgba(0, 82, 212, 0.2) !important;
+            background: linear-gradient(135deg, #0052D4 0%, #003366 100%) !important; color: #FFFFFF !important; border: none !important;
+            border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s; width: 100% !important; box-shadow: 0 4px 10px rgba(0, 82, 212, 0.3) !important; padding: 0.5rem 1rem !important;
         }
-        .stButton > button:hover { background-color: #003366 !important; border-color: #003366 !important; transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0, 82, 212, 0.3) !important; }
+        .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 82, 212, 0.4) !important; }
+        .stButton > button:active { transform: translateY(0); box-shadow: none !important; }
         
-        [data-testid="stNumberInput"] button { background-color: #F1F5F9 !important; border: 1px solid #CBD5E1 !important; color: #0052D4 !important; border-radius: 6px !important; box-shadow: none !important;}
+        [data-testid="stNumberInput"] button { background: #F1F5F9 !important; border: 1px solid #CBD5E1 !important; color: #0052D4 !important; border-radius: 6px !important; box-shadow: none !important;}
 
-        div[data-testid="stForm"], .card-panel, [data-testid="stSidebar"] {
-            background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important; border-radius: 12px !important; box-shadow: 0 4px 15px rgba(0,0,0,0.03) !important;
+        /* CAJAS Y TARJETAS (LOGIN Y FORMULARIOS) */
+        div[data-testid="stForm"], .card-panel {
+            background-color: #FFFFFF !important; border: 1px solid #F1F5F9 !important; border-radius: 16px !important; box-shadow: 0 8px 30px rgba(0,0,0,0.04) !important; padding: 25px !important;
         }
 
-        input, textarea, select, div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
-            background-color: #FFFFFF !important; border: 1px solid #CBD5E1 !important; border-radius: 8px !important; color: #0F172A !important;
-        }
-
+        /* MENÚ LATERAL MEJORADO */
+        [data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E2E8F0 !important; }
         [data-testid="stSidebar"] [role="radiogroup"] label div[data-baseweb="radio"], [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child, [data-testid="stSidebar"] [role="radiogroup"] label > span:first-child { display: none !important; }
-        [data-testid="stSidebar"] [role="radiogroup"] label { background: #F1F5F9 !important; border: 1px solid transparent !important; border-radius: 8px !important; padding: 12px 15px !important; margin: 6px 10px !important; cursor: pointer !important; transition: 0.2s; }
+        [data-testid="stSidebar"] [role="radiogroup"] label { background: #F8FAFC !important; border: 1px solid transparent !important; border-radius: 10px !important; padding: 12px 15px !important; margin: 6px 15px !important; cursor: pointer !important; transition: 0.2s; }
         [data-testid="stSidebar"] [role="radiogroup"] label:hover { background: #E2E8F0 !important; transform: translateX(3px); }
-        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] { background: #E0F2FE !important; border-left: 4px solid #0052D4 !important; transform: translateX(3px); }
+        [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] { background: #EFF6FF !important; border-left: 4px solid #0052D4 !important; transform: translateX(3px); box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important; }
         [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] div[dir="auto"] { color: #0052D4 !important; font-weight: 700 !important; }
         
-        /* EXPANDER CARDS (HOJA DE VIDA FINANCIERA) */
-        [data-testid="stExpander"] { background-color: #F8FAFC !important; border: 1px solid #E2E8F0 !important; border-radius: 12px !important; margin-bottom: 10px !important; }
+        /* EXPANDER CARDS (HOJAS DE VIDA CLIENTES) */
+        [data-testid="stExpander"] { background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important; border-radius: 12px !important; margin-bottom: 10px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important; }
         [data-testid="stExpander"] summary p { font-size: 1.1rem !important; font-weight: 600 !important; color: #0052D4 !important; }
     </style>
 """, unsafe_allow_html=True)
