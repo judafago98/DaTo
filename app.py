@@ -1073,7 +1073,8 @@ try:
             st.markdown("<h2>Reportes y Estadísticas 📊</h2>", unsafe_allow_html=True)
             if not es_admin: st.error("Módulo de gerencia."); st.stop()
             
-            tab_bi, tab_graf, tab_riesgo, tab_eficiencia = st.tabs(["🌐 Resumen Financiero", "📈 Ingresos", "⚖️ Estado de Cartera", "💸 Rentabilidad"])
+            # --- Agregamos la 5ta pestaña: Libro Diario ---
+            tab_bi, tab_graf, tab_riesgo, tab_eficiencia, tab_libro = st.tabs(["🌐 Resumen Financiero", "📈 Ingresos", "⚖️ Estado de Cartera", "💸 Rentabilidad", "📓 Libro Diario (Movimientos)"])
             
             cursor.execute("SELECT SUM(saldo_actual) as cap FROM Bolsas_Capital")
             cap = float(cursor.fetchone()['cap'] or 0)
@@ -1164,6 +1165,50 @@ try:
                     st.markdown("<h4 style='color:#0052D4;'>💸 ¿En qué se va la plata?</h4>", unsafe_allow_html=True)
                     df_egresos = pd.DataFrame([{"Gasto": "Costos y Comisiones Operativas", "Valor": gastos_totales}])
                     st.bar_chart(df_egresos.set_index("Gasto"), color="#DC2626")
+            
+            # ==========================================
+            # 📓 NUEVO MÓDULO: LIBRO DIARIO (FLUJO DE CAJA)
+            # ==========================================
+            with tab_libro:
+                st.markdown("<br><h4 style='color:#0052D4;'>📓 Histórico de Movimientos de Caja (Libro Diario)</h4>", unsafe_allow_html=True)
+                st.write("Extracto cronológico de todas las entradas y salidas de dinero del ecosistema DaTo.")
+                
+                # Consulta SQL Maestra: Une 6 tablas diferentes para crear el libro contable sin alterar tu código base
+                query_flujo = """
+                    SELECT DATE(fecha_pago) AS Fecha, 'Ingreso' AS Tipo, 'Recaudo de Cuota / Abono' AS Categoria, CONCAT('Crédito #', id_credito) AS Detalle, monto_recibido AS Ingreso, 0 AS Egreso FROM Pagos
+                    UNION ALL
+                    SELECT DATE(fecha_inicio) AS Fecha, 'Ingreso' AS Tipo, 'Abono Inicial / Contado' AS Categoria, CONCAT('Factura #', id_credito) AS Detalle, abono_inicial AS Ingreso, 0 AS Egreso FROM Creditos WHERE abono_inicial > 0
+                    UNION ALL
+                    SELECT DATE(fecha_prestamo) AS Fecha, 'Ingreso' AS Tipo, 'Fondeo de Inversor' AS Categoria, prestamista AS Detalle, monto_prestado AS Ingreso, 0 AS Egreso FROM Deudas_Fondeo
+                    UNION ALL
+                    SELECT DATE(fecha_compra) AS Fecha, 'Egreso' AS Tipo, 'Compra de Bodega' AS Categoria, CONCAT(cantidad, 'x ', marca, ' ', modelo) AS Detalle, 0 AS Ingreso, (costo_adquisicion * cantidad) AS Egreso FROM Inventario WHERE costo_adquisicion > 0
+                    UNION ALL
+                    SELECT DATE(fecha_gasto) AS Fecha, 'Egreso' AS Tipo, 'Gasto Operativo' AS Categoria, descripcion AS Detalle, 0 AS Ingreso, monto AS Egreso FROM Gastos_Operativos
+                    UNION ALL
+                    SELECT DATE(fecha_pago) AS Fecha, 'Egreso' AS Tipo, 'Retorno a Socio' AS Categoria, CONCAT('Pago Deuda #', id_deuda) AS Detalle, 0 AS Ingreso, monto_pagado AS Egreso FROM Pagos_Deuda
+                    ORDER BY Fecha ASC
+                """
+                cursor.execute(query_flujo)
+                flujo_db = cursor.fetchall()
+                
+                if flujo_db:
+                    df_flujo = pd.DataFrame(flujo_db)
+                    
+                    # Calcular el saldo dinámico como en un banco
+                    df_flujo['Saldo Acumulado'] = (df_flujo['Ingreso'] - df_flujo['Egreso']).cumsum()
+                    
+                    # Formato de Pesos Colombianos
+                    for col in ['Ingreso', 'Egreso', 'Saldo Acumulado']:
+                        df_flujo[col] = df_flujo[col].apply(fmt_cop)
+                    
+                    # Pintar de verde los ingresos y de rojo los egresos
+                    def color_tipo_movimiento(val):
+                        if val == 'Ingreso': return 'color: #059669; font-weight: 600;'
+                        return 'color: #DC2626; font-weight: 600;'
+                    
+                    st.dataframe(df_flujo.style.map(color_tipo_movimiento, subset=['Tipo']), width='stretch')
+                else:
+                    st.info("Aún no hay movimientos financieros registrados en el sistema.")
 
         elif menu_seleccionado == "config_roles":
             st.markdown("<h2>Configuración de Usuarios ⚙️</h2>", unsafe_allow_html=True)
