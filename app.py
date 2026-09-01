@@ -820,7 +820,9 @@ try:
             st.markdown("<h2>Registro de Ventas 📝</h2>", unsafe_allow_html=True)
             cursor.execute("SELECT id_cliente, documento, nombre_completo FROM Clientes")
             clientes = cursor.fetchall()
-            cursor.execute("SELECT imei, categoria, marca, modelo FROM Inventario WHERE estado = 'Disponible'")
+            
+            # Se modifica la consulta para traer el costo y tipo de ingreso y poder filtrar las retomas
+            cursor.execute("SELECT imei, categoria, marca, modelo, costo_adquisicion, tipo_ingreso FROM Inventario WHERE estado = 'Disponible'")
             inventario = cursor.fetchall()
             cursor.execute("SELECT nombre FROM Vendedores")
             vendedores = [v['nombre'] for v in cursor.fetchall()]
@@ -831,18 +833,33 @@ try:
                 opc_cli = {f"{c['documento']} - {c['nombre_completo']}": c['id_cliente'] for c in clientes}
                 opc_eq = {f"[{e['categoria']}] {e['marca']} {e['modelo']} (Cod: {e['imei']})": e['imei'] for e in inventario}
                 
+                # Filtramos únicamente los equipos que entraron como retoma para el selector
+                opc_retomas = {f"[{e['marca']} {e['modelo']}] tasado en {fmt_cop(e['costo_adquisicion'])} (IMEI: {e['imei']})": e for e in inventario if e['tipo_ingreso'] == 'Retoma'}
+                
                 tipo_v = st.selectbox("Tipo de Venta:", ["Crédito Financiado a Cuotas", "Plan Separé (Sin Interés)", "Venta de Contado"], index=None, placeholder="Seleccione modalidad...")
                 st.divider()
                 
                 if tipo_v:
                     st.markdown("#### Selección de Cliente y Productos")
                     cliente_sel = st.selectbox("Seleccionar Cliente", list(opc_cli.keys()))
-                    equipos_sel = st.multiselect("Selecciona uno o más equipos de la bodega:", list(opc_eq.keys()))
+                    equipos_sel = st.multiselect("Selecciona uno o más equipos de la bodega para VENDER:", list(opc_eq.keys()))
                     
                     if equipos_sel:
                         st.markdown("<div style='background: #E0F2FE; border-left: 4px solid #0052D4; padding: 15px; border-radius: 8px; margin-bottom: 20px;'><p style='color: #0052D4; font-weight: bold; margin-bottom: 5px;'>🛒 Equipos en esta factura:</p>", unsafe_allow_html=True)
                         for eq in equipos_sel: st.markdown(f"<span style='color: #0369A1;'>- ✅ {eq}</span>", unsafe_allow_html=True)
                         st.markdown("</div>", unsafe_allow_html=True)
+                    
+                    st.markdown("#### 🔄 Vincular Equipo de Retoma", unsafe_allow_html=True)
+                    retoma_vinculada = st.selectbox(
+                        "¿El cliente entrega como parte de pago un equipo que ya ingresaste a bodega?", 
+                        ["No aplica"] + list(opc_retomas.keys()),
+                        help="Si no ves el equipo aquí, ve primero a Gestión de Inventario e ingrésalo con estado 'Retoma'."
+                    )
+                    
+                    val_retoma = 0
+                    if retoma_vinculada != "No aplica":
+                        val_retoma = float(opc_retomas[retoma_vinculada]['costo_adquisicion'])
+                        st.success(f"✅ Se aplicará un abono automático de {fmt_cop(val_retoma)} por esta retoma.")
                     
                     st.markdown("#### Tiempos del Crédito", unsafe_allow_html=True)
                     c_f1, c_f2 = st.columns(2)
@@ -851,15 +868,17 @@ try:
 
                     c3, c4 = st.columns(2)
                     c_pers, c_fija = [], 0
-                    p_final, ab_init, plazo, tasa, comis = 0, 0, 0, 0.0, 0
+                    p_final, ab_init, abono_efectivo, plazo, tasa, comis = 0, 0, 0, 0, 0.0, 0
                     vendedor_existente, nuevo_vendedor = None, None
                     
                     if "Financiado" in tipo_v:
                         with c3:
                             p_final = st.number_input("Valor Total Factura ($)", min_value=0, value=0, step=10000)
                             render_traductor(p_final)
-                            ab_init = st.number_input("Abono Inicial Entregado (Efectivo/Transferencia) ($)", min_value=0, value=0, step=10000)
-                            render_traductor(ab_init)
+                            abono_efectivo = st.number_input("Abono Inicial Entregado (Efectivo/Transferencia) ($)", min_value=0, value=0, step=10000)
+                            render_traductor(abono_efectivo)
+                            ab_init = abono_efectivo + val_retoma
+                            st.markdown(f"<p style='color: #059669; font-weight: 600; font-size: 14px;'>Total Abono Reconocido: {fmt_cop(ab_init)}</p>", unsafe_allow_html=True)
                             plazo = st.number_input("Meses a Pagar", min_value=1, value=6)
                         with c4:
                             st.write("Datos del Asesor")
@@ -894,8 +913,10 @@ try:
                         with c3:
                             p_final = st.number_input("Valor Total a Pagar ($)", min_value=0, value=0, step=10000)
                             render_traductor(p_final)
-                            ab_init = st.number_input("Abono Inicial (Para separar) ($)", min_value=0, value=0, step=10000)
-                            render_traductor(ab_init)
+                            abono_efectivo = st.number_input("Abono Inicial (Para separar) ($)", min_value=0, value=0, step=10000)
+                            render_traductor(abono_efectivo)
+                            ab_init = abono_efectivo + val_retoma
+                            st.markdown(f"<p style='color: #059669; font-weight: 600; font-size: 14px;'>Total Abono Reconocido: {fmt_cop(ab_init)}</p>", unsafe_allow_html=True)
                             plazo = st.number_input("Número de Cuotas", min_value=1, value=2)
                         with c4:
                             st.write("Datos del Asesor")
@@ -922,6 +943,7 @@ try:
                         nuevo_vendedor = st.text_input("O crear nuevo:")
                         comis = st.number_input("Comisión Asesor ($)", min_value=0, step=10000, value=0)
                         render_traductor(comis)
+                        abono_efectivo = p_final - val_retoma
                         ab_init, plazo, tasa = p_final, 0, 0.0
 
                     st.divider()
@@ -973,11 +995,16 @@ try:
                                     if "Separé" in tipo_v:
                                         for n_c, v_c, f_c in c_pers: cursor.execute("INSERT INTO Cuotas_Programadas (id_credito, numero_cuota, monto_esperado, fecha_vencimiento) VALUES (%s, %s, %s, %s)", (id_cr, n_c, v_c, f_c.strftime('%Y-%m-%d')))
                                     
-                                    if ab_init > 0: 
+                                    # Ingreso de Efectivo a la Caja
+                                    if abono_efectivo > 0: 
                                         motivo_in = 'Pago Contado' if "Contado" in tipo_v else 'Abono Inicial'
-                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (ab_init,))
-                                        cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, 0, %s, %s, %s, %s)", (id_cr, ab_init, motivo_in, ab_init, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, motivo_in))
+                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (abono_efectivo,))
+                                        cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, 0, %s, %s, %s, %s)", (id_cr, abono_efectivo, motivo_in, abono_efectivo, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final, motivo_in))
                                         
+                                    # Ingreso en especie (Retoma cruzada)
+                                    if val_retoma > 0:
+                                        cursor.execute("INSERT INTO Pagos (id_credito, monto_recibido, tipo_pago, capital_abonado, interes_cobrado, fecha_pago, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, 'Pago en Especie / Retoma', %s, 0, %s, %s, %s, 'Cruce Retoma Bodega')", (id_cr, val_retoma, val_retoma, fecha_venta.strftime('%Y-%m-%d %H:%M:%S'), st.session_state['id_usuario'], id_cuenta_final))
+
                                     if comis > 0 and vendedor_final:
                                         cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, vendedor, id_credito, id_usuario_registro, tipo_gasto) VALUES (%s, %s, %s, 'Por Pagar', %s, %s, %s, 'Gasto Operativo')", (f"Comisión Venta - {vendedor_final} (Cliente: {cliente_sel.split(' - ')[1]})", comis, datetime.date.today(), vendedor_final, id_cr, st.session_state['id_usuario']))
                                         
