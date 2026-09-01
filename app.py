@@ -1178,9 +1178,10 @@ try:
                                     conn.commit(); st.toast("Cargo creado."); time.sleep(1); st.rerun()
                             except Exception as e: st.error(f"Error: {e}")
 
-# === SEGURO ANTI-FUGAS DE MEMORIA ===
-try:
-    if 'cursor' in locals() and cursor: cursor.close()
-    if 'conn' in locals() and conn and conn.is_connected(): conn.close()
-except Exception:
-    pass
+finally:
+    # === SEGURO ANTI-FUGAS DE MEMORIA ===
+    try:
+        if 'cursor' in locals() and cursor: cursor.close()
+        if 'conn' in locals() and conn and conn.is_connected(): conn.close()
+    except Exception:
+        pass
