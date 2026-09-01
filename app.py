@@ -1066,7 +1066,7 @@ try:
                         elif p_final <= 0: st.error("El valor de la factura debe ser mayor a cero.")
                         elif cuenta_sel == "➕ Añadir nueva cuenta..." and not nueva_cuenta: st.error("Escribe el nombre de la nueva cuenta bancaria.")
                         else:
-                            vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..."] else None)
+                            vendedor_final = nuevo_vendedor if nuevo_vendedor else (vendedor_existente if vendedor_existente != "Seleccionar..." else None)
                             if comis > 0 and not vendedor_final: st.error("Asigna un vendedor para pagarle su comisión.")
                             elif "Separé" in tipo_v and s_cuotas != (p_final - ab_init): st.error("Las cuotas no suman el total de la deuda.")
                             else:
