@@ -536,7 +536,7 @@ try:
                     <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; color: white; font-size: 12px; font-weight: bold; margin-bottom: 15px;">
                         <span style="width:8px; height:8px; background:#10B981; border-radius:50%; animation: pulseGlow 2s infinite;"></span> EN LÍNEA
                     </div>
-                    <h1 style='font-size: 3.2rem; font-weight: 800; margin: 0; color: white !important;'>¡A ROMPERLA, {st.session_state['nombre_usuario'].split(" ")[0].upper()}! 🚀</h1>
+                    <h1 style='font-size: 3.2rem; font-weight: 800; margin: 0; color: white !important;'>¡Bienvenido a tu Aplicativo DaTo, {st.session_state['nombre_usuario'].split(" ")[0].upper()}! 🚀</h1>
                 </div>
                 <div class="caja-badge">
                     <span style="font-size: 12px; text-transform: uppercase; font-weight: 800; color: #94A3B8 !important; display: block; margin-bottom: 5px;">Plata Física en Caja</span>
