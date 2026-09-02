@@ -483,7 +483,7 @@ try:
             c_activos = cursor.fetchone()['creditos_activos'] or 0
             
             # --- 2. CONSULTAS DE ALTO IMPACTO (SALÓN DE LA FAMA) ---
-            # A. Ganancia Realizada (Solo dinero que ya es ganancia pura, ignorando créditos en rojo)
+            # A. Ganancia Realizada (Utilidad pura)
             cursor.execute("""
                 SELECT SUM(GANANCIA_REAL) as ganancia_total FROM (
                     SELECT 
@@ -499,33 +499,33 @@ try:
             res_ganancia = cursor.fetchone()
             ganancia_realizada = float(res_ganancia['ganancia_total'] or 0)
 
-            # B. Cliente Estrella (El que más plata real ha pagado)
+            # B. Capital en la Calle (Dinero por cobrar)
             cursor.execute("""
-                SELECT cl.nombre_completo, SUM(p.monto_recibido) as total_pagado 
-                FROM Pagos p JOIN Creditos c ON p.id_credito = c.id_credito JOIN Clientes cl ON c.id_cliente = cl.id_cliente 
-                WHERE p.motivo_ingreso NOT IN ('Venta de Cartera a Externo') 
-                GROUP BY cl.id_cliente ORDER BY total_pagado DESC LIMIT 1
+                SELECT SUM(c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) as saldo_pendiente
+                FROM Creditos c WHERE c.estado = 'Activo'
             """)
-            res_cliente = cursor.fetchone()
-            cliente_estrella = res_cliente['nombre_completo'] if res_cliente else "N/A"
-            cliente_pago = float(res_cliente['total_pagado']) if res_cliente else 0
+            res_proy = cursor.fetchone()
+            dinero_calle = float(res_proy['saldo_pendiente'] or 0)
 
-            # C. Producto Rey (El más vendido)
+            # C. Top 3 Productos Más Vendidos
             cursor.execute("""
                 SELECT CONCAT(marca, ' ', modelo) as equipo, COUNT(*) as cantidad 
                 FROM Inventario WHERE estado = 'Vendido' 
-                GROUP BY marca, modelo ORDER BY cantidad DESC LIMIT 1
+                GROUP BY marca, modelo ORDER BY cantidad DESC LIMIT 3
             """)
-            res_equipo = cursor.fetchone()
-            equipo_rey = res_equipo['equipo'] if res_equipo else "N/A"
-            equipo_qty = res_equipo['cantidad'] if res_equipo else 0
+            top_equipos = cursor.fetchall()
+            html_top_equipos = ""
+            for idx, eq in enumerate(top_equipos):
+                html_top_equipos += f"<div style='display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #E0F2FE; padding-bottom:4px;'><span style='color:#0369A1; font-weight:600; font-size:14px;'>{idx+1}. {eq['equipo']}</span><b style='color:#0284C7; font-size:14px;'>{eq['cantidad']} unid.</b></div>"
+            if not html_top_equipos:
+                html_top_equipos = "<p style='color:#64748B; font-size:13px;'>Aún no hay suficientes datos de ventas.</p>"
 
             # --- 3. RENDERIZADO VISUAL DEL DASHBOARD ---
             st.markdown(f"""
             <div style="background: linear-gradient(135deg, #0052D4 0%, #003366 100%); border-radius: 20px; padding: 40px; box-shadow: 0 15px 35px rgba(0, 82, 212, 0.2); color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
                 <div>
                     <h1 style='font-size: 3rem; font-weight: 800; margin: 0; color: white;'>HOLA, {st.session_state['nombre_usuario'].split(" ")[0].upper()} 🚀</h1>
-                    <p style='font-size: 1.1rem; font-weight: 400; margin-top: 5px; opacity: 0.9;'>Es hora de romperla. Aquí está la radiografía operativa de DaTo hoy.</p>
+                    <p style='font-size: 1.1rem; font-weight: 400; margin-top: 5px; opacity: 0.9;'>Es hora de operar. Aquí está el rendimiento de DaTo al segundo.</p>
                 </div>
                 <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 20px 30px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); text-align: center;">
                     <p style="margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; color: #E2E8F0;">Caja Global Disponible</p>
@@ -546,35 +546,34 @@ try:
             </style>
             """, unsafe_allow_html=True)
             
-            # --- 4. SALÓN DE LA FAMA (TROFEOS) ---
-            st.markdown("<h3 style='color:#0052D4; font-size: 1.4rem; margin-bottom: 15px; margin-top: 10px;'>🏆 Salón de la Fama y Rendimiento</h3>", unsafe_allow_html=True)
+            # --- 4. PANEL DE RENDIMIENTO COMERCIAL ---
+            st.markdown("<h3 style='color:#0052D4; font-size: 1.4rem; margin-bottom: 15px; margin-top: 10px;'>📊 Rendimiento Comercial</h3>", unsafe_allow_html=True)
             
             t1, t2, t3 = st.columns(3)
             with t1:
                 st.markdown(f"""
                 <div class="trophy-card" style="border-left: 5px solid #10B981;">
                     <div class="trophy-icon">💰</div>
-                    <p style="color:#047857; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Ganancia Neta Asegurada</p>
+                    <p style="color:#047857; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Utilidad Neta Asegurada</p>
                     <h2 style="color:#10B981; font-size:2.5rem; font-weight:800; margin:5px 0;">{fmt_cop(ganancia_realizada)}</h2>
-                    <p style="color:#64748B; font-size:12px; margin:0;">Plata libre de polvo y paja generada por créditos que ya cruzaron su punto de equilibrio.</p>
+                    <p style="color:#64748B; font-size:12px; margin:0;">Ganancia real generada por ventas de contado y créditos que ya recuperaron su inversión inicial.</p>
                 </div>
                 """, unsafe_allow_html=True)
             with t2:
                 st.markdown(f"""
                 <div class="trophy-card" style="border-left: 5px solid #F59E0B;">
-                    <div class="trophy-icon">👑</div>
-                    <p style="color:#B45309; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Cliente Estrella</p>
-                    <h2 style="color:#F59E0B; font-size:1.8rem; font-weight:800; margin:10px 0; line-height: 1.1;">{cliente_estrella.split()[0]} {cliente_estrella.split()[1] if len(cliente_estrella.split())>1 else ''}</h2>
-                    <p style="color:#64748B; font-size:13px; margin:0;">Ha inyectado <b>{fmt_cop(cliente_pago)}</b> a la caja de DaTo.</p>
+                    <div class="trophy-icon">📈</div>
+                    <p style="color:#B45309; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Capital en la Calle</p>
+                    <h2 style="color:#F59E0B; font-size:2.5rem; font-weight:800; margin:5px 0;">{fmt_cop(dinero_calle)}</h2>
+                    <p style="color:#64748B; font-size:12px; margin:0;">Dinero pendiente por recaudar de la cartera activa. Proyección de retorno a caja.</p>
                 </div>
                 """, unsafe_allow_html=True)
             with t3:
                 st.markdown(f"""
                 <div class="trophy-card" style="border-left: 5px solid #0284C7;">
                     <div class="trophy-icon">🔥</div>
-                    <p style="color:#0369A1; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Equipo Más Vendido</p>
-                    <h2 style="color:#0284C7; font-size:1.6rem; font-weight:800; margin:10px 0; line-height: 1.1;">{equipo_rey}</h2>
-                    <p style="color:#64748B; font-size:13px; margin:0;">Récord actual: <b>{equipo_qty} unidades</b> despachadas.</p>
+                    <p style="color:#0369A1; font-size:13px; font-weight:700; text-transform:uppercase; margin:0; margin-bottom:12px;">Top 3 Equipos Más Vendidos</p>
+                    {html_top_equipos}
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -590,7 +589,6 @@ try:
                 st.markdown(f"""<div class="kpi-card"><div class="kpi-title">🤝 Cartera Viva</div><p class="kpi-value">{c_activos}</p><p class="kpi-sub">Créditos activos pagando cuotas</p></div>""", unsafe_allow_html=True)
             with c4:
                 st.markdown(f"""<div class="kpi-card"><div class="kpi-title">👥 Base de Datos</div><p class="kpi-value">{t_clientes}</p><p class="kpi-sub">Compradores registrados en DaTo</p></div>""", unsafe_allow_html=True)
-
         elif menu_seleccionado == "simulador":
             st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
             tab_sim, tab_paz = st.tabs(["📊 Simular Cuotas", "🤝 Liquidación Paz y Salvo"])
