@@ -483,7 +483,6 @@ try:
             c_activos = cursor.fetchone()['creditos_activos'] or 0
             
             # --- 2. CONSULTAS FINANCIERAS DE ALTO IMPACTO ---
-            # A. Utilidad Neta Asegurada
             cursor.execute("""
                 SELECT SUM(GANANCIA_REAL) as ganancia_total FROM (
                     SELECT 
@@ -498,14 +497,12 @@ try:
             """)
             ganancia_realizada = float(cursor.fetchone()['ganancia_total'] or 0)
 
-            # B. Capital en la Calle
             cursor.execute("""
                 SELECT SUM(c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) as saldo_pendiente
                 FROM Creditos c WHERE c.estado = 'Activo'
             """)
             dinero_calle = float(cursor.fetchone()['saldo_pendiente'] or 0)
 
-            # C. Dinero Recaudado ESTE MES (El reemplazo estrella)
             cursor.execute("""
                 SELECT SUM(monto_recibido) as recaudo_mes 
                 FROM Pagos 
@@ -514,18 +511,38 @@ try:
             """)
             recaudo_mes = float(cursor.fetchone()['recaudo_mes'] or 0)
 
-            # --- 3. CSS ALOCADO Y PREMIUM ---
+            # --- 3. CSS ALOCADO Y PREMIUM (EFECTOS GLOW Y DEGRADADOS) ---
             st.markdown("""
             <style>
                 @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
-                .hero-banner { background: linear-gradient(135deg, #0052D4 0%, #1E3A8A 100%) !important; border-radius: 20px !important; padding: 40px !important; box-shadow: 0 15px 35px rgba(0, 82, 212, 0.25) !important; display: flex !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; gap: 20px !important; margin-bottom: 30px !important; }
-                .caja-badge { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; padding: 20px 30px !important; border-radius: 16px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; text-align: center !important; min-width: 250px !important; }
-                .fin-card { border-radius: 20px !important; padding: 30px !important; color: white !important; box-shadow: 0 10px 25px rgba(0,0,0,0.05) !important; transition: all 0.3s ease !important; height: 100% !important; position: relative !important; overflow: hidden !important; }
-                .fin-card:hover { transform: translateY(-5px) !important; box-shadow: 0 15px 35px rgba(0,0,0,0.15) !important; }
-                .fin-icon { font-size: 80px; position: absolute; right: -15px; bottom: -15px; opacity: 0.15; transform: rotate(-10deg); }
-                .op-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 25px; transition: 0.3s; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
-                .op-card:hover { border-color: #0052D4; transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,82,212,0.1); }
-                .op-icon { background: #F1F5F9; width: 60px; height: 60px; border-radius: 14px; display: flex; justify-content: center; align-items: center; font-size: 28px; }
+                .hero-banner { background: linear-gradient(135deg, #0F172A 0%, #1E3A8A 100%) !important; border-radius: 20px !important; padding: 40px !important; box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2) !important; display: flex !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; gap: 20px !important; margin-bottom: 30px !important; border: 1px solid rgba(255,255,255,0.05); }
+                .caja-badge { background: rgba(255, 255, 255, 0.05) !important; backdrop-filter: blur(15px) !important; padding: 20px 30px !important; border-radius: 16px !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; text-align: center !important; min-width: 250px !important; box-shadow: inset 0 0 20px rgba(255,255,255,0.02); }
+                
+                /* Tarjetas Financieras Premium Dark Mode */
+                .fin-card { background: #0F172A !important; border-radius: 18px !important; padding: 30px !important; color: white !important; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important; height: 100% !important; position: relative !important; overflow: hidden !important; border: 1px solid rgba(255,255,255,0.05) !important; }
+                .fin-card:hover { transform: translateY(-7px) !important; }
+                
+                /* Brillos específicos (Glow) */
+                .glow-green { box-shadow: 0 10px 30px rgba(16, 185, 129, 0.15) !important; border-bottom: 3px solid #10B981 !important; }
+                .glow-green:hover { box-shadow: 0 15px 40px rgba(16, 185, 129, 0.3) !important; }
+                .glow-orange { box-shadow: 0 10px 30px rgba(245, 158, 11, 0.15) !important; border-bottom: 3px solid #F59E0B !important; }
+                .glow-orange:hover { box-shadow: 0 15px 40px rgba(245, 158, 11, 0.3) !important; }
+                .glow-purple { box-shadow: 0 10px 30px rgba(139, 92, 246, 0.15) !important; border-bottom: 3px solid #8B5CF6 !important; }
+                .glow-purple:hover { box-shadow: 0 15px 40px rgba(139, 92, 246, 0.3) !important; }
+
+                /* Textos con Degradado Metálico */
+                .text-gradient-green { background: linear-gradient(90deg, #34D399, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                .text-gradient-orange { background: linear-gradient(90deg, #FBBF24, #F59E0B); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+                .text-gradient-purple { background: linear-gradient(90deg, #A78BFA, #8B5CF6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+                .fin-icon { font-size: 90px; position: absolute; right: -20px; bottom: -20px; opacity: 0.05; transform: rotate(-15deg); transition: 0.5s; }
+                .fin-card:hover .fin-icon { opacity: 0.15; transform: rotate(0deg) scale(1.1); }
+                
+                /* Tarjetas Operativas Elegantes */
+                .op-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 25px; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.02); height: 100%; display: flex; flex-direction: column; justify-content: center; }
+                .op-card:hover { border-color: #CBD5E1; transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.06); }
+                .op-header { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
+                .op-icon { background: #F8FAFC; width: 45px; height: 45px; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-size: 22px; border: 1px solid #F1F5F9; }
             </style>
             """, unsafe_allow_html=True)
             
@@ -533,99 +550,103 @@ try:
             st.markdown(f"""
             <div class="hero-banner">
                 <div>
-                    <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; color: white; font-size: 12px; font-weight: bold; margin-bottom: 15px;">
+                    <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 5px 15px; border-radius: 20px; color: #94A3B8; font-size: 11px; font-weight: 800; letter-spacing: 1px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05);">
                         <span style="width:8px; height:8px; background:#10B981; border-radius:50%; animation: pulseGlow 2s infinite;"></span> EN LÍNEA
                     </div>
-                    <h1 style='font-size: 3.2rem; font-weight: 800; margin: 0; color: white !important;'>¡Bienvenido a tu Aplicativo DaTo, {st.session_state['nombre_usuario'].split(" ")[0].upper()}! 🚀</h1>
+                    <h1 style='font-size: 3rem; font-weight: 800; margin: 0; color: #FFFFFF !important; letter-spacing: -1px;'>¡Bienvenido a tu Aplicativo DaTo, {st.session_state['nombre_usuario'].split(" ")[0].upper()}! 🚀</h1>
                 </div>
                 <div class="caja-badge">
-                    <span style="font-size: 12px; text-transform: uppercase; font-weight: 800; color: #94A3B8 !important; display: block; margin-bottom: 5px;">Plata Física en Caja</span>
-                    <h2 style="margin: 0; font-size: 2.5rem; color: white !important; font-weight: 800;">{fmt_cop(t_caja)}</h2>
+                    <span style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #64748B !important; display: block; margin-bottom: 8px; letter-spacing: 1px;">Caja Global Disponible</span>
+                    <h2 style="margin: 0; font-size: 2.6rem; color: #FFFFFF !important; font-weight: 800; text-shadow: 0 2px 10px rgba(255,255,255,0.1);">{fmt_cop(t_caja)}</h2>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
-            # --- 5. TARJETAS FINANCIERAS (LLENAN EL ESPACIO CON COLOR Y PODER) ---
+            # --- 5. TARJETAS FINANCIERAS (EFECTO CRISTAL/NEÓN) ---
             t1, t2, t3 = st.columns(3)
             with t1:
                 st.markdown(f"""
-                <div class="fin-card" style="background: linear-gradient(135deg, #10B981 0%, #047857 100%);">
+                <div class="fin-card glow-green">
                     <div class="fin-icon">💎</div>
-                    <p style="font-size:13px; font-weight:800; text-transform:uppercase; margin:0; opacity: 0.9;">Utilidad Neta Asegurada</p>
-                    <h2 style="font-size:2.8rem; font-weight:800; margin:5px 0;">{fmt_cop(ganancia_realizada)}</h2>
-                    <p style="font-size:13px; margin:0; opacity: 0.85; line-height: 1.4;">Ganancia libre generada por las ventas que ya recuperaron su inversión.</p>
+                    <p style="font-size:12px; font-weight:800; text-transform:uppercase; margin:0; color:#94A3B8; letter-spacing: 1px;">Utilidad Neta Asegurada</p>
+                    <h2 class="text-gradient-green" style="font-size:2.8rem; font-weight:800; margin:10px 0;">{fmt_cop(ganancia_realizada)}</h2>
+                    <p style="font-size:13px; margin:0; color:#64748B; line-height: 1.5;">Ganancia libre generada por las ventas que ya recuperaron su inversión.</p>
                 </div>
                 """, unsafe_allow_html=True)
             with t2:
                 st.markdown(f"""
-                <div class="fin-card" style="background: linear-gradient(135deg, #F59E0B 0%, #B45309 100%);">
+                <div class="fin-card glow-orange">
                     <div class="fin-icon">📈</div>
-                    <p style="font-size:13px; font-weight:800; text-transform:uppercase; margin:0; opacity: 0.9;">Capital en la Calle</p>
-                    <h2 style="font-size:2.8rem; font-weight:800; margin:5px 0;">{fmt_cop(dinero_calle)}</h2>
-                    <p style="font-size:13px; margin:0; opacity: 0.85; line-height: 1.4;">Dinero vivo trabajando en la calle. Proyección total pendiente por cobrar.</p>
+                    <p style="font-size:12px; font-weight:800; text-transform:uppercase; margin:0; color:#94A3B8; letter-spacing: 1px;">Capital en la Calle</p>
+                    <h2 class="text-gradient-orange" style="font-size:2.8rem; font-weight:800; margin:10px 0;">{fmt_cop(dinero_calle)}</h2>
+                    <p style="font-size:13px; margin:0; color:#64748B; line-height: 1.5;">Dinero vivo trabajando afuera. Proyección total pendiente por cobrar.</p>
                 </div>
                 """, unsafe_allow_html=True)
             with t3:
                 st.markdown(f"""
-                <div class="fin-card" style="background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);">
+                <div class="fin-card glow-purple">
                     <div class="fin-icon">🔥</div>
-                    <p style="font-size:13px; font-weight:800; text-transform:uppercase; margin:0; opacity: 0.9;">Recaudo este Mes</p>
-                    <h2 style="font-size:2.8rem; font-weight:800; margin:5px 0;">{fmt_cop(recaudo_mes)}</h2>
-                    <p style="font-size:13px; margin:0; opacity: 0.85; line-height: 1.4;">Flujo de caja fresco ingresado por cuotas y ventas en los últimos 30 días.</p>
+                    <p style="font-size:12px; font-weight:800; text-transform:uppercase; margin:0; color:#94A3B8; letter-spacing: 1px;">Recaudo este Mes</p>
+                    <h2 class="text-gradient-purple" style="font-size:2.8rem; font-weight:800; margin:10px 0;">{fmt_cop(recaudo_mes)}</h2>
+                    <p style="font-size:13px; margin:0; color:#64748B; line-height: 1.5;">Flujo de caja fresco ingresado por cuotas y ventas en los últimos 30 días.</p>
                 </div>
                 """, unsafe_allow_html=True)
 
             st.markdown("<br><br>", unsafe_allow_html=True)
             
-            # --- 6. RESUMEN OPERATIVO (DISEÑO HORIZONTAL IMPACTANTE) ---
-            c1, c2 = st.columns(2)
-            c3, c4 = st.columns(2)
+            # --- 6. RESUMEN OPERATIVO (FILA DE 4 ORDENADA) ---
+            c1, c2, c3, c4 = st.columns(4)
             
             with c1:
                 st.markdown(f"""
                 <div class="op-card">
-                    <div class="op-icon" style="background:#EFF6FF; color:#2563EB;">📦</div>
-                    <div>
-                        <h3 style="color:#1E293B; font-size:1.8rem; font-weight:800; margin:0;">{t_stock}</h3>
-                        <p style="color:#64748B; font-size:13px; margin:0; font-weight:600; text-transform:uppercase;">Equipos en Bodega</p>
-                        <p style="color:#94A3B8; font-size:12px; margin:0;">Stock valorizado en {fmt_cop(cap_detenido)}</p>
+                    <div class="op-header">
+                        <div class="op-icon">📦</div>
+                        <div>
+                            <h3 style="color:#1E293B; font-size:1.6rem; font-weight:800; margin:0;">{t_stock}</h3>
+                            <p style="color:#64748B; font-size:11px; margin:0; font-weight:800; text-transform:uppercase; letter-spacing: 0.5px;">En Bodega</p>
+                        </div>
                     </div>
+                    <p style="color:#94A3B8; font-size:12px; margin:0; padding-top:10px; border-top:1px solid #F1F5F9;">Stock valorizado en <b style="color:#0F172A;">{fmt_cop(cap_detenido)}</b></p>
                 </div>
                 """, unsafe_allow_html=True)
             with c2:
                 st.markdown(f"""
                 <div class="op-card">
-                    <div class="op-icon" style="background:#F0FDF4; color:#16A34A;">🛒</div>
-                    <div>
-                        <h3 style="color:#1E293B; font-size:1.8rem; font-weight:800; margin:0;">{t_vendidos}</h3>
-                        <p style="color:#64748B; font-size:13px; margin:0; font-weight:600; text-transform:uppercase;">Total Despachados</p>
-                        <p style="color:#94A3B8; font-size:12px; margin:0;">Histórico de unidades vendidas</p>
+                    <div class="op-header">
+                        <div class="op-icon">🛒</div>
+                        <div>
+                            <h3 style="color:#1E293B; font-size:1.6rem; font-weight:800; margin:0;">{t_vendidos}</h3>
+                            <p style="color:#64748B; font-size:11px; margin:0; font-weight:800; text-transform:uppercase; letter-spacing: 0.5px;">Despachados</p>
+                        </div>
                     </div>
+                    <p style="color:#94A3B8; font-size:12px; margin:0; padding-top:10px; border-top:1px solid #F1F5F9;">Total de unidades históricas</p>
                 </div>
                 """, unsafe_allow_html=True)
-                
-            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-            
             with c3:
                 st.markdown(f"""
                 <div class="op-card">
-                    <div class="op-icon" style="background:#FFF7ED; color:#EA580C;">🤝</div>
-                    <div>
-                        <h3 style="color:#1E293B; font-size:1.8rem; font-weight:800; margin:0;">{c_activos}</h3>
-                        <p style="color:#64748B; font-size:13px; margin:0; font-weight:600; text-transform:uppercase;">Cartera Viva</p>
-                        <p style="color:#94A3B8; font-size:12px; margin:0;">Créditos activos pagando cuotas</p>
+                    <div class="op-header">
+                        <div class="op-icon">🤝</div>
+                        <div>
+                            <h3 style="color:#1E293B; font-size:1.6rem; font-weight:800; margin:0;">{c_activos}</h3>
+                            <p style="color:#64748B; font-size:11px; margin:0; font-weight:800; text-transform:uppercase; letter-spacing: 0.5px;">Cartera Viva</p>
+                        </div>
                     </div>
+                    <p style="color:#94A3B8; font-size:12px; margin:0; padding-top:10px; border-top:1px solid #F1F5F9;">Créditos en proceso de pago</p>
                 </div>
                 """, unsafe_allow_html=True)
             with c4:
                 st.markdown(f"""
                 <div class="op-card">
-                    <div class="op-icon" style="background:#F3E8FF; color:#9333EA;">👥</div>
-                    <div>
-                        <h3 style="color:#1E293B; font-size:1.8rem; font-weight:800; margin:0;">{t_clientes}</h3>
-                        <p style="color:#64748B; font-size:13px; margin:0; font-weight:600; text-transform:uppercase;">Clientes DaTo</p>
-                        <p style="color:#94A3B8; font-size:12px; margin:0;">Compradores en tu base de datos</p>
+                    <div class="op-header">
+                        <div class="op-icon">👥</div>
+                        <div>
+                            <h3 style="color:#1E293B; font-size:1.6rem; font-weight:800; margin:0;">{t_clientes}</h3>
+                            <p style="color:#64748B; font-size:11px; margin:0; font-weight:800; text-transform:uppercase; letter-spacing: 0.5px;">Clientes</p>
+                        </div>
                     </div>
+                    <p style="color:#94A3B8; font-size:12px; margin:0; padding-top:10px; border-top:1px solid #F1F5F9;">Compradores en tu sistema</p>
                 </div>
                 """, unsafe_allow_html=True)
             
