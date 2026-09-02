@@ -462,13 +462,83 @@ try:
             if st.sidebar.button("Cerrar Sesión", width='stretch'): st.session_state['logeado'] = False; st.rerun()
 
         if menu_seleccionado == "inicio":
-            st.markdown("<div style='height: 4vh;'></div>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns([1, 3, 1])
-            with col2:
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Consultas rápidas para extraer los KPIs del negocio en tiempo real
+            cursor.execute("SELECT COUNT(*) as vendidos FROM Inventario WHERE estado = 'Vendido'")
+            t_vendidos = cursor.fetchone()['vendidos'] or 0
+            
+            cursor.execute("SELECT COUNT(*) as stock, SUM(costo_adquisicion) as capital_detenido FROM Inventario WHERE estado = 'Disponible'")
+            res_stock = cursor.fetchone()
+            t_stock = res_stock['stock'] or 0
+            cap_detenido = float(res_stock['capital_detenido'] or 0)
+            
+            cursor.execute("SELECT COUNT(*) as clientes FROM Clientes")
+            t_clientes = cursor.fetchone()['clientes'] or 0
+            
+            cursor.execute("SELECT SUM(saldo_actual) as caja FROM Bolsas_Capital")
+            t_caja = float(cursor.fetchone()['caja'] or 0)
+            
+            cursor.execute("SELECT COUNT(*) as creditos_activos FROM Creditos WHERE estado = 'Activo'")
+            c_activos = cursor.fetchone()['creditos_activos'] or 0
+            
+            # 1. Banner Principal Premium
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #0052D4 0%, #003366 100%); border-radius: 20px; padding: 40px; box-shadow: 0 15px 35px rgba(0, 82, 212, 0.2); color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 30px;">
+                <div>
+                    <h1 style='font-size: 3rem; font-weight: 800; margin: 0; color: white;'>HOLA, {st.session_state['nombre_usuario'].split(" ")[0].upper()} 🚀</h1>
+                    <p style='font-size: 1.1rem; font-weight: 400; margin-top: 10px; opacity: 0.9;'>El ecosistema DaTo está al aire. Aquí tienes tu radiografía operativa en tiempo real.</p>
+                </div>
+                <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 20px 30px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); text-align: center;">
+                    <p style="margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; color: #E2E8F0;">Caja Global Disponible</p>
+                    <h2 style="margin: 5px 0 0 0; font-size: 2.5rem; color: white; font-weight: 800;">{fmt_cop(t_caja)}</h2>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # 2. Estilos para las Tarjetas de KPIs (Hover Effects)
+            st.markdown("""
+            <style>
+                .kpi-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); transition: transform 0.2s, border-color 0.2s; height: 100%; }
+                .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 15px 35px rgba(0,82,212,0.08); border-color: #0052D4; }
+                .kpi-title { color: #64748B; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
+                .kpi-value { color: #1E293B; font-size: 2.2rem; font-weight: 800; margin: 0; line-height: 1.2; }
+                .kpi-sub { color: #94A3B8; font-size: 13px; margin-top: 8px; font-weight: 500; }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            # 3. Mosaico de Tarjetas de Resumen
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
                 st.markdown(f"""
-                <div style="text-align: center; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03);">
-                    <h1 style='font-size: 2.8rem; font-weight: 800; margin-top: 25px; margin-bottom: 0; color: #1E293B;'>HOLA, <span style='color: #0052D4;'>{st.session_state['nombre_usuario'].split(" ")[0].upper()}</span></h1>
-                    <p style='color: #64748B; font-size: 1.1rem; font-weight: 400; margin-top: 10px;'>Es hora de poner a trabajar el ecosistema DaTo.</p>
+                <div class="kpi-card">
+                    <div class="kpi-title">📦 Inventario Físico</div>
+                    <p class="kpi-value">{t_stock}</p>
+                    <p class="kpi-sub">Equipos en bodega valorizados en <b style="color:#0052D4;">{fmt_cop(cap_detenido)}</b></p>
+                </div>
+                """, unsafe_allow_html=True)
+            with c2:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-title">🔥 Equipos Vendidos</div>
+                    <p class="kpi-value">{t_vendidos}</p>
+                    <p class="kpi-sub">Histórico total despachado por DaTo</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with c3:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-title">🤝 Cartera Activa</div>
+                    <p class="kpi-value">{c_activos}</p>
+                    <p class="kpi-sub">Créditos vigentes generando retornos</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with c4:
+                st.markdown(f"""
+                <div class="kpi-card">
+                    <div class="kpi-title">👥 Clientes DaTo</div>
+                    <p class="kpi-value">{t_clientes}</p>
+                    <p class="kpi-sub">Compradores en tu base de datos</p>
                 </div>
                 """, unsafe_allow_html=True)
 
