@@ -21,13 +21,10 @@ st.markdown("""
         
         :root, [data-theme="dark"] { color-scheme: light !important; }
         
-        /* FONDO DE RED NEURONAL SUTIL SOBRE BLANCO */
+        /* FONDO LIMPIO Y CORPORATIVO (SIN PUNTOS) */
         .stApp, header, .stApp > header { 
             background-color: #F8FAFC !important; 
-            background-image: radial-gradient(#0052D4 0.75px, transparent 0.75px), radial-gradient(#0052D4 0.75px, #F8FAFC 0.75px) !important;
-            background-size: 30px 30px !important;
-            background-position: 0 0, 15px 15px !important;
-            background-opacity: 0.03 !important;
+            background-image: linear-gradient(180deg, #F8FAFC 0%, #EEF2F6 100%) !important;
         }
 
         p, span, div, label, li, td, th { font-family: 'Outfit', sans-serif; color: #1E293B !important; }
