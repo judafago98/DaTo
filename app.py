@@ -1,6 +1,5 @@
 import streamlit as st
 import mysql.connector
-from mysql.connector import pooling
 import pandas as pd
 import datetime
 import time
@@ -10,107 +9,76 @@ import os
 import base64
 import math
 
-# ==========================================
-# 🛠️ AUTO-MIGRACIÓN ROBUSTA DE BASE DE DATOS
-# ==========================================
-def auto_fix_db(cursor, conn):
-    try: cursor.execute("ALTER TABLE Pagos MODIFY COLUMN tipo_pago VARCHAR(255)"); conn.commit()
-    except Exception: pass
-    try: cursor.execute("ALTER TABLE Creditos MODIFY COLUMN estado_comision VARCHAR(255) DEFAULT 'No Aplica'"); conn.commit()
-    except Exception: pass
-    
-    try: cursor.execute("CREATE TABLE IF NOT EXISTS Cuentas_Bancarias (id_cuenta INT AUTO_INCREMENT PRIMARY KEY, nombre_cuenta VARCHAR(255) UNIQUE)"); conn.commit()
-    except Exception: pass
-    cuentas_default = ["Efectivo - Caja Fija", "Nequi - Daniel", "Daviplata - Juan", "Llave - CARMACELL", "Llave - Fondo Suárez", "Bold"]
-    for cta in cuentas_default:
-        try: cursor.execute("INSERT IGNORE INTO Cuentas_Bancarias (nombre_cuenta) VALUES (%s)", (cta,)); conn.commit()
-        except Exception: pass
-
-    cols_bolsas = ["ADD COLUMN inversion_inicial DECIMAL(15,2)"]
-    for c in cols_bolsas:
-        try: cursor.execute(f"ALTER TABLE Bolsas_Capital {c}"); conn.commit()
-        except Exception: pass
-    try: cursor.execute("UPDATE Bolsas_Capital SET inversion_inicial = saldo_actual WHERE inversion_inicial IS NULL OR inversion_inicial = 0"); conn.commit()
-    except Exception: pass
-
-    cols_clientes = ["ADD COLUMN direccion VARCHAR(255)", "ADD COLUMN barrio VARCHAR(255)", "ADD COLUMN ciudad VARCHAR(255)", "ADD COLUMN correo VARCHAR(255)", "ADD COLUMN empresa VARCHAR(255)", "ADD COLUMN fecha_registro DATE"]
-    for c in cols_clientes:
-        try: cursor.execute(f"ALTER TABLE Clientes {c}"); conn.commit()
-        except Exception: pass
-    try: cursor.execute("UPDATE Clientes SET fecha_registro = CURDATE() WHERE fecha_registro IS NULL"); conn.commit()
-    except Exception: pass
-    
-    cols_inv = ["ADD COLUMN cantidad INT DEFAULT 1", "ADD COLUMN color VARCHAR(100)", "ADD COLUMN fecha_compra DATE", "ADD COLUMN factura VARCHAR(100)", "ADD COLUMN tienda_proveedor VARCHAR(255)", "ADD COLUMN nit_proveedor VARCHAR(100)", "ADD COLUMN celular_proveedor VARCHAR(100)"]
-    for c in cols_inv:
-        try: cursor.execute(f"ALTER TABLE Inventario {c}"); conn.commit()
-        except Exception: pass
-    
-    cols_gastos = ["ADD COLUMN estado_pago VARCHAR(50) DEFAULT 'Pagado'", "ADD COLUMN vendedor VARCHAR(255)", "ADD COLUMN id_credito INT", "ADD COLUMN tipo_gasto VARCHAR(255) DEFAULT 'Gasto Operativo'"]
-    for c in cols_gastos:
-        try: cursor.execute(f"ALTER TABLE Gastos_Operativos {c}"); conn.commit()
-        except Exception: pass
-
-    cols_creditos = [
-        "ADD COLUMN precio_venta DECIMAL(15,2) DEFAULT 0", 
-        "ADD COLUMN abono_inicial DECIMAL(15,2) DEFAULT 0", 
-        "ADD COLUMN valor_comision DECIMAL(15,2) DEFAULT 0", 
-        "ADD COLUMN asesor_comision VARCHAR(255)", 
-        "ADD COLUMN estado_comision VARCHAR(255) DEFAULT 'No Aplica'", 
-        "ADD COLUMN fecha_pago_comision DATE", 
-        "ADD COLUMN id_cuenta INT", 
-        "ADD COLUMN valor_cuota_original DECIMAL(15,2)",
-        "ADD COLUMN propietario_cartera VARCHAR(100) DEFAULT 'DaTo'"
-    ]
-    for c in cols_creditos:
-        try: cursor.execute(f"ALTER TABLE Creditos {c}"); conn.commit()
-        except Exception: pass
-    try: cursor.execute("UPDATE Creditos SET valor_cuota_original = valor_cuota WHERE valor_cuota_original IS NULL OR valor_cuota_original = 0"); conn.commit()
-    except Exception: pass
-
-    try: cursor.execute("ALTER TABLE Pagos ADD COLUMN id_cuenta INT, ADD COLUMN motivo_ingreso VARCHAR(255) DEFAULT 'Pago Cuotas'"); conn.commit()
-    except Exception: pass
-    try: cursor.execute("ALTER TABLE Deudas_Fondeo ADD COLUMN id_cuenta INT, ADD COLUMN motivo_ingreso VARCHAR(255) DEFAULT 'Incremento inversión'"); conn.commit()
-    except Exception: pass
-
-    try: cursor.execute("CREATE TABLE IF NOT EXISTS Vendedores (id_vendedor INT AUTO_INCREMENT PRIMARY KEY, nombre VARCHAR(255) UNIQUE)"); conn.commit()
-    except Exception: pass
-    try: cursor.execute("CREATE TABLE IF NOT EXISTS Creditos_Items (id INT AUTO_INCREMENT PRIMARY KEY, id_credito INT, imei VARCHAR(100))"); conn.commit()
-    except Exception: pass
-
+# --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="DaTo | Tecnología con Respaldo", layout="wide", initial_sidebar_state="expanded", page_icon="⚡")
 
+# ==========================================
+# 🎨 UI CORPORATIVA PREMIUM (FONDO RED NEURONAL & GLASSMORPHISM)
+# ==========================================
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+        
         :root, [data-theme="dark"] { color-scheme: light !important; }
-        .stApp, header, .stApp > header { background-color: #F8FAFC !important; background-image: none !important; }
+        
+        /* FONDO DE RED NEURONAL SUTIL SOBRE BLANCO */
+        .stApp, header, .stApp > header { 
+            background-color: #F8FAFC !important; 
+            background-image: radial-gradient(#0052D4 0.75px, transparent 0.75px), radial-gradient(#0052D4 0.75px, #F8FAFC 0.75px) !important;
+            background-size: 30px 30px !important;
+            background-position: 0 0, 15px 15px !important;
+            background-opacity: 0.03 !important;
+        }
+
         p, span, div, label, li, td, th { font-family: 'Outfit', sans-serif; color: #1E293B !important; }
         h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; color: #0052D4 !important; font-weight: 700 !important; letter-spacing: -0.5px; }
-        .material-symbols-rounded, .material-icons, i, [data-testid="collapsedControl"] * { font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important; color: #0052D4 !important; }
+
+        .material-symbols-rounded, .material-icons, i, [data-testid="collapsedControl"] * { 
+            font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important; color: #0052D4 !important; 
+        }
+        
         button[data-baseweb="tab"] { color: #64748B !important; background: transparent !important; border-bottom: 2px solid transparent !important; }
         button[data-baseweb="tab"][aria-selected="true"] { color: #0052D4 !important; border-bottom: 2px solid #0052D4 !important; }
         div[data-baseweb="tab-highlight"] { background-color: #0052D4 !important; display: none !important; } 
+        
         span[data-baseweb="tag"] { background-color: #E0F2FE !important; color: #0369A1 !important; border: 1px solid #7DD3FC !important; border-radius: 6px !important; padding: 4px 12px !important; }
         span[data-baseweb="tag"] span { color: #0369A1 !important; font-weight: 600 !important; }
         span[data-baseweb="tag"] svg { fill: #0369A1 !important; }
-        div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { border: 1px solid #CBD5E1 !important; background-color: #FFFFFF !important; transition: 0.2s; border-radius: 8px !important; }
+
+        div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { border: 1px solid #CBD5E1 !important; background-color: rgba(255, 255, 255, 0.9) !important; transition: 0.2s; border-radius: 8px !important; backdrop-filter: blur(5px); }
         div[data-baseweb="input"]:focus-within > div, div[data-baseweb="select"]:focus-within > div { border-color: #0052D4 !important; box-shadow: 0 0 0 2px rgba(0, 82, 212, 0.2) !important; }
+        
         div[data-baseweb="popover"], ul[role="listbox"] { background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important; border-radius: 8px !important; box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important; }
         li[role="option"] { background-color: #FFFFFF !important; color: #1E293B !important; padding: 10px 15px !important; transition: 0.1s; }
         li[role="option"]:hover, li[role="option"][aria-selected="true"] { background-color: #F1F5F9 !important; color: #0052D4 !important; font-weight: 600 !important; }
+
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div { background-color: #CBD5E1 !important; }
         [data-testid="stToggle"] [data-baseweb="checkbox"] > div[aria-checked="true"] { background-color: #0052D4 !important; }
-        .stButton > button { background: linear-gradient(135deg, #0052D4 0%, #003366 100%) !important; color: #FFFFFF !important; border: none !important; border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s; width: 100% !important; box-shadow: 0 4px 10px rgba(0, 82, 212, 0.3) !important; padding: 0.5rem 1rem !important; }
-        .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0, 82, 212, 0.4) !important; }
+
+        /* BOTONES PREMIUM CON EFECTO ELEVADO */
+        .stButton > button {
+            background: linear-gradient(135deg, #0052D4 0%, #003366 100%) !important; color: #FFFFFF !important; border: none !important;
+            border-radius: 8px !important; font-weight: 600 !important; transition: all 0.2s; width: 100% !important; box-shadow: 0 4px 15px rgba(0, 82, 212, 0.3) !important; padding: 0.5rem 1rem !important;
+        }
+        .stButton > button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 82, 212, 0.4) !important; }
         .stButton > button:active { transform: translateY(0); box-shadow: none !important; }
+        
         [data-testid="stNumberInput"] button { background: #F1F5F9 !important; border: 1px solid #CBD5E1 !important; color: #0052D4 !important; border-radius: 6px !important; box-shadow: none !important;}
-        div[data-testid="stForm"], .card-panel { background-color: #FFFFFF !important; border: 1px solid #F1F5F9 !important; border-radius: 16px !important; box-shadow: 0 8px 30px rgba(0,0,0,0.04) !important; padding: 25px !important; }
+
+        /* TARJETAS CON EFECTO GLASSMORPHISM SUTIL */
+        div[data-testid="stForm"], .card-panel {
+            background-color: rgba(255, 255, 255, 0.85) !important; backdrop-filter: blur(10px) !important;
+            border: 1px solid rgba(226, 232, 240, 0.8) !important; border-radius: 16px !important; box-shadow: 0 10px 30px rgba(0,0,0,0.03) !important; padding: 25px !important;
+        }
+
+        /* MENÚ LATERAL MEJORADO */
         [data-testid="stSidebar"] { background-color: #FFFFFF !important; border-right: 1px solid #E2E8F0 !important; }
         [data-testid="stSidebar"] [role="radiogroup"] label div[data-baseweb="radio"], [data-testid="stSidebar"] [role="radiogroup"] label > div:first-child, [data-testid="stSidebar"] [role="radiogroup"] label > span:first-child { display: none !important; }
         [data-testid="stSidebar"] [role="radiogroup"] label { background: #F8FAFC !important; border: 1px solid transparent !important; border-radius: 10px !important; padding: 12px 15px !important; margin: 6px 15px !important; cursor: pointer !important; transition: 0.2s; }
         [data-testid="stSidebar"] [role="radiogroup"] label:hover { background: #E2E8F0 !important; transform: translateX(3px); }
         [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] { background: #EFF6FF !important; border-left: 4px solid #0052D4 !important; transform: translateX(3px); box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important; }
         [data-testid="stSidebar"] [role="radiogroup"] label[data-checked="true"] div[dir="auto"] { color: #0052D4 !important; font-weight: 700 !important; }
+        
         [data-testid="stExpander"] { background-color: #FFFFFF !important; border: 1px solid #E2E8F0 !important; border-radius: 12px !important; margin-bottom: 10px !important; box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important; }
         [data-testid="stExpander"] summary p { font-size: 1.1rem !important; font-weight: 600 !important; color: #0052D4 !important; }
     </style>
@@ -126,7 +94,7 @@ def renderizar_logo(es_sidebar=False):
     if not b64_img: b64_img = get_base64_image("logo.png")
     width = "180px" if es_sidebar else "300px"
     img_html = f'<img src="data:image/png;base64,{b64_img}" style="max-width: {width}; height: auto; display: block; margin: 0 auto;">' if b64_img else f"<h1 style='color: #0052D4; font-weight: 800; text-align: center; margin: 0;'>⚡ DaTo</h1><p style='text-align: center; color: #64748B; margin: 0;'>Tecnología con respaldo</p>"
-    st.markdown(f"<div style='display: flex; justify-content: center; align-items: center; padding: 20px; background: #FFFFFF; border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);'><div>{img_html}</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='display: flex; justify-content: center; align-items: center; padding: 20px; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-radius: 12px; border: 1px solid #E2E8F0; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);'><div>{img_html}</div></div>", unsafe_allow_html=True)
 
 # ==========================================
 # 🛡️ ALGORITMOS FINANCIEROS Y TRADUCTOR
@@ -234,10 +202,7 @@ CAPACIDADES_PC = ["8GB RAM / 256GB SSD", "16GB RAM / 512GB SSD", "16GB RAM / 1TB
 CAPACIDADES_ELECTRO = ["No Aplica", "32 Pulgadas", "50 Pulgadas", "65 Pulgadas", "Escribir manual..."]
 CIUDADES_COLOMBIA = ["Bogotá", "Medellín", "Cali", "Barranquilla", "Cartagena", "Bucaramanga", "Cúcuta", "Pereira", "Santa Marta", "Ibagué", "Pasto", "Manizales", "Neiva", "Villavicencio", "Armenia", "Valledupar", "Montería", "Sincelejo", "Popayán", "Tunja", "Riohacha", "Florencia", "Quibdó", "Arauca", "Yopal", "Leticia", "San Andrés", "Otra..."]
 
-# --- CONEXIÓN BLINDADA POR POOL ---
-# Aumentamos el pool_size a 32 para evitar el error "Pool Exhausted" en ráfagas de clics.
 # --- CONEXIÓN DIRECTA Y FRESCA (SIN POOL) ---
-# Evita que TiDB cierre conexiones inactivas y tumbe la app.
 def get_database_connection():
     return mysql.connector.connect(
         host="gateway01.us-east-1.prod.aws.tidbcloud.com",
@@ -255,12 +220,8 @@ cursor = None
 
 try:
     conn = get_database_connection()
-    # Este ping revive la conexión automáticamente si se llega a caer a medio camino
     conn.ping(reconnect=True, attempts=3, delay=1) 
     cursor = conn.cursor(dictionary=True, buffered=True)
-    if 'db_fixed_ok' not in st.session_state:
-        #auto_fix_db(cursor, conn)
-        st.session_state['db_fixed_ok'] = True
 
     # Cargar Cuentas Bancarias Dinámicas
     cursor.execute("SELECT id_cuenta, nombre_cuenta FROM Cuentas_Bancarias")
@@ -356,9 +317,9 @@ try:
                 
                 if i_m > 0 and cuota_actual > 0:
                     val_to_log = 1 - (i_m * saldo_actual / cuota_actual)
-                    meses_restantes = math.ceil(-math.log(val_to_log) / math.log(1 + i_m)) if val_to_log > 0 else 1
+                    meses_restantes = round(-math.log(val_to_log) / math.log(1 + i_m)) if val_to_log > 0 else 1
                 elif i_m == 0 and cuota_actual > 0:
-                    meses_restantes = math.ceil(saldo_actual / cuota_actual)
+                    meses_restantes = round(saldo_actual / cuota_actual)
                 else:
                     meses_restantes = 0
                 
@@ -375,11 +336,11 @@ try:
                     texto_plazo = f"<span style='color:#1E293B; font-weight:600;'>Mantiene los {plazo_original} meses</span>"
 
                 html_tarjeta = (
-                    "<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; margin-bottom: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);'>"
+                    "<div style='background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 16px; padding: 25px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03);'>"
                         f"<h3 style='text-align:center; color:#0052D4; margin-top:0;'>📱 {nombres_equipos}</h3>"
                         
                         "<!-- Fila 1: Condiciones Iniciales -->"
-                        "<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 15px; margin-top: 15px;'>"
+                        "<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 15px; margin-top: 15px;'>"
                             "<p style='color:#0052D4; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>📋 Condiciones Iniciales del Contrato</p>"
                             "<div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>"
                                 "<div style='flex:1; min-width:120px;'>"
@@ -402,7 +363,7 @@ try:
                         "</div>"
 
                         "<!-- Fila 2: Condiciones Actuales (Altura) -->"
-                        "<div style='background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 15px; margin-top: 15px;'>"
+                        "<div style='background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 15px; margin-top: 15px;'>"
                             "<p style='color:#0369A1; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>⚡ Estado Actual</p>"
                             "<div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>"
                                 "<div style='flex:1; min-width:120px;'>"
@@ -508,7 +469,7 @@ try:
             col1, col2, col3 = st.columns([1, 3, 1])
             with col2:
                 st.markdown(f"""
-                <div style="text-align: center; background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 20px; padding: 40px; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
+                <div style="text-align: center; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 20px; padding: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.03);">
                     <h1 style='font-size: 2.8rem; font-weight: 800; margin-top: 25px; margin-bottom: 0; color: #1E293B;'>HOLA, <span style='color: #0052D4;'>{st.session_state['nombre_usuario'].split(" ")[0].upper()}</span></h1>
                     <p style='color: #64748B; font-size: 1.1rem; font-weight: 400; margin-top: 10px;'>Es hora de poner a trabajar el ecosistema DaTo.</p>
                 </div>
@@ -698,7 +659,7 @@ try:
                                                 INSERT INTO Inventario (imei, categoria, marca, modelo, tipo_ingreso, id_bolsa, costo_adquisicion, precio_venta_contado, estado, id_usuario_registro, cantidad, color, factura, tienda_proveedor, nit_proveedor, celular_proveedor, fecha_compra) 
                                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'Disponible', %s, 1, %s, %s, %s, %s, %s, %s)
                                             """, (imei_final, cat_clean, marca_fin, modelo_final, cond, dat_b['id_bolsa'], costo, precio_venta, st.session_state['id_usuario'], color, factura, proveedor, nit, cel_prov, datetime.date.today()))
-                                        cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
+                                            cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s WHERE id_bolsa = %s", (costo_total, dat_b['id_bolsa']))
                                         conn.commit(); st.toast('Equipos agregados con éxito.'); time.sleep(1.5); st.rerun()
 
             with tab_inv3:
@@ -807,20 +768,20 @@ try:
                         cor_ui = c['correo'] if c['correo'] != '0' else 'N/A'
                         
                         st.markdown(f"""
-<div style='background: #FFFFFF; border: 1px solid #0052D4; border-radius: 12px; padding: 25px; box-shadow: 0 10px 25px rgba(0,82,212,0.1); margin-top: 10px;'>
+<div style='background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #0052D4; border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,82,212,0.08); margin-top: 10px;'>
     <h3 style='margin-top:0; margin-bottom:5px; color:#1E293B;'>👤 {c['nombre_completo']}</h3>
     <span style='font-size:15px; color:#0052D4; font-weight:600; background:#EFF6FF; padding:4px 12px; border-radius:20px;'>C.C. {c['documento']}</span>
     <span style='font-size:15px; color:#475569; font-weight:600; background:#F1F5F9; padding:4px 12px; border-radius:20px; margin-left:10px;'>{estado_ui}</span>
     <div style='display:flex; justify-content:space-between; margin-bottom:15px; margin-top:25px; flex-wrap:wrap; gap:15px;'>
-        <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
+        <div style='background:#F8FAFC; padding:15px; border-radius:12px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
             <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Contacto y Ubicación</p>
             <h4 style='margin:0; color:#1E293B; margin-top:5px; font-size:14px;'>📞 {tel_ui} | 📧 {cor_ui}<br>📍 {dir_ui} ({bar_ui}), {ciu_ui}</h4>
         </div>
-        <div style='background:#F8FAFC; padding:15px; border-radius:8px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
+        <div style='background:#F8FAFC; padding:15px; border-radius:12px; flex:1; min-width:150px; border: 1px solid #E2E8F0;'>
             <p style='color:#64748B; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Cliente desde</p>
             <h4 style='margin:0; color:#1E293B; margin-top:5px; font-size:14px;'>📅 {c['fecha_registro']}</h4>
         </div>
-        <div style='background:#E0F2FE; padding:15px; border-radius:8px; flex:1; border: 1px solid #BAE6FD; min-width:150px;'>
+        <div style='background:#E0F2FE; padding:15px; border-radius:12px; flex:1; border: 1px solid #BAE6FD; min-width:150px;'>
             <p style='color:#0369A1; font-size:12px; margin:0; text-transform:uppercase; font-weight:600;'>Valor Histórico (LTV)</p>
             <h4 style='margin:0; color:#0284C7; margin-top:5px;'>{fmt_cop(ltv)}</h4>
         </div>
@@ -947,7 +908,7 @@ try:
                     equipos_sel = st.multiselect("Selecciona uno o más equipos de la bodega para VENDER:", list(opc_eq.keys()), key="ventas_eq")
                     
                     if equipos_sel:
-                        st.markdown("<div style='background: #E0F2FE; border-left: 4px solid #0052D4; padding: 15px; border-radius: 8px; margin-bottom: 20px;'><p style='color: #0052D4; font-weight: bold; margin-bottom: 5px;'>🛒 Equipos en esta factura:</p>", unsafe_allow_html=True)
+                        st.markdown("<div style='background: #E0F2FE; border-left: 4px solid #0052D4; padding: 15px; border-radius: 12px; margin-bottom: 20px;'><p style='color: #0052D4; font-weight: bold; margin-bottom: 5px;'>🛒 Equipos en esta factura:</p>", unsafe_allow_html=True)
                         for eq in equipos_sel: st.markdown(f"<span style='color: #0369A1;'>- ✅ {eq}</span>", unsafe_allow_html=True)
                         st.markdown("</div>", unsafe_allow_html=True)
                     
@@ -1101,6 +1062,7 @@ try:
                                             id_cuenta_final = opc_cuentas[cuenta_sel]
                                         
                                     m_f = p_final - ab_init if "Contado" not in tipo_v else 0
+                                    # BLINDAJE ANTIDECIMALES: Nace pagado si el saldo es menor a 1 peso
                                     e_f = 'Activo' if ("Contado" not in tipo_v and m_f >= 1) else 'Pagado'
                                     v_c_bd = c_fija if ("Financiado" in tipo_v or "Fondeo Externo" in tipo_v) else (c_pers[0][1] if "Separé" in tipo_v else 0)
                                     
@@ -1229,6 +1191,7 @@ try:
                                 cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual + %s ORDER BY id_bolsa ASC LIMIT 1", (monto,))
                             
                             nuevo_saldo = s_pend - cap_abono
+                            # BLINDAJE ANTIDECIMALES: Cierra si la deuda queda por debajo de 1 peso
                             if nuevo_saldo < 1: 
                                 cursor.execute("UPDATE Creditos SET estado = 'Pagado' WHERE id_credito = %s", (dat['id_credito'],))
                                 st.balloons()
@@ -1239,11 +1202,11 @@ try:
                                     meses_restantes_previos = dat['plazo_meses']
                                     
                                     if i_m > 0 and cuota_actual > 0:
-                                        val_to_log = 1 - (i_m * s_pend / cuota_actual)
+                                        val_to_log = 1 - (i_m * nuevo_saldo / cuota_actual)
                                         if val_to_log > 0:
                                             meses_restantes_previos = round(-math.log(val_to_log) / math.log(1 + i_m))
                                     elif i_m == 0 and cuota_actual > 0:
-                                        meses_restantes_previos = round(s_pend / cuota_actual)
+                                        meses_restantes_previos = round(nuevo_saldo / cuota_actual)
                                         
                                     meses_restantes_nuevos = meses_restantes_previos - 1
                                     if meses_restantes_nuevos < 1: meses_restantes_nuevos = 1
@@ -1279,9 +1242,7 @@ try:
                 SELECT cl.nombre_completo AS 'Cliente', cl.telefono AS 'Celular', c.valor_cuota AS 'Cuota Mensual', c.fecha_primera_cuota AS 'Día de Pago', 
                 (c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito), 0)) AS 'Saldo Capital',
                 c.estado AS 'Estado', c.tasa_interes_mensual
-                FROM Creditos c 
-                JOIN Clientes cl ON c.id_cliente = cl.id_cliente 
-                WHERE c.estado = 'Activo'
+                FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente WHERE c.estado = 'Activo' 
                 HAVING `Saldo Capital` >= 1
                 ORDER BY c.fecha_primera_cuota ASC
             """)
@@ -1345,9 +1306,11 @@ try:
                            IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Venta de Cartera a Externo')), 0) AS 'Recaudado Cliente',
                            (c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) AS 'Deuda en Calle',
                            c.valor_comision AS 'Comisión Asesor',
-                           (IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso IN ('Pago Contado', 'Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Pago Cuotas', 'Venta de Cartera a Externo')), 0) 
-                            - (SELECT SUM(inv.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario inv ON ci.imei = inv.imei WHERE ci.id_credito = c.id_credito) 
-                            - c.valor_comision) AS 'GANANCIA REAL'
+                           -- BLINDAJE GANANCIA REAL: Si es Fondo Externo, la ganancia se calcula al contado (Precio de Venta - Costo - Comisión) sin sumar cuotas futuras
+                           CASE 
+                               WHEN c.propietario_cartera = 'Fondo Externo' THEN (c.precio_venta - (SELECT SUM(inv.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario inv ON ci.imei = inv.imei WHERE ci.id_credito = c.id_credito) - c.valor_comision)
+                               ELSE (IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso IN ('Pago Contado', 'Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Pago Cuotas')), 0) - (SELECT SUM(inv.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario inv ON ci.imei = inv.imei WHERE ci.id_credito = c.id_credito) - c.valor_comision)
+                           END AS 'GANANCIA REAL'
                     FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente ORDER BY c.fecha_inicio DESC
                 """)
                 df_cart = pd.DataFrame(cursor.fetchall())
@@ -1600,7 +1563,7 @@ try:
                 st.markdown("<br>", unsafe_allow_html=True)
                 
                 st.markdown(f"""
-                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); margin-bottom: 25px;">
+                <div style="background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 16px; padding: 30px; text-align: center; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03); margin-bottom: 25px;">
                     <p style="color:#64748B; font-size: 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin:0;">ESTADO DE SITUACIÓN FINANCIERA (Patrimonio Neto)</p>
                     <h1 style="color:#1E293B; font-size: 4rem; font-weight: 800; margin: 10px 0;">{fmt_cop(patrimonio_neto)}</h1>
                 </div>
@@ -1610,7 +1573,7 @@ try:
                 
                 with c_act:
                     st.markdown(f"""
-                    <div style="background:#F0FDF4; border:1px solid #A7F3D0; border-radius:12px; padding:20px;">
+                    <div style="background:#F0FDF4; border:1px solid #A7F3D0; border-radius:16px; padding:20px;">
                         <h3 style="color:#047857; margin-top:0; margin-bottom:5px;">🟢 ACTIVOS</h3>
                         <p style="color:#065F46; font-size:13px; margin-bottom:15px;">(Lo que tiene la empresa)</p>
                         <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Caja y Bancos:</span><b style="color:#1E293B;">{fmt_cop(caja_liquida)}</b></div>
@@ -1623,7 +1586,7 @@ try:
                     
                 with c_pas:
                     st.markdown(f"""
-                    <div style="background:#FFF1F2; border:1px solid #FECACA; border-radius:12px; padding:20px;">
+                    <div style="background:#FFF1F2; border:1px solid #FECACA; border-radius:16px; padding:20px;">
                         <h3 style="color:#BE123C; margin-top:0; margin-bottom:5px;">🔴 PASIVOS</h3>
                         <p style="color:#9F1239; font-size:13px; margin-bottom:15px;">(Lo que debe la empresa)</p>
                         <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Deudas Inversores:</span><b style="color:#1E293B;">{fmt_cop(pasivo_fondeo)}</b></div>
@@ -1636,7 +1599,7 @@ try:
                     
                 with c_pat:
                     st.markdown(f"""
-                    <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:12px; padding:20px;">
+                    <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:16px; padding:20px;">
                         <h3 style="color:#1D4ED8; margin-top:0; margin-bottom:5px;">🔵 PATRIMONIO</h3>
                         <p style="color:#1E40AF; font-size:13px; margin-bottom:15px;">(Activos menos Pasivos)</p>
                         <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:#475569;">Capital Inyectado Base:</span><b style="color:#1E293B;">{fmt_cop(capital_aportado)}</b></div>
