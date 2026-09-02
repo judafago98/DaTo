@@ -462,9 +462,9 @@ try:
             if st.sidebar.button("Cerrar Sesión", width='stretch'): st.session_state['logeado'] = False; st.rerun()
 
         if menu_seleccionado == "inicio":
-            st.markdown("<div style='height: 4vh;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 2vh;'></div>", unsafe_allow_html=True)
             
-            # --- 1. CONSULTAS DE KPIs BÁSICOS ---
+            # --- 1. CONSULTAS DE KPIs Y MÉTRICAS ---
             cursor.execute("SELECT COUNT(*) as vendidos FROM Inventario WHERE estado = 'Vendido'")
             t_vendidos = cursor.fetchone()['vendidos'] or 0
             
@@ -482,8 +482,7 @@ try:
             cursor.execute("SELECT COUNT(*) as creditos_activos FROM Creditos WHERE estado = 'Activo'")
             c_activos = cursor.fetchone()['creditos_activos'] or 0
             
-            # --- 2. CONSULTAS DE ALTO IMPACTO (SALÓN DE LA FAMA) ---
-            # A. Ganancia Realizada (Utilidad pura)
+            # Ganancia Realizada (Utilidad pura)
             cursor.execute("""
                 SELECT SUM(GANANCIA_REAL) as ganancia_total FROM (
                     SELECT 
@@ -499,7 +498,7 @@ try:
             res_ganancia = cursor.fetchone()
             ganancia_realizada = float(res_ganancia['ganancia_total'] or 0)
 
-            # B. Capital en la Calle (Dinero por cobrar)
+            # Capital en la Calle (Por cobrar)
             cursor.execute("""
                 SELECT SUM(c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) as saldo_pendiente
                 FROM Creditos c WHERE c.estado = 'Activo'
@@ -507,88 +506,247 @@ try:
             res_proy = cursor.fetchone()
             dinero_calle = float(res_proy['saldo_pendiente'] or 0)
 
-            # C. Top 3 Productos Más Vendidos
+            # Top 3 Productos Más Vendidos
             cursor.execute("""
                 SELECT CONCAT(marca, ' ', modelo) as equipo, COUNT(*) as cantidad 
                 FROM Inventario WHERE estado = 'Vendido' 
                 GROUP BY marca, modelo ORDER BY cantidad DESC LIMIT 3
             """)
             top_equipos = cursor.fetchall()
+            
+            medallas = ["🥇", "🥈", "🥉"]
             html_top_equipos = ""
             for idx, eq in enumerate(top_equipos):
-                html_top_equipos += f"<div style='display:flex; justify-content:space-between; margin-bottom:8px; border-bottom:1px solid #E0F2FE; padding-bottom:4px;'><span style='color:#0369A1; font-weight:600; font-size:14px;'>{idx+1}. {eq['equipo']}</span><b style='color:#0284C7; font-size:14px;'>{eq['cantidad']} unid.</b></div>"
+                med = medallas[idx] if idx < 3 else "🔹"
+                html_top_equipos += f"""
+                <div style='display:flex; justify-content:space-between; align-items:center; background:#F0F9FF; border-left:4px solid #0284C7; padding:8px 12px; border-radius:8px; margin-bottom:8px;'>
+                    <span style='color:#0369A1; font-weight:700; font-size:13px;'>{med} {eq['equipo']}</span>
+                    <span style='background:#0284C7; color:#FFFFFF; font-weight:800; font-size:12px; padding:2px 10px; border-radius:12px;'>{eq['cantidad']} unid.</span>
+                </div>
+                """
             if not html_top_equipos:
-                html_top_equipos = "<p style='color:#64748B; font-size:13px;'>Aún no hay suficientes datos de ventas.</p>"
+                html_top_equipos = "<p style='color:#64748B; font-size:13px; margin:0;'>Aún no hay registro de ventas finalizadas.</p>"
 
-            # --- 3. RENDERIZADO VISUAL DEL DASHBOARD ---
-            st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #0052D4 0%, #003366 100%); border-radius: 20px; padding: 40px; box-shadow: 0 15px 35px rgba(0, 82, 212, 0.2); color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
-                <div>
-                    <h1 style='font-size: 3rem; font-weight: 800; margin: 0; color: white;'>HOLA, {st.session_state['nombre_usuario'].split(" ")[0].upper()} 🚀</h1>
-                    <p style='font-size: 1.1rem; font-weight: 400; margin-top: 5px; opacity: 0.9;'>Es hora de operar. Aquí está el rendimiento de DaTo al segundo.</p>
-                </div>
-                <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 20px 30px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); text-align: center;">
-                    <p style="margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; color: #E2E8F0;">Caja Global Disponible</p>
-                    <h2 style="margin: 5px 0 0 0; font-size: 2.5rem; color: white; font-weight: 800;">{fmt_cop(t_caja)}</h2>
-                </div>
-            </div>
-            
+            # --- 2. CSS AVANZADO Y ANIMACIONES ---
+            st.markdown("""
             <style>
-                .kpi-card {{ background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); transition: transform 0.2s; height: 100%; }}
-                .kpi-card:hover {{ transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0,82,212,0.08); border-color: #0052D4; }}
-                .kpi-title {{ color: #64748B; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }}
-                .kpi-value {{ color: #1E293B; font-size: 2rem; font-weight: 800; margin: 0; line-height: 1.2; }}
-                .kpi-sub {{ color: #94A3B8; font-size: 12px; margin-top: 5px; font-weight: 500; line-height: 1.4; }}
-                
-                .trophy-card {{ background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 16px; padding: 25px; height: 100%; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: 0.3s; }}
-                .trophy-card:hover {{ border-color: #10B981; transform: scale(1.02); box-shadow: 0 10px 25px rgba(16,185,129,0.1); }}
-                .trophy-icon {{ position: absolute; right: -10px; bottom: -10px; font-size: 6rem; opacity: 0.05; transform: rotate(-15deg); }}
+                @keyframes pulseGlow {
+                    0% { box-shadow: 0 0 0 0 rgba(0, 82, 212, 0.4); }
+                    70% { box-shadow: 0 0 0 12px rgba(0, 82, 212, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(0, 82, 212, 0); }
+                }
+                @keyframes floatCard {
+                    0% { transform: translateY(0px); }
+                    50% { transform: translateY(-4px); }
+                    100% { transform: translateY(0px); }
+                }
+                .hero-banner {
+                    background: linear-gradient(135deg, #0052D4 0%, #4364F7 50%, #6FB1FC 100%) !important;
+                    border-radius: 24px !important;
+                    padding: 35px 40px !important;
+                    box-shadow: 0 20px 40px rgba(0, 82, 212, 0.25) !important;
+                    display: flex !important;
+                    justify-content: space-between !important;
+                    align-items: center !important;
+                    flex-wrap: wrap !important;
+                    gap: 20px !important;
+                    margin-bottom: 30px !important;
+                    position: relative !important;
+                    overflow: hidden !important;
+                }
+                .status-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    background: rgba(255, 255, 255, 0.25);
+                    backdrop-filter: blur(10px);
+                    padding: 6px 14px;
+                    border-radius: 20px;
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: #FFFFFF !important;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 12px;
+                    border: 1px solid rgba(255, 255, 255, 0.4);
+                }
+                .pulse-dot {
+                    width: 8px;
+                    height: 8px;
+                    background-color: #10B981;
+                    border-radius: 50%;
+                    animation: pulseGlow 2s infinite;
+                }
+                .caja-badge {
+                    background: rgba(255, 255, 255, 0.95) !important;
+                    backdrop-filter: blur(12px) !important;
+                    padding: 20px 30px !important;
+                    border-radius: 18px !important;
+                    border: 1px solid rgba(255, 255, 255, 0.8) !important;
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
+                    text-align: center !important;
+                    min-width: 240px !important;
+                }
+                .card-feature {
+                    background: #FFFFFF !important;
+                    border: 1px solid #E2E8F0 !important;
+                    border-radius: 20px !important;
+                    padding: 24px !important;
+                    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.03) !important;
+                    transition: all 0.3s ease !important;
+                    height: 100% !important;
+                    position: relative !important;
+                }
+                .card-feature:hover {
+                    transform: translateY(-5px) !important;
+                    box-shadow: 0 15px 35px rgba(0, 82, 212, 0.12) !important;
+                    border-color: #0052D4 !important;
+                }
+                .metric-pill {
+                    background: #F8FAFC;
+                    border: 1px solid #CBD5E1;
+                    border-radius: 12px;
+                    padding: 16px;
+                    text-align: center;
+                    transition: 0.2s;
+                }
+                .metric-pill:hover {
+                    background: #FFFFFF;
+                    border-color: #0052D4;
+                    box-shadow: 0 4px 15px rgba(0, 82, 212, 0.08);
+                }
             </style>
             """, unsafe_allow_html=True)
             
-            # --- 4. PANEL DE RENDIMIENTO COMERCIAL ---
-            st.markdown("<h3 style='color:#0052D4; font-size: 1.4rem; margin-bottom: 15px; margin-top: 10px;'>📊 Rendimiento Comercial</h3>", unsafe_allow_html=True)
+            # --- 3. BANNER PRINCIPAL ---
+            st.markdown(f"""
+            <div class="hero-banner">
+                <div style="z-index: 2;">
+                    <div class="status-badge">
+                        <span class="pulse-dot"></span> SISTEMA OPERATIVO Y CONECTADO
+                    </div>
+                    <h1 style='font-size: 2.8rem; font-weight: 800; margin: 0; color: #FFFFFF !important; text-shadow: 0 2px 10px rgba(0,0,0,0.1);'>
+                        ¡HOLA, {st.session_state['nombre_usuario'].split(" ")[0].upper()}! 👋
+                    </h1>
+                    <p style='font-size: 1.05rem; font-weight: 400; margin-top: 6px; color: #F1F5F9 !important; margin-bottom: 0;'>
+                        Bienvenido al panel de control de <b>DaTo</b>.
+                    </p>
+                </div>
+                <div class="caja-badge" style="z-index: 2;">
+                    <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 800; color: #64748B !important; display: block; margin-bottom: 4px;">
+                        Caja Global Disponible
+                    </span>
+                    <h2 style="margin: 0; font-size: 2.3rem; color: #0052D4 !important; font-weight: 800;">
+                        {fmt_cop(t_caja)}
+                    </h2>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # --- 4. PANALES DE RENDIMIENTO RENTABLE ---
+            st.markdown("<h3 style='color:#0052D4; font-size: 1.35rem; font-weight: 800; margin-bottom: 18px; margin-top: 10px;'>🚀 Indicadores de Rendimiento Financiero</h3>", unsafe_allow_html=True)
             
             t1, t2, t3 = st.columns(3)
+            
             with t1:
                 st.markdown(f"""
-                <div class="trophy-card" style="border-left: 5px solid #10B981;">
-                    <div class="trophy-icon">💰</div>
-                    <p style="color:#047857; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Utilidad Neta Asegurada</p>
-                    <h2 style="color:#10B981; font-size:2.5rem; font-weight:800; margin:5px 0;">{fmt_cop(ganancia_realizada)}</h2>
-                    <p style="color:#64748B; font-size:12px; margin:0;">Ganancia real generada por ventas de contado y créditos que ya recuperaron su inversión inicial.</p>
+                <div class="card-feature" style="border-top: 5px solid #10B981 !important;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="color:#047857 !important; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing: 0.8px;">
+                            Utilidad Neta Generada
+                        </span>
+                        <span style="font-size: 24px;">💎</span>
+                    </div>
+                    <h2 style="color:#059669 !important; font-size:2.4rem; font-weight:800; margin:0 0 8px 0;">
+                        {fmt_cop(ganancia_realizada)}
+                    </h2>
+                    <p style="color:#64748B !important; font-size:13px; margin:0; line-height: 1.4;">
+                        Ganancia limpia generada por ventas de contado y créditos que superaron su inversión.
+                    </p>
                 </div>
                 """, unsafe_allow_html=True)
+                
             with t2:
                 st.markdown(f"""
-                <div class="trophy-card" style="border-left: 5px solid #F59E0B;">
-                    <div class="trophy-icon">📈</div>
-                    <p style="color:#B45309; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Capital en la Calle</p>
-                    <h2 style="color:#F59E0B; font-size:2.5rem; font-weight:800; margin:5px 0;">{fmt_cop(dinero_calle)}</h2>
-                    <p style="color:#64748B; font-size:12px; margin:0;">Dinero pendiente por recaudar de la cartera activa. Proyección de retorno a caja.</p>
+                <div class="card-feature" style="border-top: 5px solid #F59E0B !important;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="color:#B45309 !important; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing: 0.8px;">
+                            Capital en la Calle
+                        </span>
+                        <span style="font-size: 24px;">📈</span>
+                    </div>
+                    <h2 style="color:#D97706 !important; font-size:2.4rem; font-weight:800; margin:0 0 8px 0;">
+                        {fmt_cop(dinero_calle)}
+                    </h2>
+                    <p style="color:#64748B !important; font-size:13px; margin:0; line-height: 1.4;">
+                        Monto por cobrar acumulado en cartera activa listo para retornar a la caja.
+                    </p>
                 </div>
                 """, unsafe_allow_html=True)
+                
             with t3:
                 st.markdown(f"""
-                <div class="trophy-card" style="border-left: 5px solid #0284C7;">
-                    <div class="trophy-icon">🔥</div>
-                    <p style="color:#0369A1; font-size:13px; font-weight:700; text-transform:uppercase; margin:0; margin-bottom:12px;">Top 3 Equipos Más Vendidos</p>
-                    {html_top_equipos}
+                <div class="card-feature" style="border-top: 5px solid #0284C7 !important;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="color:#0369A1 !important; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing: 0.8px;">
+                            Top Equipos Más Vendidos
+                        </span>
+                        <span style="font-size: 24px;">🔥</span>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        {html_top_equipos}
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
             
-            # --- 5. TARJETAS OPERATIVAS (BÁSICAS) ---
+            # --- 5. TARJETAS OPERATIVAS MAESTRAS ---
+            st.markdown("<h3 style='color:#0052D4; font-size: 1.35rem; font-weight: 800; margin-bottom: 18px;'>📋 Resumen Operativo</h3>", unsafe_allow_html=True)
+            
             c1, c2, c3, c4 = st.columns(4)
+            
             with c1:
-                st.markdown(f"""<div class="kpi-card"><div class="kpi-title">📦 En Bodega</div><p class="kpi-value">{t_stock}</p><p class="kpi-sub">Equipos físicos valorizados en <b style="color:#0052D4;">{fmt_cop(cap_detenido)}</b></p></div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="metric-pill">
+                    <span style="font-size: 22px; display:block; margin-bottom: 4px;">📦</span>
+                    <span style="color:#64748B !important; font-size:11px; font-weight:700; text-transform:uppercase;">En Bodega</span>
+                    <h3 style="color:#1E293B !important; font-size:1.8rem; font-weight:800; margin: 4px 0;">{t_stock}</h3>
+                    <span style="color:#0052D4 !important; font-size:12px; font-weight:600;">Stock: {fmt_cop(cap_detenido)}</span>
+                </div>
+                """, unsafe_allow_html=True)
+                
             with c2:
-                st.markdown(f"""<div class="kpi-card"><div class="kpi-title">🛒 Despachados</div><p class="kpi-value">{t_vendidos}</p><p class="kpi-sub">Histórico total de unidades vendidas</p></div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="metric-pill">
+                    <span style="font-size: 22px; display:block; margin-bottom: 4px;">🛒</span>
+                    <span style="color:#64748B !important; font-size:11px; font-weight:700; text-transform:uppercase;">Despachados</span>
+                    <h3 style="color:#1E293B !important; font-size:1.8rem; font-weight:800; margin: 4px 0;">{t_vendidos}</h3>
+                    <span style="color:#64748B !important; font-size:12px;">Unidades vendidas</span>
+                </div>
+                """, unsafe_allow_html=True)
+                
             with c3:
-                st.markdown(f"""<div class="kpi-card"><div class="kpi-title">🤝 Cartera Viva</div><p class="kpi-value">{c_activos}</p><p class="kpi-sub">Créditos activos pagando cuotas</p></div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="metric-pill">
+                    <span style="font-size: 22px; display:block; margin-bottom: 4px;">🤝</span>
+                    <span style="color:#64748B !important; font-size:11px; font-weight:700; text-transform:uppercase;">Cartera Viva</span>
+                    <h3 style="color:#1E293B !important; font-size:1.8rem; font-weight:800; margin: 4px 0;">{c_activos}</h3>
+                    <span style="color:#64748B !important; font-size:12px;">Créditos en cobro</span>
+                </div>
+                """, unsafe_allow_html=True)
+                
             with c4:
-                st.markdown(f"""<div class="kpi-card"><div class="kpi-title">👥 Base de Datos</div><p class="kpi-value">{t_clientes}</p><p class="kpi-sub">Compradores registrados en DaTo</p></div>""", unsafe_allow_html=True)
+                st.markdown(f"""
+                <div class="metric-pill">
+                    <span style="font-size: 22px; display:block; margin-bottom: 4px;">👥</span>
+                    <span style="color:#64748B !important; font-size:11px; font-weight:700; text-transform:uppercase;">Clientes DaTo</span>
+                    <h3 style="color:#1E293B !important; font-size:1.8rem; font-weight:800; margin: 4px 0;">{t_clientes}</h3>
+                    <span style="color:#64748B !important; font-size:12px;">Registrados en DB</span>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            
+            
         elif menu_seleccionado == "simulador":
             st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
             tab_sim, tab_paz = st.tabs(["📊 Simular Cuotas", "🤝 Liquidación Paz y Salvo"])
