@@ -462,9 +462,9 @@ try:
             if st.sidebar.button("Cerrar Sesión", width='stretch'): st.session_state['logeado'] = False; st.rerun()
 
         if menu_seleccionado == "inicio":
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div style='height: 4vh;'></div>", unsafe_allow_html=True)
             
-            # Consultas rápidas para extraer los KPIs del negocio en tiempo real
+            # --- 1. CONSULTAS DE KPIs BÁSICOS ---
             cursor.execute("SELECT COUNT(*) as vendidos FROM Inventario WHERE estado = 'Vendido'")
             t_vendidos = cursor.fetchone()['vendidos'] or 0
             
@@ -482,65 +482,114 @@ try:
             cursor.execute("SELECT COUNT(*) as creditos_activos FROM Creditos WHERE estado = 'Activo'")
             c_activos = cursor.fetchone()['creditos_activos'] or 0
             
-            # 1. Banner Principal Premium
+            # --- 2. CONSULTAS DE ALTO IMPACTO (SALÓN DE LA FAMA) ---
+            # A. Ganancia Realizada (Solo dinero que ya es ganancia pura, ignorando créditos en rojo)
+            cursor.execute("""
+                SELECT SUM(GANANCIA_REAL) as ganancia_total FROM (
+                    SELECT 
+                        CASE 
+                            WHEN c.propietario_cartera = 'Fondo Externo' THEN (c.precio_venta - (SELECT SUM(inv.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario inv ON ci.imei = inv.imei WHERE ci.id_credito = c.id_credito) - c.valor_comision)
+                            ELSE (IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso IN ('Pago Contado', 'Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Pago Cuotas')), 0) 
+                             - (SELECT SUM(inv.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario inv ON ci.imei = inv.imei WHERE ci.id_credito = c.id_credito) 
+                             - c.valor_comision)
+                        END AS GANANCIA_REAL
+                    FROM Creditos c
+                ) as t WHERE GANANCIA_REAL > 0
+            """)
+            res_ganancia = cursor.fetchone()
+            ganancia_realizada = float(res_ganancia['ganancia_total'] or 0)
+
+            # B. Cliente Estrella (El que más plata real ha pagado)
+            cursor.execute("""
+                SELECT cl.nombre_completo, SUM(p.monto_recibido) as total_pagado 
+                FROM Pagos p JOIN Creditos c ON p.id_credito = c.id_credito JOIN Clientes cl ON c.id_cliente = cl.id_cliente 
+                WHERE p.motivo_ingreso NOT IN ('Venta de Cartera a Externo') 
+                GROUP BY cl.id_cliente ORDER BY total_pagado DESC LIMIT 1
+            """)
+            res_cliente = cursor.fetchone()
+            cliente_estrella = res_cliente['nombre_completo'] if res_cliente else "N/A"
+            cliente_pago = float(res_cliente['total_pagado']) if res_cliente else 0
+
+            # C. Producto Rey (El más vendido)
+            cursor.execute("""
+                SELECT CONCAT(marca, ' ', modelo) as equipo, COUNT(*) as cantidad 
+                FROM Inventario WHERE estado = 'Vendido' 
+                GROUP BY marca, modelo ORDER BY cantidad DESC LIMIT 1
+            """)
+            res_equipo = cursor.fetchone()
+            equipo_rey = res_equipo['equipo'] if res_equipo else "N/A"
+            equipo_qty = res_equipo['cantidad'] if res_equipo else 0
+
+            # --- 3. RENDERIZADO VISUAL DEL DASHBOARD ---
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #0052D4 0%, #003366 100%); border-radius: 20px; padding: 40px; box-shadow: 0 15px 35px rgba(0, 82, 212, 0.2); color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 30px;">
+            <div style="background: linear-gradient(135deg, #0052D4 0%, #003366 100%); border-radius: 20px; padding: 40px; box-shadow: 0 15px 35px rgba(0, 82, 212, 0.2); color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
                 <div>
                     <h1 style='font-size: 3rem; font-weight: 800; margin: 0; color: white;'>HOLA, {st.session_state['nombre_usuario'].split(" ")[0].upper()} 🚀</h1>
-                    <p style='font-size: 1.1rem; font-weight: 400; margin-top: 10px; opacity: 0.9;'>El ecosistema DaTo está al aire. Aquí tienes tu radiografía operativa en tiempo real.</p>
+                    <p style='font-size: 1.1rem; font-weight: 400; margin-top: 5px; opacity: 0.9;'>Es hora de romperla. Aquí está la radiografía operativa de DaTo hoy.</p>
                 </div>
                 <div style="background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); padding: 20px 30px; border-radius: 15px; border: 1px solid rgba(255,255,255,0.2); text-align: center;">
                     <p style="margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600; color: #E2E8F0;">Caja Global Disponible</p>
                     <h2 style="margin: 5px 0 0 0; font-size: 2.5rem; color: white; font-weight: 800;">{fmt_cop(t_caja)}</h2>
                 </div>
             </div>
-            """, unsafe_allow_html=True)
             
-            # 2. Estilos para las Tarjetas de KPIs (Hover Effects)
-            st.markdown("""
             <style>
-                .kpi-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 16px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); transition: transform 0.2s, border-color 0.2s; height: 100%; }
-                .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 15px 35px rgba(0,82,212,0.08); border-color: #0052D4; }
-                .kpi-title { color: #64748B; font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-                .kpi-value { color: #1E293B; font-size: 2.2rem; font-weight: 800; margin: 0; line-height: 1.2; }
-                .kpi-sub { color: #94A3B8; font-size: 13px; margin-top: 8px; font-weight: 500; }
+                .kpi-card {{ background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.03); transition: transform 0.2s; height: 100%; }}
+                .kpi-card:hover {{ transform: translateY(-3px); box-shadow: 0 15px 35px rgba(0,82,212,0.08); border-color: #0052D4; }}
+                .kpi-title {{ color: #64748B; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }}
+                .kpi-value {{ color: #1E293B; font-size: 2rem; font-weight: 800; margin: 0; line-height: 1.2; }}
+                .kpi-sub {{ color: #94A3B8; font-size: 12px; margin-top: 5px; font-weight: 500; line-height: 1.4; }}
+                
+                .trophy-card {{ background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%); border: 1px solid #e2e8f0; border-radius: 16px; padding: 25px; height: 100%; position: relative; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: 0.3s; }}
+                .trophy-card:hover {{ border-color: #10B981; transform: scale(1.02); box-shadow: 0 10px 25px rgba(16,185,129,0.1); }}
+                .trophy-icon {{ position: absolute; right: -10px; bottom: -10px; font-size: 6rem; opacity: 0.05; transform: rotate(-15deg); }}
             </style>
             """, unsafe_allow_html=True)
             
-            # 3. Mosaico de Tarjetas de Resumen
+            # --- 4. SALÓN DE LA FAMA (TROFEOS) ---
+            st.markdown("<h3 style='color:#0052D4; font-size: 1.4rem; margin-bottom: 15px; margin-top: 10px;'>🏆 Salón de la Fama y Rendimiento</h3>", unsafe_allow_html=True)
+            
+            t1, t2, t3 = st.columns(3)
+            with t1:
+                st.markdown(f"""
+                <div class="trophy-card" style="border-left: 5px solid #10B981;">
+                    <div class="trophy-icon">💰</div>
+                    <p style="color:#047857; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Ganancia Neta Asegurada</p>
+                    <h2 style="color:#10B981; font-size:2.5rem; font-weight:800; margin:5px 0;">{fmt_cop(ganancia_realizada)}</h2>
+                    <p style="color:#64748B; font-size:12px; margin:0;">Plata libre de polvo y paja generada por créditos que ya cruzaron su punto de equilibrio.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with t2:
+                st.markdown(f"""
+                <div class="trophy-card" style="border-left: 5px solid #F59E0B;">
+                    <div class="trophy-icon">👑</div>
+                    <p style="color:#B45309; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Cliente Estrella</p>
+                    <h2 style="color:#F59E0B; font-size:1.8rem; font-weight:800; margin:10px 0; line-height: 1.1;">{cliente_estrella.split()[0]} {cliente_estrella.split()[1] if len(cliente_estrella.split())>1 else ''}</h2>
+                    <p style="color:#64748B; font-size:13px; margin:0;">Ha inyectado <b>{fmt_cop(cliente_pago)}</b> a la caja de DaTo.</p>
+                </div>
+                """, unsafe_allow_html=True)
+            with t3:
+                st.markdown(f"""
+                <div class="trophy-card" style="border-left: 5px solid #0284C7;">
+                    <div class="trophy-icon">🔥</div>
+                    <p style="color:#0369A1; font-size:13px; font-weight:700; text-transform:uppercase; margin:0;">Equipo Más Vendido</p>
+                    <h2 style="color:#0284C7; font-size:1.6rem; font-weight:800; margin:10px 0; line-height: 1.1;">{equipo_rey}</h2>
+                    <p style="color:#64748B; font-size:13px; margin:0;">Récord actual: <b>{equipo_qty} unidades</b> despachadas.</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # --- 5. TARJETAS OPERATIVAS (BÁSICAS) ---
             c1, c2, c3, c4 = st.columns(4)
             with c1:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-title">📦 Inventario Físico</div>
-                    <p class="kpi-value">{t_stock}</p>
-                    <p class="kpi-sub">Equipos en bodega valorizados en <b style="color:#0052D4;">{fmt_cop(cap_detenido)}</b></p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div class="kpi-card"><div class="kpi-title">📦 En Bodega</div><p class="kpi-value">{t_stock}</p><p class="kpi-sub">Equipos físicos valorizados en <b style="color:#0052D4;">{fmt_cop(cap_detenido)}</b></p></div>""", unsafe_allow_html=True)
             with c2:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-title">🔥 Equipos Vendidos</div>
-                    <p class="kpi-value">{t_vendidos}</p>
-                    <p class="kpi-sub">Histórico total despachado por DaTo</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div class="kpi-card"><div class="kpi-title">🛒 Despachados</div><p class="kpi-value">{t_vendidos}</p><p class="kpi-sub">Histórico total de unidades vendidas</p></div>""", unsafe_allow_html=True)
             with c3:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-title">🤝 Cartera Activa</div>
-                    <p class="kpi-value">{c_activos}</p>
-                    <p class="kpi-sub">Créditos vigentes generando retornos</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div class="kpi-card"><div class="kpi-title">🤝 Cartera Viva</div><p class="kpi-value">{c_activos}</p><p class="kpi-sub">Créditos activos pagando cuotas</p></div>""", unsafe_allow_html=True)
             with c4:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div class="kpi-title">👥 Clientes DaTo</div>
-                    <p class="kpi-value">{t_clientes}</p>
-                    <p class="kpi-sub">Compradores en tu base de datos</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div class="kpi-card"><div class="kpi-title">👥 Base de Datos</div><p class="kpi-value">{t_clientes}</p><p class="kpi-sub">Compradores registrados en DaTo</p></div>""", unsafe_allow_html=True)
 
         elif menu_seleccionado == "simulador":
             st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
