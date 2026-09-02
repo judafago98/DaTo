@@ -142,6 +142,14 @@ def generar_plan_pagos_real(id_credito, cursor):
     pagos_hist = cursor.fetchall()
     pagado_total = sum([float(p['monto_recibido']) for p in pagos_hist])
     
+    # Calcular Paz y Salvo real en este instante
+    cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')", (id_credito,))
+    res_cap = cursor.fetchone()
+    cap_pag = float(res_cap['cap'] if res_cap and res_cap['cap'] else 0)
+    s_act = float(cred['monto_financiado']) - cap_pag
+    paz_y_salvo = s_act + (s_act * float(cred['tasa_interes_mensual']))
+    if paz_y_salvo < 0: paz_y_salvo = 0
+    
     cursor.execute("SELECT * FROM Cuotas_Programadas WHERE id_credito=%s ORDER BY numero_cuota ASC", (id_credito,))
     cuotas_fijas = cursor.fetchall()
     plan, pagado_acum = [], pagado_total
@@ -174,6 +182,11 @@ def generar_plan_pagos_real(id_credito, cursor):
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             elif pagado_acum > 0: 
                 esperado = v_actual
+                
+                # TOPE INTELIGENTE: Nunca cobrar más del Paz y Salvo
+                tope = pagado_acum + paz_y_salvo
+                if tope < esperado: esperado = tope
+                
                 if pagado_acum >= esperado:
                     est, pagado_acum = 'Pagada', pagado_acum - esperado
                 else:
@@ -181,8 +194,15 @@ def generar_plan_pagos_real(id_credito, cursor):
                 f_pago_mostrar = pagos_hist[i-1]['fecha_pago'].strftime('%Y-%m-%d') if (i-1) < len(pagos_hist) else '---'
             else: 
                 esperado = v_actual
+                
+                # TOPE INTELIGENTE
+                if paz_y_salvo < esperado: esperado = paz_y_salvo
+                
                 est, f_pago_mostrar = 'Pendiente', '---'
-            plan.append({'Cuota': f"Mes {i}", 'Vencimiento Límite': f_venc.strftime('%Y-%m-%d'), 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
+            
+            if esperado >= 1:
+                plan.append({'Cuota': f"Mes {i}", 'Vencimiento Límite': f_venc.strftime('%Y-%m-%d'), 'Valor Exigido': fmt_cop(esperado), 'Estado Actual': est, 'Fecha de Pago': f_pago_mostrar})
+    
     return pd.DataFrame(plan)
 
 CATALOGO = {
@@ -1468,8 +1488,12 @@ try:
 
                     s_act = float(dat['monto_financiado']) - cap_pag
                     paz_y_salvo = s_act + (s_act * float(dat['tasa_interes_mensual']))
+                    if paz_y_salvo < 0: paz_y_salvo = 0
                     
-                    msg = f"¡Hola {dat['nombre_completo']}! Te saludamos de DaTo.\n\nEste es el estado de cuenta de tu crédito:\n💵 *Cuota Mensual:* {fmt_cop(dat['valor_cuota'])}\n💳 *Último Pago Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar la totalidad hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nRecuerda que tu fecha límite de pago es el día {str(dat['fecha_primera_cuota'].day)} de cada mes."
+                    # TOPE INTELIGENTE: La cuota exigida en WhatsApp no supera la deuda total
+                    cuota_a_cobrar = min(float(dat['valor_cuota']), paz_y_salvo)
+                    
+                    msg = f"¡Hola {dat['nombre_completo']}! Te saludamos de DaTo.\n\nEste es el estado de cuenta de tu crédito:\n💵 *Cuota Mensual:* {fmt_cop(cuota_a_cobrar)}\n💳 *Último Pago Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar la totalidad hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nRecuerda que tu fecha límite de pago es el día {str(dat['fecha_primera_cuota'].day)} de cada mes."
                     
                     c1, c2 = st.columns([1, 1])
                     with c1: st.text_area("Copia este mensaje y envíalo por WhatsApp", value=msg, height=350)
