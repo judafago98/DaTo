@@ -241,7 +241,7 @@ try:
     cursor = conn.cursor(dictionary=True, buffered=True)
 
     # Cargar Cuentas Bancarias Dinámicas
-    cursor.execute("SELECT id_cuenta, nombre_cuenta FROM Cuentas_Bancarias")
+    cursor.execute("SELECT id_cuenta, nombre_cuenta FROM Cuentas_Bancarias ORDER BY 1 ASC")
     lista_cuentas = cursor.fetchall()
     opc_cuentas = {c['nombre_cuenta']: c['id_cuenta'] for c in lista_cuentas}
 
