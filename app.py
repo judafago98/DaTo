@@ -464,7 +464,7 @@ try:
         if menu_seleccionado == "inicio":
             st.markdown("<div style='height: 2vh;'></div>", unsafe_allow_html=True)
             
-            # --- 1. CONSULTAS DE KPIs Y MÉTRICAS ---
+            # --- 1. CONSULTAS OPERATIVAS ---
             cursor.execute("SELECT COUNT(*) as vendidos FROM Inventario WHERE estado = 'Vendido'")
             t_vendidos = cursor.fetchone()['vendidos'] or 0
             
@@ -482,7 +482,8 @@ try:
             cursor.execute("SELECT COUNT(*) as creditos_activos FROM Creditos WHERE estado = 'Activo'")
             c_activos = cursor.fetchone()['creditos_activos'] or 0
             
-            # Ganancia Realizada (Utilidad pura)
+            # --- 2. CONSULTAS FINANCIERAS DE ALTO IMPACTO ---
+            # A. Utilidad Neta Asegurada
             cursor.execute("""
                 SELECT SUM(GANANCIA_REAL) as ganancia_total FROM (
                     SELECT 
@@ -495,253 +496,136 @@ try:
                     FROM Creditos c
                 ) as t WHERE GANANCIA_REAL > 0
             """)
-            res_ganancia = cursor.fetchone()
-            ganancia_realizada = float(res_ganancia['ganancia_total'] or 0)
+            ganancia_realizada = float(cursor.fetchone()['ganancia_total'] or 0)
 
-            # Capital en la Calle (Por cobrar)
+            # B. Capital en la Calle
             cursor.execute("""
                 SELECT SUM(c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) as saldo_pendiente
                 FROM Creditos c WHERE c.estado = 'Activo'
             """)
-            res_proy = cursor.fetchone()
-            dinero_calle = float(res_proy['saldo_pendiente'] or 0)
+            dinero_calle = float(cursor.fetchone()['saldo_pendiente'] or 0)
 
-            # Top 3 Productos Más Vendidos
+            # C. Dinero Recaudado ESTE MES (El reemplazo estrella)
             cursor.execute("""
-                SELECT CONCAT(marca, ' ', modelo) as equipo, COUNT(*) as cantidad 
-                FROM Inventario WHERE estado = 'Vendido' 
-                GROUP BY marca, modelo ORDER BY cantidad DESC LIMIT 3
+                SELECT SUM(monto_recibido) as recaudo_mes 
+                FROM Pagos 
+                WHERE MONTH(fecha_pago) = MONTH(CURDATE()) AND YEAR(fecha_pago) = YEAR(CURDATE())
+                AND motivo_ingreso NOT IN ('Venta de Cartera a Externo')
             """)
-            top_equipos = cursor.fetchall()
-            
-            medallas = ["🥇", "🥈", "🥉"]
-            html_top_equipos = ""
-            for idx, eq in enumerate(top_equipos):
-                med = medallas[idx] if idx < 3 else "🔹"
-                html_top_equipos += f"""
-                <div style='display:flex; justify-content:space-between; align-items:center; background:#F0F9FF; border-left:4px solid #0284C7; padding:8px 12px; border-radius:8px; margin-bottom:8px;'>
-                    <span style='color:#0369A1; font-weight:700; font-size:13px;'>{med} {eq['equipo']}</span>
-                    <span style='background:#0284C7; color:#FFFFFF; font-weight:800; font-size:12px; padding:2px 10px; border-radius:12px;'>{eq['cantidad']} unid.</span>
-                </div>
-                """
-            if not html_top_equipos:
-                html_top_equipos = "<p style='color:#64748B; font-size:13px; margin:0;'>Aún no hay registro de ventas finalizadas.</p>"
+            recaudo_mes = float(cursor.fetchone()['recaudo_mes'] or 0)
 
-            # --- 2. CSS AVANZADO Y ANIMACIONES ---
+            # --- 3. CSS ALOCADO Y PREMIUM ---
             st.markdown("""
             <style>
-                @keyframes pulseGlow {
-                    0% { box-shadow: 0 0 0 0 rgba(0, 82, 212, 0.4); }
-                    70% { box-shadow: 0 0 0 12px rgba(0, 82, 212, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(0, 82, 212, 0); }
-                }
-                @keyframes floatCard {
-                    0% { transform: translateY(0px); }
-                    50% { transform: translateY(-4px); }
-                    100% { transform: translateY(0px); }
-                }
-                .hero-banner {
-                    background: linear-gradient(135deg, #0052D4 0%, #4364F7 50%, #6FB1FC 100%) !important;
-                    border-radius: 24px !important;
-                    padding: 35px 40px !important;
-                    box-shadow: 0 20px 40px rgba(0, 82, 212, 0.25) !important;
-                    display: flex !important;
-                    justify-content: space-between !important;
-                    align-items: center !important;
-                    flex-wrap: wrap !important;
-                    gap: 20px !important;
-                    margin-bottom: 30px !important;
-                    position: relative !important;
-                    overflow: hidden !important;
-                }
-                .status-badge {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 8px;
-                    background: rgba(255, 255, 255, 0.25);
-                    backdrop-filter: blur(10px);
-                    padding: 6px 14px;
-                    border-radius: 20px;
-                    font-size: 12px;
-                    font-weight: 700;
-                    color: #FFFFFF !important;
-                    letter-spacing: 0.5px;
-                    margin-bottom: 12px;
-                    border: 1px solid rgba(255, 255, 255, 0.4);
-                }
-                .pulse-dot {
-                    width: 8px;
-                    height: 8px;
-                    background-color: #10B981;
-                    border-radius: 50%;
-                    animation: pulseGlow 2s infinite;
-                }
-                .caja-badge {
-                    background: rgba(255, 255, 255, 0.95) !important;
-                    backdrop-filter: blur(12px) !important;
-                    padding: 20px 30px !important;
-                    border-radius: 18px !important;
-                    border: 1px solid rgba(255, 255, 255, 0.8) !important;
-                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08) !important;
-                    text-align: center !important;
-                    min-width: 240px !important;
-                }
-                .card-feature {
-                    background: #FFFFFF !important;
-                    border: 1px solid #E2E8F0 !important;
-                    border-radius: 20px !important;
-                    padding: 24px !important;
-                    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.03) !important;
-                    transition: all 0.3s ease !important;
-                    height: 100% !important;
-                    position: relative !important;
-                }
-                .card-feature:hover {
-                    transform: translateY(-5px) !important;
-                    box-shadow: 0 15px 35px rgba(0, 82, 212, 0.12) !important;
-                    border-color: #0052D4 !important;
-                }
-                .metric-pill {
-                    background: #F8FAFC;
-                    border: 1px solid #CBD5E1;
-                    border-radius: 12px;
-                    padding: 16px;
-                    text-align: center;
-                    transition: 0.2s;
-                }
-                .metric-pill:hover {
-                    background: #FFFFFF;
-                    border-color: #0052D4;
-                    box-shadow: 0 4px 15px rgba(0, 82, 212, 0.08);
-                }
+                @keyframes pulseGlow { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+                .hero-banner { background: linear-gradient(135deg, #0052D4 0%, #1E3A8A 100%) !important; border-radius: 20px !important; padding: 40px !important; box-shadow: 0 15px 35px rgba(0, 82, 212, 0.25) !important; display: flex !important; justify-content: space-between !important; align-items: center !important; flex-wrap: wrap !important; gap: 20px !important; margin-bottom: 30px !important; }
+                .caja-badge { background: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px) !important; padding: 20px 30px !important; border-radius: 16px !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; text-align: center !important; min-width: 250px !important; }
+                .fin-card { border-radius: 20px !important; padding: 30px !important; color: white !important; box-shadow: 0 10px 25px rgba(0,0,0,0.05) !important; transition: all 0.3s ease !important; height: 100% !important; position: relative !important; overflow: hidden !important; }
+                .fin-card:hover { transform: translateY(-5px) !important; box-shadow: 0 15px 35px rgba(0,0,0,0.15) !important; }
+                .fin-icon { font-size: 80px; position: absolute; right: -15px; bottom: -15px; opacity: 0.15; transform: rotate(-10deg); }
+                .op-card { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 25px; transition: 0.3s; display: flex; align-items: center; gap: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); }
+                .op-card:hover { border-color: #0052D4; transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,82,212,0.1); }
+                .op-icon { background: #F1F5F9; width: 60px; height: 60px; border-radius: 14px; display: flex; justify-content: center; align-items: center; font-size: 28px; }
             </style>
             """, unsafe_allow_html=True)
             
-            # --- 3. BANNER PRINCIPAL ---
+            # --- 4. BANNER PRINCIPAL ---
             st.markdown(f"""
             <div class="hero-banner">
-                <div style="z-index: 2;">
-                    <div class="status-badge">
-                        <span class="pulse-dot"></span> SISTEMA OPERATIVO Y CONECTADO
+                <div>
+                    <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.2); padding: 5px 15px; border-radius: 20px; color: white; font-size: 12px; font-weight: bold; margin-bottom: 15px;">
+                        <span style="width:8px; height:8px; background:#10B981; border-radius:50%; animation: pulseGlow 2s infinite;"></span> EN LÍNEA
                     </div>
-                    <h1 style='font-size: 2.8rem; font-weight: 800; margin: 0; color: #FFFFFF !important; text-shadow: 0 2px 10px rgba(0,0,0,0.1);'>
-                        ¡HOLA, {st.session_state['nombre_usuario'].split(" ")[0].upper()}! 👋
-                    </h1>
-                    <p style='font-size: 1.05rem; font-weight: 400; margin-top: 6px; color: #F1F5F9 !important; margin-bottom: 0;'>
-                        Bienvenido al panel de control de <b>DaTo</b>.
-                    </p>
+                    <h1 style='font-size: 3.2rem; font-weight: 800; margin: 0; color: white !important;'>¡A ROMPERLA, {st.session_state['nombre_usuario'].split(" ")[0].upper()}! 🚀</h1>
                 </div>
-                <div class="caja-badge" style="z-index: 2;">
-                    <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 800; color: #64748B !important; display: block; margin-bottom: 4px;">
-                        Caja Global Disponible
-                    </span>
-                    <h2 style="margin: 0; font-size: 2.3rem; color: #0052D4 !important; font-weight: 800;">
-                        {fmt_cop(t_caja)}
-                    </h2>
+                <div class="caja-badge">
+                    <span style="font-size: 12px; text-transform: uppercase; font-weight: 800; color: #94A3B8 !important; display: block; margin-bottom: 5px;">Plata Física en Caja</span>
+                    <h2 style="margin: 0; font-size: 2.5rem; color: white !important; font-weight: 800;">{fmt_cop(t_caja)}</h2>
                 </div>
             </div>
             """, unsafe_allow_html=True)
             
-            # --- 4. PANALES DE RENDIMIENTO RENTABLE ---
-            st.markdown("<h3 style='color:#0052D4; font-size: 1.35rem; font-weight: 800; margin-bottom: 18px; margin-top: 10px;'>🚀 Indicadores de Rendimiento Financiero</h3>", unsafe_allow_html=True)
-            
+            # --- 5. TARJETAS FINANCIERAS (LLENAN EL ESPACIO CON COLOR Y PODER) ---
             t1, t2, t3 = st.columns(3)
-            
             with t1:
                 st.markdown(f"""
-                <div class="card-feature" style="border-top: 5px solid #10B981 !important;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <span style="color:#047857 !important; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing: 0.8px;">
-                            Utilidad Neta Generada
-                        </span>
-                        <span style="font-size: 24px;">💎</span>
-                    </div>
-                    <h2 style="color:#059669 !important; font-size:2.4rem; font-weight:800; margin:0 0 8px 0;">
-                        {fmt_cop(ganancia_realizada)}
-                    </h2>
-                    <p style="color:#64748B !important; font-size:13px; margin:0; line-height: 1.4;">
-                        Ganancia limpia generada por ventas de contado y créditos que superaron su inversión.
-                    </p>
+                <div class="fin-card" style="background: linear-gradient(135deg, #10B981 0%, #047857 100%);">
+                    <div class="fin-icon">💎</div>
+                    <p style="font-size:13px; font-weight:800; text-transform:uppercase; margin:0; opacity: 0.9;">Utilidad Neta Asegurada</p>
+                    <h2 style="font-size:2.8rem; font-weight:800; margin:5px 0;">{fmt_cop(ganancia_realizada)}</h2>
+                    <p style="font-size:13px; margin:0; opacity: 0.85; line-height: 1.4;">Ganancia libre generada por las ventas que ya recuperaron su inversión.</p>
                 </div>
                 """, unsafe_allow_html=True)
-                
             with t2:
                 st.markdown(f"""
-                <div class="card-feature" style="border-top: 5px solid #F59E0B !important;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <span style="color:#B45309 !important; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing: 0.8px;">
-                            Capital en la Calle
-                        </span>
-                        <span style="font-size: 24px;">📈</span>
-                    </div>
-                    <h2 style="color:#D97706 !important; font-size:2.4rem; font-weight:800; margin:0 0 8px 0;">
-                        {fmt_cop(dinero_calle)}
-                    </h2>
-                    <p style="color:#64748B !important; font-size:13px; margin:0; line-height: 1.4;">
-                        Monto por cobrar acumulado en cartera activa listo para retornar a la caja.
-                    </p>
+                <div class="fin-card" style="background: linear-gradient(135deg, #F59E0B 0%, #B45309 100%);">
+                    <div class="fin-icon">📈</div>
+                    <p style="font-size:13px; font-weight:800; text-transform:uppercase; margin:0; opacity: 0.9;">Capital en la Calle</p>
+                    <h2 style="font-size:2.8rem; font-weight:800; margin:5px 0;">{fmt_cop(dinero_calle)}</h2>
+                    <p style="font-size:13px; margin:0; opacity: 0.85; line-height: 1.4;">Dinero vivo trabajando en la calle. Proyección total pendiente por cobrar.</p>
                 </div>
                 """, unsafe_allow_html=True)
-                
             with t3:
                 st.markdown(f"""
-                <div class="card-feature" style="border-top: 5px solid #0284C7 !important;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <span style="color:#0369A1 !important; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing: 0.8px;">
-                            Top Equipos Más Vendidos
-                        </span>
-                        <span style="font-size: 24px;">🔥</span>
-                    </div>
-                    <div style="margin-top: 8px;">
-                        {html_top_equipos}
-                    </div>
+                <div class="fin-card" style="background: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);">
+                    <div class="fin-icon">🔥</div>
+                    <p style="font-size:13px; font-weight:800; text-transform:uppercase; margin:0; opacity: 0.9;">Recaudo este Mes</p>
+                    <h2 style="font-size:2.8rem; font-weight:800; margin:5px 0;">{fmt_cop(recaudo_mes)}</h2>
+                    <p style="font-size:13px; margin:0; opacity: 0.85; line-height: 1.4;">Flujo de caja fresco ingresado por cuotas y ventas en los últimos 30 días.</p>
                 </div>
                 """, unsafe_allow_html=True)
 
-            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<br><br>", unsafe_allow_html=True)
             
-            # --- 5. TARJETAS OPERATIVAS MAESTRAS ---
-            st.markdown("<h3 style='color:#0052D4; font-size: 1.35rem; font-weight: 800; margin-bottom: 18px;'>📋 Resumen Operativo</h3>", unsafe_allow_html=True)
-            
-            c1, c2, c3, c4 = st.columns(4)
+            # --- 6. RESUMEN OPERATIVO (DISEÑO HORIZONTAL IMPACTANTE) ---
+            c1, c2 = st.columns(2)
+            c3, c4 = st.columns(2)
             
             with c1:
                 st.markdown(f"""
-                <div class="metric-pill">
-                    <span style="font-size: 22px; display:block; margin-bottom: 4px;">📦</span>
-                    <span style="color:#64748B !important; font-size:11px; font-weight:700; text-transform:uppercase;">En Bodega</span>
-                    <h3 style="color:#1E293B !important; font-size:1.8rem; font-weight:800; margin: 4px 0;">{t_stock}</h3>
-                    <span style="color:#0052D4 !important; font-size:12px; font-weight:600;">Stock: {fmt_cop(cap_detenido)}</span>
+                <div class="op-card">
+                    <div class="op-icon" style="background:#EFF6FF; color:#2563EB;">📦</div>
+                    <div>
+                        <h3 style="color:#1E293B; font-size:1.8rem; font-weight:800; margin:0;">{t_stock}</h3>
+                        <p style="color:#64748B; font-size:13px; margin:0; font-weight:600; text-transform:uppercase;">Equipos en Bodega</p>
+                        <p style="color:#94A3B8; font-size:12px; margin:0;">Stock valorizado en {fmt_cop(cap_detenido)}</p>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
-                
             with c2:
                 st.markdown(f"""
-                <div class="metric-pill">
-                    <span style="font-size: 22px; display:block; margin-bottom: 4px;">🛒</span>
-                    <span style="color:#64748B !important; font-size:11px; font-weight:700; text-transform:uppercase;">Despachados</span>
-                    <h3 style="color:#1E293B !important; font-size:1.8rem; font-weight:800; margin: 4px 0;">{t_vendidos}</h3>
-                    <span style="color:#64748B !important; font-size:12px;">Unidades vendidas</span>
+                <div class="op-card">
+                    <div class="op-icon" style="background:#F0FDF4; color:#16A34A;">🛒</div>
+                    <div>
+                        <h3 style="color:#1E293B; font-size:1.8rem; font-weight:800; margin:0;">{t_vendidos}</h3>
+                        <p style="color:#64748B; font-size:13px; margin:0; font-weight:600; text-transform:uppercase;">Total Despachados</p>
+                        <p style="color:#94A3B8; font-size:12px; margin:0;">Histórico de unidades vendidas</p>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
                 
+            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+            
             with c3:
                 st.markdown(f"""
-                <div class="metric-pill">
-                    <span style="font-size: 22px; display:block; margin-bottom: 4px;">🤝</span>
-                    <span style="color:#64748B !important; font-size:11px; font-weight:700; text-transform:uppercase;">Cartera Viva</span>
-                    <h3 style="color:#1E293B !important; font-size:1.8rem; font-weight:800; margin: 4px 0;">{c_activos}</h3>
-                    <span style="color:#64748B !important; font-size:12px;">Créditos en cobro</span>
+                <div class="op-card">
+                    <div class="op-icon" style="background:#FFF7ED; color:#EA580C;">🤝</div>
+                    <div>
+                        <h3 style="color:#1E293B; font-size:1.8rem; font-weight:800; margin:0;">{c_activos}</h3>
+                        <p style="color:#64748B; font-size:13px; margin:0; font-weight:600; text-transform:uppercase;">Cartera Viva</p>
+                        <p style="color:#94A3B8; font-size:12px; margin:0;">Créditos activos pagando cuotas</p>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
-                
             with c4:
                 st.markdown(f"""
-                <div class="metric-pill">
-                    <span style="font-size: 22px; display:block; margin-bottom: 4px;">👥</span>
-                    <span style="color:#64748B !important; font-size:11px; font-weight:700; text-transform:uppercase;">Clientes DaTo</span>
-                    <h3 style="color:#1E293B !important; font-size:1.8rem; font-weight:800; margin: 4px 0;">{t_clientes}</h3>
-                    <span style="color:#64748B !important; font-size:12px;">Registrados en DB</span>
+                <div class="op-card">
+                    <div class="op-icon" style="background:#F3E8FF; color:#9333EA;">👥</div>
+                    <div>
+                        <h3 style="color:#1E293B; font-size:1.8rem; font-weight:800; margin:0;">{t_clientes}</h3>
+                        <p style="color:#64748B; font-size:13px; margin:0; font-weight:600; text-transform:uppercase;">Clientes DaTo</p>
+                        <p style="color:#94A3B8; font-size:12px; margin:0;">Compradores en tu base de datos</p>
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
             
