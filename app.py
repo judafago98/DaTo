@@ -334,9 +334,9 @@ try:
                 
                 if i_m > 0 and cuota_actual > 0:
                     val_to_log = 1 - (i_m * saldo_actual / cuota_actual)
-                    meses_restantes = round(-math.log(val_to_log) / math.log(1 + i_m)) if val_to_log > 0 else 1
+                    meses_restantes = math.ceil(-math.log(val_to_log) / math.log(1 + i_m)) if val_to_log > 0 else 1
                 elif i_m == 0 and cuota_actual > 0:
-                    meses_restantes = round(saldo_actual / cuota_actual)
+                    meses_restantes = math.ceil(saldo_actual / cuota_actual)
                 else:
                     meses_restantes = 0
                 
