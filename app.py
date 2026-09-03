@@ -1138,7 +1138,8 @@ try:
                     st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>Tiempos del Crédito</h4>", unsafe_allow_html=True)
                     
                     def actualizar_fecha_cuota():
-                        st.session_state["ventas_f_cuota"] = sumar_meses_exactos(st.session_state["ventas_f_vta"], 1)
+                        if "ventas_f_vta" in st.session_state:
+                            st.session_state["ventas_f_cuota"] = sumar_meses_exactos(st.session_state["ventas_f_vta"], 1)
                     if "ventas_f_cuota" not in st.session_state:
                         st.session_state["ventas_f_cuota"] = sumar_meses_exactos(datetime.date.today(), 1)
                         
