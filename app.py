@@ -332,7 +332,7 @@ try:
                 i_m = float(cred['tasa_interes_mensual'])
                 cuota_actual = float(cred['valor_cuota'])
                 
-               if i_m > 0 and cuota_actual > 0:
+                if i_m > 0 and cuota_actual > 0:
                     val_to_log = 1 - (i_m * saldo_actual / cuota_actual)
                     if val_to_log > 0:
                         meses_calc = -math.log(val_to_log) / math.log(1 + i_m)
@@ -343,7 +343,8 @@ try:
                     meses_restantes = math.ceil(round(saldo_actual / cuota_actual, 4))
                 else:
                     meses_restantes = 0
-                # Cálculo de Paz y Salvo
+
+                
                 # Cálculo de Paz y Salvo
                 paz_y_salvo = saldo_actual + (saldo_actual * i_m)
                 if paz_y_salvo < 0: paz_y_salvo = 0
