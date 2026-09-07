@@ -267,7 +267,7 @@ try:
                 with st.form("form_login_cliente"):
                     st.markdown("<h2 style='text-align: center; color: #0052D4; margin-bottom: 5px;'>Bienvenido a DaTo</h2>", unsafe_allow_html=True)
                     st.markdown("<p style='text-align: center; color: #64748B; margin-bottom: 25px;'>Consulta tu estado de cuenta y descargas de recibos.</p>", unsafe_allow_html=True)
-                    cedula_cliente = st.text_input("Ingresa tu Número de Documento (C.C.)", placeholder="Ej: 1032501660")
+                    cedula_cliente = st.text_input("Ingresa tu Número de Documento (C.C.)", placeholder="Ej: 1012345678")
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.form_submit_button("Consultar Estado de Cuenta", width='stretch'):
