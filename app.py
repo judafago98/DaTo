@@ -332,15 +332,39 @@ try:
                 i_m = float(cred['tasa_interes_mensual'])
                 cuota_actual = float(cred['valor_cuota'])
                 
-                if i_m > 0 and cuota_actual > 0:
+               if i_m > 0 and cuota_actual > 0:
                     val_to_log = 1 - (i_m * saldo_actual / cuota_actual)
-                    meses_restantes = math.ceil(-math.log(val_to_log) / math.log(1 + i_m)) if val_to_log > 0 else 1
+                    if val_to_log > 0:
+                        meses_calc = -math.log(val_to_log) / math.log(1 + i_m)
+                        meses_restantes = math.ceil(round(meses_calc, 4))
+                    else:
+                        meses_restantes = 1
                 elif i_m == 0 and cuota_actual > 0:
-                    meses_restantes = math.ceil(saldo_actual / cuota_actual)
+                    meses_restantes = math.ceil(round(saldo_actual / cuota_actual, 4))
                 else:
                     meses_restantes = 0
+                # Cálculo de Paz y Salvo
+                # Cálculo de Paz y Salvo
+                paz_y_salvo = saldo_actual + (saldo_actual * i_m)
+                if paz_y_salvo < 0: paz_y_salvo = 0
                 
                 if meses_restantes < 0: meses_restantes = 0
+                
+                # --- NUEVO: BANDERA DE ÚLTIMA CUOTA Y TOPE VISUAL ---
+                es_ultima_cuota = (meses_restantes <= 1 and saldo_actual > 0)
+                cuota_visual = min(cuota_actual, paz_y_salvo)
+                
+                # Estilo dinámico de celebración si es la última cuota
+                if es_ultima_cuota:
+                    estilo_caja_cuota = "background: #F0FDF4; border: 2px solid #10B981; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.15);"
+                    titulo_caja_cuota = "🎉 ¡ÚLTIMA CUOTA!"
+                    subtitulo_cuota = "<span style='background: #10B981; color: white; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 10px;'>PAGO FINAL</span>"
+                    color_monto_cuota = "#047857"
+                else:
+                    estilo_caja_cuota = "background: #F8FAFC; border: 1px solid #E2E8F0;"
+                    titulo_caja_cuota = "Cuota Mensual Actual"
+                    subtitulo_cuota = ""
+                    color_monto_cuota = "#0052D4"
                 
                 plazo_actual_proyectado = cuotas_pagadas_completas + meses_restantes
                 plazo_original = int(cred['plazo_meses'])
@@ -356,7 +380,7 @@ try:
                     "<div style='background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border: 1px solid #E2E8F0; border-radius: 16px; padding: 25px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.03);'>"
                         f"<h3 style='text-align:center; color:#0052D4; margin-top:0;'>📱 {nombres_equipos}</h3>"
                         
-                        "<!-- Fila 1: Condiciones Iniciales -->"
+                        ""
                         "<div style='background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 15px; margin-top: 15px;'>"
                             "<p style='color:#0052D4; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>📋 Condiciones Iniciales del Contrato</p>"
                             "<div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>"
@@ -379,7 +403,7 @@ try:
                             "</div>"
                         "</div>"
 
-                        "<!-- Fila 2: Condiciones Actuales (Altura) -->"
+                        ""
                         "<div style='background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 12px; padding: 15px; margin-top: 15px;'>"
                             "<p style='color:#0369A1; font-weight:700; margin-top:0; margin-bottom:10px; font-size:14px; text-transform:uppercase;'>⚡ Estado Actual</p>"
                             "<div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px;'>"
@@ -402,11 +426,11 @@ try:
                             "</div>"
                         "</div>"
 
-                        "<!-- Fila 3: Cajas de Pago Grandes -->"
+                        ""
                         "<div style='display:flex; justify-content:space-around; margin-top:20px; flex-wrap: wrap; gap: 20px;'>"
-                            "<div style='text-align:center; background: #F8FAFC; padding: 20px; border-radius: 12px; border: 1px solid #E2E8F0; flex:1; min-width: 200px;'>"
-                                "<p style='color:#64748B; margin-bottom:5px; font-weight: 600;'>Cuota Mensual Actual</p>"
-                                f"<h2 style='color:#0052D4; margin:0;'>{fmt_cop(cred['valor_cuota'])}</h2>"
+                            f"<div style='text-align:center; {estilo_caja_cuota} padding: 20px; border-radius: 12px; flex:1; min-width: 200px;'>"
+                                f"<p style='color:#64748B; margin-bottom:5px; font-weight: 700;'>{titulo_caja_cuota} {subtitulo_cuota}</p>"
+                                f"<h2 style='color:{color_monto_cuota}; margin:0;'>{fmt_cop(cuota_visual)}</h2>"
                             "</div>"
                             "<div style='text-align:center; background: #FFF1F2; padding: 20px; border-radius: 12px; border: 1px solid #FECACA; flex:1; min-width: 200px;'>"
                                 "<p style='color:#BE123C; margin-bottom:5px; font-weight: 600;'>Saldo Pendiente a Capital</p>"
@@ -414,7 +438,7 @@ try:
                             "</div>"
                             "<div style='text-align:center; background: #ECFDF5; padding: 20px; border-radius: 12px; border: 1px solid #A7F3D0; flex:1; min-width: 200px;'>"
                                 "<p style='color:#047857; margin-bottom:5px; font-weight: 600;'>Pago Total para Liquidar Hoy</p>"
-                                f"<h2 style='color:#10B981; margin:0;'>{fmt_cop(pago_total)}</h2>"
+                                f"<h2 style='color:#10B981; margin:0;'>{fmt_cop(paz_y_salvo)}</h2>"
                             "</div>"
                         "</div>"
                     "</div>"
