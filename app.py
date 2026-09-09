@@ -1689,7 +1689,7 @@ try:
                                 st.rerun()
                     else: st.info("Bodega vacía.")
 
-                  with tab_log:
+                with tab_log:
                 st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>🕵️ Registro de Actividad y Rastreo de IP</h4>", unsafe_allow_html=True)
                 try:
                     cursor.execute("SELECT l.fecha_hora AS 'Fecha y Hora', u.nombre_completo AS 'Usuario', l.accion AS 'Acción', l.detalle AS 'Detalle', l.ip_address AS 'Dirección IP' FROM Log_Auditoria l JOIN Usuarios u ON l.id_usuario = u.id_usuario ORDER BY l.fecha_hora DESC LIMIT 150")
