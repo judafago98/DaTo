@@ -1497,21 +1497,63 @@ try:
 
         elif menu_seleccionado == "vencimientos":
             st.markdown("<h2>Gestor de Cartera y Mora ⏰</h2>", unsafe_allow_html=True)
+            
+            # Consulta mejorada: Trae el último pago real y la fecha de desembolso
             cursor.execute("""
                 SELECT cl.nombre_completo AS 'Cliente', cl.telefono AS 'Celular', c.valor_cuota AS 'Cuota Mensual', c.fecha_primera_cuota AS 'Día de Pago', 
                 (c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito), 0)) AS 'Saldo Capital',
-                c.estado AS 'Estado', c.tasa_interes_mensual
+                c.estado AS 'Estado', c.tasa_interes_mensual,
+                (SELECT MAX(fecha_pago) FROM Pagos p2 WHERE p2.id_credito = c.id_credito AND p2.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')) AS 'Ultimo_Pago',
+                c.fecha_inicio AS 'Fecha_Desembolso'
                 FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente WHERE c.estado = 'Activo' 
                 HAVING `Saldo Capital` >= 1
                 ORDER BY c.fecha_primera_cuota ASC
             """)
-            df = pd.DataFrame(cursor.fetchall())
-            if df.empty: st.info("No hay carteras activas.")
+            datos_cartera = cursor.fetchall()
+            
+            if not datos_cartera: 
+                st.info("No hay carteras activas.")
             else:
+                df = pd.DataFrame(datos_cartera)
+                
+                # Calcular Paz y Salvo
                 df['Pago Total (Paz y Salvo)'] = df.apply(lambda r: float(r['Saldo Capital']) + (float(r['Saldo Capital']) * float(r['tasa_interes_mensual'])), axis=1)
-                for c in ['Cuota Mensual', 'Saldo Capital', 'Pago Total (Paz y Salvo)']: df[c] = df[c].apply(fmt_cop)
-                df = df.drop(columns=['tasa_interes_mensual'])
-                st.dataframe(df.style.map(color_estado, subset=['Estado']), width='stretch')
+                
+                # Motor de Fechas y Mora (Inteligencia de cobro)
+                hoy = pd.Timestamp(datetime.date.today())
+                df['Fecha_Ref'] = pd.to_datetime(df['Ultimo_Pago'].fillna(df['Fecha_Desembolso']))
+                df['Días sin Pagar'] = (hoy - df['Fecha_Ref']).dt.days
+                
+                # Dejar en 0 si los días son negativos (por si pagaron por adelantado)
+                df['Días sin Pagar'] = df['Días sin Pagar'].apply(lambda x: x if x > 0 else 0)
+                
+                # Limpiar presentación visual
+                df['Último Pago'] = df['Ultimo_Pago'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notnull(x) else 'Solo Abono Inicial')
+                df['Día de Pago'] = pd.to_datetime(df['Día de Pago']).dt.day.apply(lambda x: f"Día {int(x)}" if pd.notnull(x) else "N/A")
+                
+                for c in ['Cuota Mensual', 'Saldo Capital', 'Pago Total (Paz y Salvo)']: 
+                    df[c] = df[c].apply(fmt_cop)
+                
+                columnas_vista = ['Cliente', 'Celular', 'Día de Pago', 'Cuota Mensual', 'Saldo Capital', 'Último Pago', 'Días sin Pagar', 'Pago Total (Paz y Salvo)']
+                
+                # Filtrar a los morosos críticos (Más de 30 días)
+                df_mora = df[df['Días sin Pagar'] > 30].sort_values(by='Días sin Pagar', ascending=False)
+                
+                tab_toda, tab_mora = st.tabs(["📋 Toda la Cartera Activa", f"🚨 Alerta: Mora > 30 Días ({len(df_mora)})"])
+                
+                with tab_toda:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.dataframe(df[columnas_vista], width='stretch', hide_index=True)
+                
+                with tab_mora:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if df_mora.empty:
+                        st.success("¡Excelente! No tienes clientes con atrasos mayores a 30 días.")
+                        st.markdown("""<div style="text-align:center;"><img src="https://media.giphy.com/media/3o7aD2saalEvTehEX2/giphy.gif" style="max-width:250px; border-radius:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>""", unsafe_allow_html=True)
+                    else:
+                        st.error(f"⚠️ Atención: Tienes {len(df_mora)} cliente(s) que llevan más de un mes sin realizar ningún abono.")
+                        # Resalta la columna de días sin pagar en rojo oscuro
+                        st.dataframe(df_mora[columnas_vista].style.map(lambda x: 'color: #DC2626; font-weight: bold; background-color: #FEE2E2;', subset=['Días sin Pagar']), width='stretch', hide_index=True)
 
         elif menu_seleccionado == "notificar":
             st.markdown("<h2>Estados de Cuenta y Notificaciones 📱</h2>", unsafe_allow_html=True)
