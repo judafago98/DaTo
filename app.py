@@ -1516,7 +1516,7 @@ try:
         elif menu_seleccionado == "notificar":
             st.markdown("<h2>Estados de Cuenta y Notificaciones 📱</h2>", unsafe_allow_html=True)
             try:
-                cursor.execute("SELECT c.id_credito, cl.nombre_completo, cl.documento, cl.telefono, c.monto_financiado, c.valor_cuota, c.fecha_primera_cuota, c.tasa_interes_mensual, c.notificado_bienvenida, c.fecha_notificacion, u.nombre_completo as usuario_notifica FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente LEFT JOIN Usuarios u ON c.id_usuario_notifica = u.id_usuario WHERE c.estado = 'Activo'")
+                cursor.execute("SELECT c.id_credito, cl.nombre_completo, cl.documento, cl.telefono, c.monto_financiado, c.valor_cuota, c.fecha_primera_cuota, c.tasa_interes_mensual, c.notificado_bienvenida, c.fecha_notificacion, c.comentario_notificacion, u.nombre_completo as usuario_notifica FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente LEFT JOIN Usuarios u ON c.id_usuario_notifica = u.id_usuario WHERE c.estado = 'Activo'")
                 activos = cursor.fetchall()
             except mysql.connector.Error:
                 st.error("⚠️ Faltan las columnas de notificación. Ejecuta el código SQL en Workbench primero.")
@@ -1550,7 +1550,8 @@ try:
                     
                     with col_b1:
                         if dat['notificado_bienvenida']:
-                            st.markdown(f"<div style='background: #ECFDF5; border: 1px solid #10B981; padding: 15px; border-radius: 8px;'><span style='color: #047857; font-weight: 800; font-size: 16px;'>🟢 CLIENTE NOTIFICADO</span><br><span style='font-size: 14px; color: #065F46;'>Activado por <b>{dat['usuario_notifica']}</b> el {dat['fecha_notificacion'].strftime('%Y-%m-%d %H:%M')}</span></div>", unsafe_allow_html=True)
+                            comentario_ui = f"<br><span style='color: #065F46; font-size: 13px;'>💬 <i>{dat['comentario_notificacion']}</i></span>" if dat.get('comentario_notificacion') else ""
+                            st.markdown(f"<div style='background: #ECFDF5; border: 1px solid #10B981; padding: 15px; border-radius: 8px;'><span style='color: #047857; font-weight: 800; font-size: 16px;'>🟢 CLIENTE NOTIFICADO</span><br><span style='font-size: 14px; color: #065F46;'>Activado por <b>{dat['usuario_notifica']}</b> el {dat['fecha_notificacion'].strftime('%Y-%m-%d')}</span>{comentario_ui}</div>", unsafe_allow_html=True)
                             msg = f"¡Hola {dat['nombre_completo']}! Te saludamos de DaTo.\n\nEste es el estado de cuenta de tu crédito:\n💵 *Cuota Mensual:* {fmt_cop(cuota_a_cobrar)}\n💳 *Último Pago Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar la totalidad hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nRecuerda que tu fecha límite de pago es el día {str(dat['fecha_primera_cuota'].day)} de cada mes."
                         else:
                             st.markdown("<div style='background: #FFF1F2; border: 1px solid #E11D48; padding: 15px; border-radius: 8px;'><span style='color: #BE123C; font-weight: 800; font-size: 16px;'>🔴 SIN NOTIFICAR (NUEVO)</span><br><span style='font-size: 14px; color: #9F1239;'>El cliente no ha recibido las instrucciones ni el enlace del aplicativo.</span></div>", unsafe_allow_html=True)
@@ -1558,12 +1559,14 @@ try:
                     
                     with col_b2:
                         if not dat['notificado_bienvenida']:
-                            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
-                            if st.button("Marcar como Notificado ✅", type="primary", use_container_width=True):
-                                cursor.execute("UPDATE Creditos SET notificado_bienvenida = 1, fecha_notificacion = NOW(), id_usuario_notifica = %s WHERE id_credito = %s", (st.session_state['id_usuario'], dat['id_credito']))
-                                conn.commit()
-                                registro_silencioso(cursor, conn, st.session_state['id_usuario'], "BIENVENIDA ENVIADA", f"Marcó como notificado el crédito {dat['id_credito']}")
-                                st.rerun()
+                            with st.form(f"form_notif_{dat['id_credito']}", clear_on_submit=True):
+                                fecha_manual = st.date_input("¿Cuándo se le notificó?", value=datetime.date.today())
+                                nota = st.text_input("Apunte breve (Opcional)", placeholder="Ej: Se envió por WhatsApp")
+                                if st.form_submit_button("Marcar Notificado ✅", use_container_width=True):
+                                    cursor.execute("UPDATE Creditos SET notificado_bienvenida = 1, fecha_notificacion = %s, comentario_notificacion = %s, id_usuario_notifica = %s WHERE id_credito = %s", (fecha_manual.strftime('%Y-%m-%d 12:00:00'), nota, st.session_state['id_usuario'], dat['id_credito']))
+                                    conn.commit()
+                                    registro_silencioso(cursor, conn, st.session_state['id_usuario'], "BIENVENIDA ENVIADA", f"Marcó notificado al crédito {dat['id_credito']} con fecha {fecha_manual.strftime('%Y-%m-%d')}")
+                                    st.rerun()
 
                     st.markdown("<br>", unsafe_allow_html=True)
                     c1, c2 = st.columns([1, 1])
