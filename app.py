@@ -1514,9 +1514,13 @@ try:
                 st.dataframe(df.style.map(color_estado, subset=['Estado']), width='stretch')
 
         elif menu_seleccionado == "notificar":
-            st.markdown("<h2>Estados de Cuenta para Clientes 📱</h2>", unsafe_allow_html=True)
-            cursor.execute("SELECT c.id_credito, cl.nombre_completo, cl.telefono, c.monto_financiado, c.valor_cuota, c.fecha_primera_cuota, c.tasa_interes_mensual FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente WHERE c.estado = 'Activo'")
-            activos = cursor.fetchall()
+            st.markdown("<h2>Estados de Cuenta y Notificaciones 📱</h2>", unsafe_allow_html=True)
+            try:
+                cursor.execute("SELECT c.id_credito, cl.nombre_completo, cl.documento, cl.telefono, c.monto_financiado, c.valor_cuota, c.fecha_primera_cuota, c.tasa_interes_mensual, c.notificado_bienvenida, c.fecha_notificacion, u.nombre_completo as usuario_notifica FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente LEFT JOIN Usuarios u ON c.id_usuario_notifica = u.id_usuario WHERE c.estado = 'Activo'")
+                activos = cursor.fetchall()
+            except mysql.connector.Error:
+                st.error("⚠️ Faltan las columnas de notificación. Ejecuta el código SQL en Workbench primero.")
+                st.stop()
             
             if not activos: st.info("No hay créditos activos para enviar notificaciones.")
             else:
@@ -1539,11 +1543,29 @@ try:
                     paz_y_salvo = s_act + (s_act * float(dat['tasa_interes_mensual']))
                     if paz_y_salvo < 0: paz_y_salvo = 0
                     
-                    # TOPE INTELIGENTE: La cuota exigida en WhatsApp no supera la deuda total
                     cuota_a_cobrar = min(float(dat['valor_cuota']), paz_y_salvo)
                     
-                    msg = f"¡Hola {dat['nombre_completo']}! Te saludamos de DaTo.\n\nEste es el estado de cuenta de tu crédito:\n💵 *Cuota Mensual:* {fmt_cop(cuota_a_cobrar)}\n💳 *Último Pago Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar la totalidad hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nRecuerda que tu fecha límite de pago es el día {str(dat['fecha_primera_cuota'].day)} de cada mes."
+                    st.markdown("<hr style='margin: 15px 0; border-color: #E2E8F0;'>", unsafe_allow_html=True)
+                    col_b1, col_b2 = st.columns([2, 1])
                     
+                    with col_b1:
+                        if dat['notificado_bienvenida']:
+                            st.markdown(f"<div style='background: #ECFDF5; border: 1px solid #10B981; padding: 15px; border-radius: 8px;'><span style='color: #047857; font-weight: 800; font-size: 16px;'>🟢 CLIENTE NOTIFICADO</span><br><span style='font-size: 14px; color: #065F46;'>Activado por <b>{dat['usuario_notifica']}</b> el {dat['fecha_notificacion'].strftime('%Y-%m-%d %H:%M')}</span></div>", unsafe_allow_html=True)
+                            msg = f"¡Hola {dat['nombre_completo']}! Te saludamos de DaTo.\n\nEste es el estado de cuenta de tu crédito:\n💵 *Cuota Mensual:* {fmt_cop(cuota_a_cobrar)}\n💳 *Último Pago Recibido:* {fmt_cop(last_val) if last_val else '$0'} el {last_date.strftime('%Y-%m-%d') if last_date else 'N/A'}\n\n*💰 Si deseas pagar la totalidad hoy (Paz y Salvo): {fmt_cop(paz_y_salvo)}*\n\nRecuerda que tu fecha límite de pago es el día {str(dat['fecha_primera_cuota'].day)} de cada mes."
+                        else:
+                            st.markdown("<div style='background: #FFF1F2; border: 1px solid #E11D48; padding: 15px; border-radius: 8px;'><span style='color: #BE123C; font-weight: 800; font-size: 16px;'>🔴 SIN NOTIFICAR (NUEVO)</span><br><span style='font-size: 14px; color: #9F1239;'>El cliente no ha recibido las instrucciones ni el enlace del aplicativo.</span></div>", unsafe_allow_html=True)
+                            msg = f"¡Hola {dat['nombre_completo']}! Te damos la bienvenida a la familia DaTo. 🎉\n\nTu crédito ya se encuentra activo. Para consultar tu estado de cuenta en tiempo real y ver tus recibos, ingresa a nuestro aplicativo exclusivo para clientes:\n\n🌐 *Enlace:* https://appdato.streamlit.app\n🔑 *Tu Usuario de Acceso:* {dat['documento']}\n\nEste es tu resumen inicial:\n💵 *Cuota Mensual:* {fmt_cop(cuota_a_cobrar)}\n🗓️ *Fecha límite:* El día {str(dat['fecha_primera_cuota'].day)} de cada mes.\n\n¡Gracias por confiar en tecnología con respaldo!"
+                    
+                    with col_b2:
+                        if not dat['notificado_bienvenida']:
+                            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+                            if st.button("Marcar como Notificado ✅", type="primary", use_container_width=True):
+                                cursor.execute("UPDATE Creditos SET notificado_bienvenida = 1, fecha_notificacion = NOW(), id_usuario_notifica = %s WHERE id_credito = %s", (st.session_state['id_usuario'], dat['id_credito']))
+                                conn.commit()
+                                registro_silencioso(cursor, conn, st.session_state['id_usuario'], "BIENVENIDA ENVIADA", f"Marcó como notificado el crédito {dat['id_credito']}")
+                                st.rerun()
+
+                    st.markdown("<br>", unsafe_allow_html=True)
                     c1, c2 = st.columns([1, 1])
                     with c1: st.text_area("Copia este mensaje y envíalo por WhatsApp", value=msg, height=350)
                     with c2:
@@ -1555,7 +1577,7 @@ try:
             st.markdown("<h2>Auditoría y Anulaciones 📜</h2>", unsafe_allow_html=True)
             if not es_admin: st.error("Necesitas ser Administrador."); st.stop()
             
-            tab_v, tab_r = st.tabs(["📋 Todos los Contratos", "⚠️ Anular/Eliminar Errores"])
+            tab_v, tab_r, tab_log = st.tabs(["📋 Todos los Contratos", "⚠️ Anular/Eliminar Errores", "🕵️ Caja Negra (IPs)"])
             
             with tab_v:
                 st.markdown("<br>", unsafe_allow_html=True)
@@ -1666,6 +1688,17 @@ try:
                                 time.sleep(2)
                                 st.rerun()
                     else: st.info("Bodega vacía.")
+
+                  with tab_log:
+                st.markdown("<br><h4 style='color:#0052D4; margin-top:0;'>🕵️ Registro de Actividad y Rastreo de IP</h4>", unsafe_allow_html=True)
+                try:
+                    cursor.execute("SELECT l.fecha_hora AS 'Fecha y Hora', u.nombre_completo AS 'Usuario', l.accion AS 'Acción', l.detalle AS 'Detalle', l.ip_address AS 'Dirección IP' FROM Log_Auditoria l JOIN Usuarios u ON l.id_usuario = u.id_usuario ORDER BY l.fecha_hora DESC LIMIT 150")
+                    logs_db = cursor.fetchall()
+                    if logs_db:
+                        st.dataframe(pd.DataFrame(logs_db), width='stretch', hide_index=True)
+                    else: st.info("Aún no hay registros en la caja negra.")
+                except:
+                    st.warning("La tabla Log_Auditoria aún no existe en la base de datos.")
 
         elif menu_seleccionado == "egresos":
             st.markdown("<h2>Egresos, Proveedores y Cadenas 💸</h2>", unsafe_allow_html=True)
