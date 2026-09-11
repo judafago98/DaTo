@@ -1935,21 +1935,49 @@ try:
                     opc_d = {f"{d['prestamista']} (Le debemos: {fmt_cop(d['saldo_pendiente'])})": d for d in deudas}
                     with st.form("f_d_out", clear_on_submit=True):
                         d_sel = st.selectbox("Seleccionar Socio", list(opc_d.keys()), index=None)
-                        ab = st.number_input("Dinero a entregar (Se resta de la Caja Global) ($)", min_value=0, step=100000, value=0)
-                        render_traductor(ab)
                         
-                        fecha_pago_socio = st.date_input("Fecha en que se realizó el pago", value=datetime.date.today())
+                        st.info("💡 Divide el pago para que la ganancia del inversor quede registrada como un Gasto en tus reportes financieros.")
+                        
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            ab_cap = st.number_input("1. Devolución de Capital Base ($)", min_value=0, step=100000, value=0)
+                            render_traductor(ab_cap)
+                        with c2:
+                            ab_int = st.number_input("2. Pago de Rendimiento / Ganancia del Socio ($)", min_value=0, step=10000, value=0)
+                            render_traductor(ab_int)
+                        
+                        fecha_pago_socio = st.date_input("🗓️ Fecha en que se realizó el pago", value=datetime.date.today())
+                        
+                        ab_total = ab_cap + ab_int
+                        st.markdown(f"<p style='color:#BE123C; font-weight:bold;'>Total a retirar de la Caja Global: {fmt_cop(ab_total)}</p>", unsafe_allow_html=True)
                         
                         if st.form_submit_button("Registrar Pago a Socio", width='stretch') and d_sel:
-                            id_d = opc_d[d_sel]['id_deuda']
-                            cursor.execute("INSERT INTO Pagos_Deuda (id_deuda, monto_pagado, fecha_pago, id_usuario_registro) VALUES (%s, %s, %s, %s)", (id_d, ab, fecha_pago_socio.strftime('%Y-%m-%d'), st.session_state['id_usuario']))
-                            cursor.execute("UPDATE Deudas_Fondeo SET saldo_pendiente = saldo_pendiente - %s WHERE id_deuda = %s", (ab, id_d))
-                            cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (ab,))
-                            conn.commit()
-                            registro_silencioso(cursor, conn, st.session_state['id_usuario'], "PAGO A SOCIO", f"Entregó {fmt_cop(ab)} de la deuda {id_d} (Fecha manual: {fecha_pago_socio})")
-                            st.toast("Plata entregada al socio.")
-                            time.sleep(1)
-                            st.rerun()
+                            if ab_total <= 0:
+                                st.error("El pago total debe ser mayor a cero.")
+                            else:
+                                id_d = opc_d[d_sel]['id_deuda']
+                                nombre_socio = opc_d[d_sel]['prestamista']
+                                
+                                # 1. Rebajar la deuda total
+                                cursor.execute("UPDATE Deudas_Fondeo SET saldo_pendiente = saldo_pendiente - %s WHERE id_deuda = %s", (ab_total, id_d))
+                                
+                                # 2. Registrar el retorno del capital base
+                                if ab_cap > 0:
+                                    cursor.execute("INSERT INTO Pagos_Deuda (id_deuda, monto_pagado, fecha_pago, id_usuario_registro) VALUES (%s, %s, %s, %s)", (id_d, ab_cap, fecha_pago_socio.strftime('%Y-%m-%d'), st.session_state['id_usuario']))
+                                
+                                # 3. Enviar la ganancia a la tabla de Gastos para dejar el rastro contable
+                                if ab_int > 0:
+                                    desc_gasto = f"Costo de Fondeo (Rendimiento pagado a {nombre_socio})"
+                                    cursor.execute("INSERT INTO Gastos_Operativos (descripcion, monto, fecha_gasto, estado_pago, id_usuario_registro, tipo_gasto) VALUES (%s, %s, %s, 'Pagado', %s, 'Costo Financiero (Pago a Socios)')", (desc_gasto, ab_int, fecha_pago_socio.strftime('%Y-%m-%d'), st.session_state['id_usuario']))
+                                
+                                # 4. Extraer todo el dinero físico de la caja
+                                cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (ab_total,))
+                                conn.commit()
+                                
+                                registro_silencioso(cursor, conn, st.session_state['id_usuario'], "PAGO A SOCIO", f"Entregó {fmt_cop(ab_total)} a {nombre_socio} (Cap: {fmt_cop(ab_cap)} / Int: {fmt_cop(ab_int)})")
+                                st.toast("Pago registrado y gasto financiero guardado.")
+                                time.sleep(1.5)
+                                st.rerun()
                 else: st.info("No hay deudas con socios.")
 
         elif menu_seleccionado == "reportes":
