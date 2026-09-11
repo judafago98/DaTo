@@ -1929,13 +1929,16 @@ try:
                         d_sel = st.selectbox("Seleccionar Socio", list(opc_d.keys()), index=None)
                         ab = st.number_input("Dinero a entregar (Se resta de la Caja Global) ($)", min_value=0, step=100000, value=0)
                         render_traductor(ab)
+                        
+                        fecha_pago_socio = st.date_input("Fecha en que se realizó el pago", value=datetime.date.today())
+                        
                         if st.form_submit_button("Registrar Pago a Socio", width='stretch') and d_sel:
                             id_d = opc_d[d_sel]['id_deuda']
-                            cursor.execute("INSERT INTO Pagos_Deuda (id_deuda, monto_pagado, fecha_pago, id_usuario_registro) VALUES (%s, %s, %s, %s)", (id_d, ab, datetime.date.today(), st.session_state['id_usuario']))
+                            cursor.execute("INSERT INTO Pagos_Deuda (id_deuda, monto_pagado, fecha_pago, id_usuario_registro) VALUES (%s, %s, %s, %s)", (id_d, ab, fecha_pago_socio.strftime('%Y-%m-%d'), st.session_state['id_usuario']))
                             cursor.execute("UPDATE Deudas_Fondeo SET saldo_pendiente = saldo_pendiente - %s WHERE id_deuda = %s", (ab, id_d))
                             cursor.execute("UPDATE Bolsas_Capital SET saldo_actual = saldo_actual - %s ORDER BY id_bolsa ASC LIMIT 1", (ab,))
                             conn.commit()
-                            registro_silencioso(cursor, conn, st.session_state['id_usuario'], "PAGO A SOCIO", f"Entregó {fmt_cop(ab)} de la deuda {id_d}")
+                            registro_silencioso(cursor, conn, st.session_state['id_usuario'], "PAGO A SOCIO", f"Entregó {fmt_cop(ab)} de la deuda {id_d} (Fecha manual: {fecha_pago_socio})")
                             st.toast("Plata entregada al socio.")
                             time.sleep(1)
                             st.rerun()
