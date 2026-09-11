@@ -293,7 +293,7 @@ try:
                 with st.form("form_login_cliente"):
                     st.markdown("<h2 style='text-align: center; color: #0052D4; margin-bottom: 5px;'>Bienvenido a DaTo</h2>", unsafe_allow_html=True)
                     st.markdown("<p style='text-align: center; color: #64748B; margin-bottom: 25px;'>Consulta tu estado de cuenta y descargas de recibos.</p>", unsafe_allow_html=True)
-                    cedula_cliente = st.text_input("Ingresa tu Número de Documento (C.C.)", placeholder="Ej: 1032501660")
+                    cedula_cliente = st.text_input("Ingresa tu Número de Documento (C.C.)", placeholder="Ej: 123456789")
                     
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.form_submit_button("Consultar Estado de Cuenta", width='stretch'):
@@ -334,13 +334,29 @@ try:
             st.success("¡Felicidades! Actualmente estás a Paz y Salvo con DaTo.")
             st.markdown("""<div style="text-align:center;"><img src="https://media.giphy.com/media/3o7aD2saalEvTehEX2/giphy.gif" style="max-width:300px; border-radius:15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);"></div>""", unsafe_allow_html=True)
         else:
-            for cred in creditos_cliente:
-                cursor.execute("SELECT i.marca, i.modelo FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = %s", (cred['id_credito'],))
+            # Pre-procesar equipos y limpiar nombres largos repetidos
+            for c in creditos_cliente:
+                cursor.execute("SELECT i.marca, i.modelo FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = %s", (c['id_credito'],))
                 equipos = cursor.fetchall()
                 if not equipos: 
-                    cursor.execute("SELECT i.marca, i.modelo FROM Creditos c JOIN Inventario i ON c.imei = i.imei WHERE c.id_credito = %s", (cred['id_credito'],))
+                    cursor.execute("SELECT i.marca, i.modelo FROM Creditos cr JOIN Inventario i ON cr.imei = i.imei WHERE cr.id_credito = %s", (c['id_credito'],))
                     equipos = cursor.fetchall()
-                nombres_equipos = " + ".join([f"{e['marca']} {e['modelo']}" for e in equipos])
+                
+                eq_unicos = list(dict.fromkeys([f"{e['marca']} {e['modelo']}" for e in equipos]))
+                c['nombres_equipos'] = " + ".join(eq_unicos) if eq_unicos else "Equipo / Producto"
+
+            # Filtro de créditos si tiene más de 1
+            if len(creditos_cliente) > 1:
+                st.markdown("""<div style='background: #EFF6FF; border-left: 4px solid #3B82F6; padding: 15px; border-radius: 8px; margin-bottom: 20px;'><h4 style='color: #1D4ED8; margin: 0;'>Tienes varios productos activos</h4><p style='color: #3B82F6; margin: 0; font-size: 13px;'>Selecciona cuál deseas consultar en el siguiente menú:</p></div>""", unsafe_allow_html=True)
+                opc_cliente = {f"📱 {c['nombres_equipos']} (Crédito #{c['id_credito']})": c for c in creditos_cliente}
+                sel_credito_cliente = st.selectbox("Mis Créditos:", list(opc_cliente.keys()), label_visibility="collapsed")
+                creditos_a_mostrar = [opc_cliente[sel_credito_cliente]]
+            else:
+                creditos_a_mostrar = creditos_cliente
+
+            # Renderizado de la tarjeta única
+            for cred in creditos_a_mostrar:
+                nombres_equipos = cred['nombres_equipos']
                 
                 cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')", (cred['id_credito'],))
                 cap_pag = cursor.fetchone()['cap'] or 0
@@ -357,7 +373,6 @@ try:
                 i_m = float(cred['tasa_interes_mensual'])
                 cuota_actual = float(cred['valor_cuota'])
                 
-                # --- CÁLCULO DE MESES CORREGIDO ---
                 if i_m > 0 and cuota_actual > 0:
                     val_to_log = 1 - (i_m * saldo_actual / cuota_actual)
                     if val_to_log > 0:
@@ -374,7 +389,6 @@ try:
                 if paz_y_salvo < 0: paz_y_salvo = 0
                 if meses_restantes < 0: meses_restantes = 0
                 
-                # --- TOPE INTELIGENTE Y CELEBRACIÓN DE ÚLTIMA CUOTA ---
                 es_ultima_cuota = (meses_restantes <= 1 and saldo_actual > 0)
                 cuota_visual = min(cuota_actual, paz_y_salvo)
                 
@@ -1378,16 +1392,44 @@ try:
 
         elif menu_seleccionado == "pagos":
             st.markdown("<h2>Caja y Recaudos 💰</h2>", unsafe_allow_html=True)
-            cursor.execute("SELECT c.id_credito, cl.nombre_completo, c.imei, c.monto_financiado, c.tasa_interes_mensual, c.valor_cuota, c.valor_cuota_original, c.plazo_meses, c.propietario_cartera FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente WHERE c.estado = 'Activo'")
+            cursor.execute("SELECT c.id_credito, cl.documento, cl.nombre_completo, c.imei, c.monto_financiado, c.tasa_interes_mensual, c.valor_cuota, c.valor_cuota_original, c.plazo_meses, c.propietario_cartera FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente WHERE c.estado = 'Activo'")
             activos = cursor.fetchall()
             
             if not activos: st.info("No hay créditos pendientes por cobrar.")
             else:
-                opc_c = {f"{c['nombre_completo']} (Credito #{c['id_credito']})": c for c in activos}
-                sel_titular = st.selectbox("Buscar Cliente para recibir pago:", list(opc_c.keys()), index=None, placeholder="Escribe el nombre del cliente...")
+                # Agrupar los créditos por Cédula - Cliente
+                clientes_dict = {}
+                for c in activos:
+                    # Extraer el nombre de los equipos para la interfaz
+                    cursor.execute("SELECT i.marca, i.modelo FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = %s", (c['id_credito'],))
+                    equipos = cursor.fetchall()
+                    if not equipos: 
+                        cursor.execute("SELECT i.marca, i.modelo FROM Creditos cr JOIN Inventario i ON cr.imei = i.imei WHERE cr.id_credito = %s", (c['id_credito'],))
+                        equipos = cursor.fetchall()
+                    
+                    eq_unicos = list(dict.fromkeys([f"{e['marca']} {e['modelo']}" for e in equipos]))
+                    c['nombres_equipos'] = " + ".join(eq_unicos) if eq_unicos else "Equipo Variado"
+                    
+                    llave_cli = f"{c['documento']} - {c['nombre_completo']}"
+                    if llave_cli not in clientes_dict: clientes_dict[llave_cli] = []
+                    clientes_dict[llave_cli].append(c)
+
+                # Primer paso: Seleccionar el cliente por Cédula o Nombre
+                sel_titular = st.selectbox("1. Buscar Cliente (Por Cédula o Nombre):", list(clientes_dict.keys()), index=None, placeholder="Haz clic aquí y escribe para buscar...")
                 
                 if sel_titular:
-                    dat = opc_c[sel_titular]
+                    creditos_del_cliente = clientes_dict[sel_titular]
+                    
+                    # Segundo paso: Si tiene más de un producto, mostrar un sub-filtro
+                    if len(creditos_del_cliente) > 1:
+                        opc_creds = {f"📱 {c['nombres_equipos']} (Crédito #{c['id_credito']})": c for c in creditos_del_cliente}
+                        sel_cred = st.selectbox("2. Seleccionar el Producto al que se le va a registrar el pago:", list(opc_creds.keys()), index=0)
+                        dat = opc_creds[sel_cred]
+                    else:
+                        dat = creditos_del_cliente[0]
+                        st.info(f"📱 **Producto asociado:** {dat['nombres_equipos']} (Crédito #{dat['id_credito']})")
+                    
+                    st.divider()
                     
                     cursor.execute("SELECT p.id_pago, p.monto_recibido, p.fecha_pago, p.tipo_pago, p.capital_abonado, p.interes_cobrado, cb.nombre_cuenta, u.nombre_completo as Cajero FROM Pagos p LEFT JOIN Cuentas_Bancarias cb ON p.id_cuenta = cb.id_cuenta LEFT JOIN Usuarios u ON p.id_usuario_registro = u.id_usuario WHERE p.id_credito = %s ORDER BY p.fecha_pago DESC", (dat['id_credito'],))
                     hist = cursor.fetchall()
