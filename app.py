@@ -580,7 +580,7 @@ try:
 
             cursor.execute("""
                 SELECT SUM(c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) as saldo_pendiente
-                FROM Creditos c WHERE c.estado = 'Activo'
+                FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo'
             """)
             dinero_calle = float(cursor.fetchone()['saldo_pendiente'] or 0)
 
