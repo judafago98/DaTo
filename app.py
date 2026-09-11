@@ -585,10 +585,12 @@ try:
             dinero_calle = float(cursor.fetchone()['saldo_pendiente'] or 0)
 
             cursor.execute("""
-                SELECT SUM(monto_recibido) as recaudo_mes 
-                FROM Pagos 
-                WHERE MONTH(fecha_pago) = MONTH(CURDATE()) AND YEAR(fecha_pago) = YEAR(CURDATE())
-                AND motivo_ingreso NOT IN ('Venta de Cartera a Externo')
+                SELECT SUM(p.monto_recibido) as recaudo_mes 
+                FROM Pagos p
+                JOIN Creditos c ON p.id_credito = c.id_credito
+                WHERE MONTH(p.fecha_pago) = MONTH(CURDATE()) AND YEAR(p.fecha_pago) = YEAR(CURDATE())
+                AND p.motivo_ingreso NOT IN ('Venta de Cartera a Externo')
+                AND NOT (c.propietario_cartera = 'Fondo Externo' AND p.motivo_ingreso = 'Pago Cuotas')
             """)
             recaudo_mes = float(cursor.fetchone()['recaudo_mes'] or 0)
 
