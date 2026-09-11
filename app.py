@@ -1893,16 +1893,24 @@ try:
                 st.markdown("<br>", unsafe_allow_html=True)
                 with st.form("f_f_in", clear_on_submit=True):
                     prov = st.text_input("Nombre del Socio / Inversor (Ej: Fondo Suárez)")
-                    iny = st.number_input("Dinero Invertido (Entra a Caja Global) ($)", min_value=0, step=100000, value=0)
-                    render_traductor(iny)
-                    ret = st.number_input("Dinero Total a Devolver (Capital + Ganancia) ($)", min_value=0, step=100000, value=0)
-                    render_traductor(ret)
                     
-                    st.markdown("<h4 style='color:#0052D4; margin-top:0;'>🛡️ Radar DIAN (Origen de la transferencia)</h4>", unsafe_allow_html=True)
                     c1, c2 = st.columns(2)
-                    with c1: cta_inv = st.selectbox("¿A qué cuenta bancaria te consignó?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."])
-                    with c2: cta_nueva_inv = st.text_input("Si es nueva, escribe el nombre:")
+                    with c1:
+                        iny = st.number_input("Dinero Invertido (Entra a Caja Global) ($)", min_value=0, step=100000, value=0)
+                        render_traductor(iny)
+                    with c2:
+                        ret = st.number_input("Dinero Total a Devolver (Capital + Ganancia) ($)", min_value=0, step=100000, value=0)
+                        render_traductor(ret)
                     
+                    # AQUÍ ESTÁ EL CAMPO DE LA FECHA
+                    fecha_fondeo = st.date_input("🗓️ Fecha exacta en que ingresó la inversión", value=datetime.date.today())
+                    
+                    st.markdown("<h4 style='color:#0052D4; margin-top:15px;'>🛡️ Radar DIAN (Origen de la transferencia)</h4>", unsafe_allow_html=True)
+                    c3, c4 = st.columns(2)
+                    with c3: cta_inv = st.selectbox("¿A qué cuenta bancaria te consignó?", list(opc_cuentas.keys()) + ["➕ Añadir nueva cuenta..."])
+                    with c4: cta_nueva_inv = st.text_input("Si es nueva, escribe el nombre:")
+                    
+                    st.markdown("<br>", unsafe_allow_html=True)
                     if st.form_submit_button("Guardar Inversión y Crear Bolsillo", width='stretch'):
                         if prov and iny > 0:
                             if cta_inv == "➕ Añadir nueva cuenta...":
@@ -1910,11 +1918,11 @@ try:
                                 id_c_f = cursor.lastrowid
                             else: id_c_f = opc_cuentas[cta_inv]
 
-                            cursor.execute("INSERT INTO Deudas_Fondeo (prestamista, monto_prestado, monto_total_pagar, saldo_pendiente, fecha_prestamo, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, %s, %s, %s, 'Incremento inversión')", (prov, iny, ret, ret, datetime.date.today(), st.session_state['id_usuario'], id_c_f))
-                            cursor.execute("INSERT INTO Bolsas_Capital (nombre_bolsa, saldo_actual, inversion_inicial, fecha_creacion) VALUES (%s, %s, %s, CURDATE())", (prov, iny, iny))
+                            cursor.execute("INSERT INTO Deudas_Fondeo (prestamista, monto_prestado, monto_total_pagar, saldo_pendiente, fecha_prestamo, id_usuario_registro, id_cuenta, motivo_ingreso) VALUES (%s, %s, %s, %s, %s, %s, %s, 'Incremento inversión')", (prov, iny, ret, ret, fecha_fondeo.strftime('%Y-%m-%d'), st.session_state['id_usuario'], id_c_f))
+                            cursor.execute("INSERT INTO Bolsas_Capital (nombre_bolsa, saldo_actual, inversion_inicial, fecha_creacion) VALUES (%s, %s, %s, %s)", (prov, iny, iny, fecha_fondeo.strftime('%Y-%m-%d')))
                             
                             conn.commit()
-                            registro_silencioso(cursor, conn, st.session_state['id_usuario'], "FONDEO REGISTRADO", f"Recibió {fmt_cop(iny)} de {prov}")
+                            registro_silencioso(cursor, conn, st.session_state['id_usuario'], "FONDEO REGISTRADO", f"Recibió {fmt_cop(iny)} de {prov} (Fecha manual: {fecha_fondeo})")
                             st.toast("Plata sumada a la caja global y bolsillo creado.")
                             time.sleep(2)
                             st.rerun()
