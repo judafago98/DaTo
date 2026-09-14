@@ -573,7 +573,9 @@ try:
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo') as total_ahorro_cadenas,
                     
                     (SELECT COUNT(*) FROM Clientes) as total_clientes,
-                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Vendido') as total_vendidos
+                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Vendido') as total_vendidos,
+                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Disponible') as total_bodega,
+                    (SELECT COUNT(*) FROM Creditos WHERE estado = 'Activo') as creditos_activos
             """)
             auditoria = cursor.fetchone()
             
@@ -598,13 +600,16 @@ try:
             
             cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
             
-            # --- MATEMÁTICA EXACTA ---
+            # --- MATEMÁTICA EXACTA Y KPIs EXTRA ---
             liquidez_banco = cap_ini + recaudado - compras_totales - gastos_totales - ahorro_cadenas
             caja_operativa = liquidez_banco + bodega
             
             patrimonio_neto = caja_operativa + cartera_total + ahorro_cadenas - pasivos_totales
             utilidad_neta = patrimonio_neto - cap_ini
             roi_porcentaje = (utilidad_neta / cap_ini) * 100 if cap_ini > 0 else 0
+            
+            total_vendidos = int(auditoria['total_vendidos'])
+            ticket_promedio = (recaudado + cartera_total) / total_vendidos if total_vendidos > 0 else 0
             
             nombre_usuario_formateado = st.session_state['nombre_usuario'].split(" ")[0].capitalize()
 
@@ -620,8 +625,7 @@ try:
             
             # 1. ENCABEZADO PRINCIPAL (HERO CARD)
             st.markdown(f"""
-            <div style="background: linear-gradient(135deg, #020617 0%, #0F172A 100%); padding: 35px 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 25px; margin-bottom: 30px; border: 1px solid #1E293B; position: relative; overflow: hidden;">
-                <!-- Fondo decorativo -->
+            <div style="background: linear-gradient(135deg, #020617 0%, #0F172A 100%); padding: 35px 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 25px; margin-bottom: 25px; border: 1px solid #1E293B; position: relative; overflow: hidden;">
                 <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: radial-gradient(circle, {color_caja} 0%, transparent 70%); opacity: 0.15; border-radius: 50%;"></div>
                 
                 <div style="z-index: 1;">
@@ -643,7 +647,33 @@ try:
             </div>
             """, unsafe_allow_html=True)
 
-            # 2. RADIOGRAFÍA FINANCIERA (TARJETAS MODERNAS)
+            # 2. NUEVO: MIN-TARJETAS DE INTELIGENCIA RÁPIDA (KPIs EXTRA)
+            st.markdown(f"""
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 25px;">
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                    <span style="font-size: 22px;">👥</span>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748B; font-weight: 800; text-transform: uppercase;">Clientes con Deuda</p>
+                    <h3 style="margin: 0; color: #0F172A; font-size: 1.5rem; font-weight: 800;">{auditoria['creditos_activos']}</h3>
+                </div>
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                    <span style="font-size: 22px;">📱</span>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748B; font-weight: 800; text-transform: uppercase;">Equipos Vendidos</p>
+                    <h3 style="margin: 0; color: #0F172A; font-size: 1.5rem; font-weight: 800;">{total_vendidos}</h3>
+                </div>
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                    <span style="font-size: 22px;">📦</span>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748B; font-weight: 800; text-transform: uppercase;">Stock Físico Bodega</p>
+                    <h3 style="margin: 0; color: #0F172A; font-size: 1.5rem; font-weight: 800;">{auditoria['total_bodega']}</h3>
+                </div>
+                <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                    <span style="font-size: 22px;">🏷️</span>
+                    <p style="margin: 5px 0 0 0; font-size: 11px; color: #1D4ED8; font-weight: 800; text-transform: uppercase;">Ticket Promedio</p>
+                    <h3 style="margin: 0; color: #2563EB; font-size: 1.5rem; font-weight: 800;">{fmt_cop(ticket_promedio)}</h3>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # 3. RADIOGRAFÍA FINANCIERA (TARJETAS MODERNAS 4 COLUMNAS)
             st.markdown(f"""
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 35px;">
                 <div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #3B82F6; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.2s;">
@@ -715,7 +745,6 @@ try:
                 datos_recaudo = cursor.fetchall()
                 if datos_recaudo:
                     df_rec = pd.DataFrame(datos_recaudo)
-                    # CORRECCIÓN: Se eliminó el parámetro conflictivo 'corneradius'
                     fig_rec = go.Figure(go.Bar(
                         x=df_rec['Mes'], y=df_rec['Total'], 
                         marker=dict(color='#10B981', opacity=0.9, line=dict(color='#059669', width=1)), 
@@ -768,8 +797,8 @@ try:
                 df_flujo = df_flujo.sort_values('Mes')
 
                 fig_flujo = go.Figure()
-                fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Colocado'], name='Salió a la Calle (Prestado)', marker_color='#CBD5E1', opacity=0.9)) # Gris elegante
-                fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Recaudado'], name='Volvió a Caja (Recaudado)', marker_color='#10B981', opacity=0.9)) # Verde vibrante
+                fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Colocado'], name='Salió a la Calle (Prestado)', marker_color='#CBD5E1', opacity=0.9))
+                fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Recaudado'], name='Volvió a Caja (Recaudado)', marker_color='#10B981', opacity=0.9))
                 
                 layout_flujo = layout_premium.copy()
                 layout_flujo.update(barmode='group', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(family="Outfit")), height=380)
@@ -779,8 +808,8 @@ try:
                 st.info("Aún no hay datos cruzados suficientes para graficar.")
             st.markdown("</div><br><br>", unsafe_allow_html=True)
 
-            # 3. EXPLICACIÓN DETALLADA (3 COLUMNAS HERMOSAS)
-            st.markdown("<h3 style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>📑 Auditoría Transparente (Tus -$8.9 Millones explicados)</h3>", unsafe_allow_html=True)
+            # 4. EXPLICACIÓN DETALLADA (3 COLUMNAS HERMOSAS)
+            st.markdown("<h3 style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>📑 Auditoría Transparente (Composición de Operaciones)</h3>", unsafe_allow_html=True)
             col_det1, col_det2, col_det3 = st.columns(3)
 
             with col_det1:
@@ -857,7 +886,7 @@ try:
                     st.markdown(f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'><span style='color:#64748B; font-size:12px;'>• {fila['descripcion'][:20]}...</span><b style='color:#0F172A; font-size:12px;'>{fmt_cop(fila['t'])}</b></div>", unsafe_allow_html=True)
                 st.markdown("</div></div>", unsafe_allow_html=True)
 
-            # 4. MÓDULO DE CADENAS (VAULT DESIGN)
+            # 5. MÓDULO DE CADENAS (VAULT DESIGN)
             st.markdown("<br><h3 style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>💎 Bóveda de Capitalización (Cadenas)</h3>", unsafe_allow_html=True)
             
             c_cad1, c_cad2 = st.columns([1, 2.5])
