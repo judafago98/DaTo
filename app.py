@@ -542,7 +542,7 @@ try:
             st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
             if st.sidebar.button("Cerrar Sesión", width='stretch'): st.session_state['logeado'] = False; st.rerun()
 
-        elif menu_seleccionado == "inicio":
+        if menu_seleccionado == "inicio":
             st.markdown("<div style='height: 2vh;'></div>", unsafe_allow_html=True)
             
             # --- 1. CONSULTAS OPERATIVAS BÁSICAS ---
