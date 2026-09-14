@@ -576,10 +576,17 @@ try:
                     (SELECT COUNT(*) FROM Inventario WHERE estado = 'Vendido') as total_vendidos,
                     (SELECT COUNT(*) FROM Inventario WHERE estado = 'Disponible') as total_bodega,
                     (SELECT COUNT(*) FROM Creditos WHERE estado = 'Activo') as creditos_activos,
-                    (SELECT COUNT(DISTINCT c.id_credito) FROM Creditos c WHERE c.estado = 'Activo' AND c.id_credito NOT IN (SELECT p.id_credito FROM Pagos p WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as creditos_en_riesgo
+                    (SELECT COUNT(DISTINCT c.id_credito) FROM Creditos c WHERE c.estado = 'Activo' AND c.id_credito NOT IN (SELECT p.id_credito FROM Pagos p WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as creditos_en_riesgo,
+                    
+                    -- NUEVO: GANANCIA TOTAL PROYECTADA (Venta de equipos + Intereses)
+                    (SELECT SUM(
+                        (c.precio_venta - IFNULL((SELECT SUM(i.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = c.id_credito), 0)) + 
+                        ((c.valor_cuota * c.plazo_meses) - c.monto_financiado)
+                    ) FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo') as ganancia_total_proyectada
             """)
             auditoria = cursor.fetchone()
             
+            # --- ASIGNACIÓN DE VARIABLES ---
             cap_ini = float(auditoria['cap_ini'])
             recaudado = float(auditoria['recaudado_historico'])
             compras_totales = float(auditoria['compras_totales'])
@@ -599,45 +606,46 @@ try:
             if intereses_futuros < 0: intereses_futuros = 0
             
             cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
+            ganancia_proyectada = float(auditoria['ganancia_total_proyectada'] or 0)
             
+            # --- MATEMÁTICA EXACTA Y KPIs EXTRA ---
             liquidez_banco = cap_ini + recaudado - compras_totales - gastos_totales - ahorro_cadenas
             caja_operativa = liquidez_banco + bodega
             
+            # VALOR DE LA EMPRESA (Patrimonio Neto)
             patrimonio_neto = caja_operativa + cartera_total + ahorro_cadenas - pasivos_totales
             utilidad_neta = patrimonio_neto - cap_ini
             roi_porcentaje = (utilidad_neta / cap_ini) * 100 if cap_ini > 0 else 0
             
-            total_vendidos = int(auditoria['total_vendidos'])
-            ticket_promedio = (recaudado + cartera_total) / total_vendidos if total_vendidos > 0 else 0
             riesgo_mora = int(auditoria['creditos_en_riesgo'])
-            
             nombre_usuario_formateado = st.session_state['nombre_usuario'].split(" ")[0].capitalize()
 
+            # Lógica de Colores Dinámicos (Forzando estilos para evitar el tema oscuro)
             es_negativo = caja_operativa < 0
             color_caja = "#EF4444" if es_negativo else "#10B981"
-            bg_badge = "rgba(239, 68, 68, 0.15)" if es_negativo else "rgba(16, 185, 129, 0.15)"
-            borde_badge = "rgba(239, 68, 68, 0.3)" if es_negativo else "rgba(16, 185, 129, 0.3)"
+            bg_hero = "linear-gradient(135deg, #FEF2F2 0%, #FFFFFF 100%)" if es_negativo else "linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)"
+            border_hero = "#FCA5A5" if es_negativo else "#6EE7B7"
+            texto_hero = "#7F1D1D" if es_negativo else "#064E3B"
 
             # ==========================================
-            # 🎨 UI GERENCIAL: HERMOSA, MODERNA Y SIN BUGS
+            # 🎨 UI GERENCIAL: BRILLANTE Y DE ALTO CONTRASTE
             # ==========================================
             
-            # 1. ENCABEZADO PRINCIPAL (HERO CARD) - BLINDADO SIN SANGRÍAS
+            # 1. ENCABEZADO PRINCIPAL (HERO CARD - LIGHT MODE OBLIGADO)
             html_hero = f"""
-<div style="background: linear-gradient(135deg, #020617 0%, #0F172A 100%); padding: 35px 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 25px; margin-bottom: 20px; border: 1px solid #1E293B; position: relative; overflow: hidden;">
-<div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: radial-gradient(circle, {color_caja} 0%, transparent 70%); opacity: 0.15; border-radius: 50%;"></div>
+<div style="background: {bg_hero}; padding: 35px 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 25px; margin-bottom: 20px; border: 1px solid {border_hero}; position: relative; overflow: hidden;">
 <div style="z-index: 1;">
-<span style="background: {bg_badge}; color: {color_caja}; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; border: 1px solid {borde_badge};">Saldo Operativo Real (Tu Caja)</span>
+<span style="background: {color_caja}; color: #FFFFFF; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Saldo Operativo Real (Tu Caja)</span>
 <h1 style="margin: 15px 0 5px 0; font-size: 4rem; color: {color_caja}; font-weight: 900; letter-spacing: -1px;">{fmt_cop(caja_operativa)}</h1>
-<p style="margin: 0; color: #94A3B8; font-size: 14px; font-weight: 500;">Billetes en Banco: <span style="color:#F8FAFC;">{fmt_cop(liquidez_banco)}</span> <span style="margin:0 10px; color:#334155;">|</span> Bodega: <span style="color:#F8FAFC;">{fmt_cop(bodega)}</span></p>
+<p style="margin: 0; color: {texto_hero}; font-size: 14px; font-weight: 600;">Billetes en Banco: <span style="font-weight:800;">{fmt_cop(liquidez_banco)}</span> <span style="margin:0 10px; color:#94A3B8;">|</span> Bodega: <span style="font-weight:800;">{fmt_cop(bodega)}</span></p>
 </div>
 <div style="display: flex; gap: 15px; z-index: 1;">
-<div style="background: rgba(255,255,255,0.03); padding: 20px 30px; border-radius: 12px; text-align: right; border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px);">
-<p style="margin:0 0 5px 0; color:#94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Proyección Este Mes</p>
-<h2 style="margin:0; color:#F8FAFC; font-size: 2rem; font-weight: 800;">{fmt_cop(cuotas_este_mes)}</h2>
+<div style="background: #FFFFFF; padding: 20px 30px; border-radius: 12px; text-align: right; border: 1px solid #E2E8F0; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+<p style="margin:0 0 5px 0; color:#64748B; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Proyección Este Mes</p>
+<h2 style="margin:0; color:#0F172A; font-size: 2rem; font-weight: 800;">{fmt_cop(cuotas_este_mes)}</h2>
 </div>
-<div style="background: rgba(16, 185, 129, 0.08); padding: 20px 30px; border-radius: 12px; text-align: right; border: 1px solid rgba(16, 185, 129, 0.2); backdrop-filter: blur(10px);">
-<p style="margin:0 0 5px 0; color:#34D399; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">ROI Del Negocio</p>
+<div style="background: #FFFFFF; padding: 20px 30px; border-radius: 12px; text-align: right; border: 1px solid #A7F3D0; box-shadow: 0 4px 10px rgba(16,185,129,0.05);">
+<p style="margin:0 0 5px 0; color:#059669; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ROI Del Negocio</p>
 <h2 style="margin:0; color:#10B981; font-size: 2rem; font-weight: 800;">{roi_porcentaje:.2f}%</h2>
 </div>
 </div>
@@ -645,23 +653,13 @@ try:
 """
             st.markdown(html_hero, unsafe_allow_html=True)
 
-            # 2. MINI-TARJETAS (NUEVOS DATOS CFO)
+            # 2. MINI-TARJETAS (CON GANANCIA PROYECTADA)
             html_mini = f"""
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 25px;">
 <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
 <span style="font-size: 22px;">👥</span>
 <p style="margin: 5px 0 0 0; font-size: 10px; color: #64748B; font-weight: 800; text-transform: uppercase;">Clientes Activos</p>
 <h3 style="margin: 0; color: #0F172A; font-size: 1.4rem; font-weight: 800;">{auditoria['creditos_activos']}</h3>
-</div>
-<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
-<span style="font-size: 22px;">📦</span>
-<p style="margin: 5px 0 0 0; font-size: 10px; color: #64748B; font-weight: 800; text-transform: uppercase;">Stock en Bodega</p>
-<h3 style="margin: 0; color: #0F172A; font-size: 1.4rem; font-weight: 800;">{auditoria['total_bodega']}</h3>
-</div>
-<div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
-<span style="font-size: 22px;">🏷️</span>
-<p style="margin: 5px 0 0 0; font-size: 10px; color: #1D4ED8; font-weight: 800; text-transform: uppercase;">Ticket Promedio</p>
-<h3 style="margin: 0; color: #2563EB; font-size: 1.4rem; font-weight: 800;">{fmt_cop(ticket_promedio)}</h3>
 </div>
 <div style="background: #FFF1F2; border: 1px solid #FECACA; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
 <span style="font-size: 22px;">🚨</span>
@@ -673,35 +671,40 @@ try:
 <p style="margin: 5px 0 0 0; font-size: 10px; color: #047857; font-weight: 800; text-transform: uppercase;">Valor de la Empresa</p>
 <h3 style="margin: 0; color: #10B981; font-size: 1.4rem; font-weight: 800;">{fmt_cop(patrimonio_neto)}</h3>
 </div>
+<div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+<span style="font-size: 22px;">🚀</span>
+<p style="margin: 5px 0 0 0; font-size: 10px; color: #1D4ED8; font-weight: 800; text-transform: uppercase;">Ganancia Neta Esperada</p>
+<h3 style="margin: 0; color: #2563EB; font-size: 1.4rem; font-weight: 800;">{fmt_cop(ganancia_proyectada)}</h3>
+</div>
 </div>
 """
             st.markdown(html_mini, unsafe_allow_html=True)
 
-            # 3. RADIOGRAFÍA FINANCIERA (TARJETAS GRANDES)
+            # 3. RADIOGRAFÍA FINANCIERA (TARJETAS GRANDES BLANCAS)
             html_radiografia = f"""
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 35px;">
-<div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #3B82F6; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; border-bottom: 4px solid #3B82F6; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
 <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Inversión / Compras</span>
 <span style="background:#EFF6FF; color:#3B82F6; padding:4px 8px; border-radius:8px; font-size:12px;">💸</span>
 </div>
 <h2 style="margin:0; color:#0F172A; font-size:1.8rem; font-weight: 800;">{fmt_cop(compras_totales)}</h2>
 </div>
-<div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #10B981; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; border-bottom: 4px solid #10B981; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
 <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Dinero Recaudado</span>
 <span style="background:#ECFDF5; color:#10B981; padding:4px 8px; border-radius:8px; font-size:12px;">💵</span>
 </div>
 <h2 style="margin:0; color:#0F172A; font-size:1.8rem; font-weight: 800;">{fmt_cop(recaudado)}</h2>
 </div>
-<div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #8B5CF6; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; border-bottom: 4px solid #8B5CF6; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
 <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Plata en la Calle</span>
 <span style="background:#F5F3FF; color:#8B5CF6; padding:4px 8px; border-radius:8px; font-size:12px;">🤝</span>
 </div>
 <h2 style="margin:0; color:#0F172A; font-size:1.8rem; font-weight: 800;">{fmt_cop(cartera_total)}</h2>
 </div>
-<div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #EF4444; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; border-bottom: 4px solid #EF4444; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
 <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Gastos Operativos</span>
 <span style="background:#FEF2F2; color:#EF4444; padding:4px 8px; border-radius:8px; font-size:12px;">📉</span>
@@ -809,7 +812,7 @@ try:
                 st.info("Aún no hay datos cruzados suficientes para graficar.")
             st.markdown("</div><br><br>", unsafe_allow_html=True)
 
-            # 4. EXPLICACIÓN DETALLADA (3 COLUMNAS HERMOSAS) - BLINDADO SIN SANGRÍAS
+            # 4. EXPLICACIÓN DETALLADA (3 COLUMNAS HERMOSAS - ESTILO LIGHT MODE)
             st.markdown("<h3 style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>📑 Auditoría Transparente (Composición de Operaciones)</h3>", unsafe_allow_html=True)
             col_det1, col_det2, col_det3 = st.columns(3)
 
@@ -822,15 +825,15 @@ try:
 </div>
 <div style="font-size: 13px; color:#475569;">
 <p style="margin:0 0 5px 0; color:#10B981; font-weight:700;">(+) ENTRADAS:</p>
-<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Inversión Base:</span><b>{fmt_cop(cap_ini)}</b></div>
-<div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span>Recaudos Cuotas:</span><b style="color:#10B981;">{fmt_cop(recaudado)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span style="color:#64748B;">Inversión Base:</span><b style="color:#0F172A;">{fmt_cop(cap_ini)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span style="color:#64748B;">Recaudos Cuotas:</span><b style="color:#10B981;">{fmt_cop(recaudado)}</b></div>
 <p style="margin:0 0 5px 0; color:#EF4444; font-weight:700;">(-) SALIDAS:</p>
-<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Compra Equipos:</span><b>{fmt_cop(compras_totales)}</b></div>
-<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Gastos (Comis/Arriendo):</span><b>{fmt_cop(gastos_totales)}</b></div>
-<div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span>Plata guardada (Cadenas):</span><b style="color:#F59E0B;">{fmt_cop(ahorro_cadenas)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span style="color:#64748B;">Compra Equipos:</span><b style="color:#0F172A;">{fmt_cop(compras_totales)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span style="color:#64748B;">Gastos (Comis/Arriendo):</span><b style="color:#0F172A;">{fmt_cop(gastos_totales)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span style="color:#64748B;">Plata guardada (Cadenas):</span><b style="color:#F59E0B;">{fmt_cop(ahorro_cadenas)}</b></div>
 <div style="background: {bg_badge}; padding: 15px; border-radius: 12px; margin-top: 15px; border: 1px solid {borde_badge};">
-<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Efectivo Líquido Banco:</span><b>{fmt_cop(liquidez_banco)}</b></div>
-<div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Equipos en Estante:</span><b>{fmt_cop(bodega)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:{texto_hero}; font-weight:600;">Efectivo Líquido Banco:</span><b style="color:{texto_hero};">{fmt_cop(liquidez_banco)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="color:{texto_hero}; font-weight:600;">Equipos en Estante:</span><b style="color:{texto_hero};">{fmt_cop(bodega)}</b></div>
 <hr style="margin:8px 0; border-color:{borde_badge};">
 <div style="display:flex; justify-content:space-between; align-items:center;">
 <span style="font-weight:bold; color:{color_caja}; font-size:12px; text-transform:uppercase;">SALDO FINAL:</span>
@@ -851,15 +854,15 @@ try:
 </div>
 <div style="font-size: 13px; color:#475569;">
 <p style="margin:0 0 10px 0; color:#3B82F6; font-weight:700;">LO QUE NOS DEBEN (ACTIVO):</p>
-<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Costo del Teléfono (Fiado):</span><b>{fmt_cop(cartera_capital)}</b></div>
-<div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span>Tu Ganancia (Intereses):</span><b style="color:#10B981;">{fmt_cop(intereses_futuros)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#64748B;">Costo del Teléfono (Fiado):</span><b style="color:#0F172A;">{fmt_cop(cartera_capital)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span style="color:#64748B;">Tu Ganancia (Intereses):</span><b style="color:#10B981;">{fmt_cop(intereses_futuros)}</b></div>
 <div style="background:#F8FAFC; padding:10px; border-radius:8px; display:flex; justify-content:space-between; border: 1px solid #E2E8F0;">
 <span style="font-weight:800; color:#1E293B;">TOTAL EN LA CALLE:</span>
 <b style="color:#3B82F6; font-size:14px;">{fmt_cop(cartera_total)}</b>
 </div>
 <p style="margin:25px 0 10px 0; color:#EF4444; font-weight:700;">LO QUE DEBEMOS (PASIVO):</p>
-<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>A Fondeadores / Socios:</span><b style="color:#EF4444;">{fmt_cop(float(auditoria['deudas_fondeo']))}</b></div>
-<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Comisiones de Vendedores:</span><b style="color:#EF4444;">{fmt_cop(float(auditoria['comis_por_pagar']))}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#64748B;">A Fondeadores / Socios:</span><b style="color:#EF4444;">{fmt_cop(float(auditoria['deudas_fondeo']))}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#64748B;">Comisiones de Vendedores:</span><b style="color:#EF4444;">{fmt_cop(float(auditoria['comis_por_pagar']))}</b></div>
 </div>
 </div>
 """
@@ -874,9 +877,9 @@ try:
 </div>
 <div style="font-size: 13px; color:#475569;">
 <p style="margin:0 0 10px 0; color:#64748B; font-weight:700;">POR CATEGORÍAS ({fmt_cop(gastos_totales)}):</p>
-<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Operativos (Arriendo, Luz):</span><b>{fmt_cop(g_fijos)}</b></div>
-<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Comisiones a Asesores:</span><b>{fmt_cop(g_comis)}</b></div>
-<div style="display:flex; justify-content:space-between; margin-bottom:20px;"><span>Pago Rendimiento Socios:</span><b>{fmt_cop(g_socios)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#64748B;">Operativos (Arriendo, Luz):</span><b style="color:#0F172A;">{fmt_cop(g_fijos)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span style="color:#64748B;">Comisiones a Asesores:</span><b style="color:#0F172A;">{fmt_cop(g_comis)}</b></div>
+<div style="display:flex; justify-content:space-between; margin-bottom:20px;"><span style="color:#64748B;">Pago Rendimiento Socios:</span><b style="color:#0F172A;">{fmt_cop(g_socios)}</b></div>
 <p style="margin:0 0 10px 0; color:#64748B; font-weight:700; border-top: 1px dashed #E2E8F0; padding-top:15px;">TOP 3 FUGAS MÁS COSTOSAS:</p>
 """
                 st.markdown(html_det3_ini, unsafe_allow_html=True)
@@ -886,7 +889,7 @@ try:
                     st.markdown(f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'><span style='color:#64748B; font-size:12px;'>• {fila['descripcion'][:20]}...</span><b style='color:#0F172A; font-size:12px;'>{fmt_cop(fila['t'])}</b></div>", unsafe_allow_html=True)
                 st.markdown("</div></div>", unsafe_allow_html=True)
 
-            # 5. MÓDULO DE CADENAS (VAULT DESIGN) - BLINDADO SIN SANGRÍAS
+            # 5. MÓDULO DE CADENAS (VAULT DESIGN)
             st.markdown("<br><h3 style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>💎 Bóveda de Capitalización (Cadenas)</h3>", unsafe_allow_html=True)
             
             c_cad1, c_cad2 = st.columns([1, 2.5])
