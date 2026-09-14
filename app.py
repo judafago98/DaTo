@@ -715,9 +715,10 @@ try:
                 datos_recaudo = cursor.fetchall()
                 if datos_recaudo:
                     df_rec = pd.DataFrame(datos_recaudo)
+                    # CORRECCIÓN: Se eliminó el parámetro conflictivo 'corneradius'
                     fig_rec = go.Figure(go.Bar(
                         x=df_rec['Mes'], y=df_rec['Total'], 
-                        marker=dict(color='#10B981', opacity=0.9, line=dict(color='#059669', width=1), corneradius=4), # Bordes redondeados en barras (Plotly >2.28)
+                        marker=dict(color='#10B981', opacity=0.9, line=dict(color='#059669', width=1)), 
                         text=df_rec['Total'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
                         textposition='outside', textfont=dict(color='#475569', size=11, family="Outfit"),
                         hovertemplate='<b>%{x}</b><br>Recaudado: $%{y:,.0f}<extra></extra>'
@@ -875,7 +876,6 @@ try:
                 df_cadenas = pd.DataFrame(cursor.fetchall())
                 if not df_cadenas.empty:
                     df_cadenas['Aporte Acumulado'] = df_cadenas['Aporte Acumulado'].apply(fmt_cop)
-                    # Contenedor limpio para la tabla
                     st.markdown("<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);'>", unsafe_allow_html=True)
                     st.dataframe(df_cadenas, hide_index=True, use_container_width=True)
                     st.markdown("</div>", unsafe_allow_html=True)
