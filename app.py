@@ -665,7 +665,6 @@ try:
             # ==========================================
             st.markdown("<h3 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>📈 Analítica Visual y Proyecciones</h3>", unsafe_allow_html=True)
             
-            # Filtro global de año para los gráficos
             col_filtros, _ = st.columns([1, 3])
             with col_filtros:
                 year_seleccionado = st.selectbox("Filtrar Análisis por Año:", [2026, 2025, 2024], index=0)
@@ -675,108 +674,94 @@ try:
             with g_col1:
                 st.markdown(f"<h4 style='color:#0F172A; font-size: 16px;'>📥 Evolución de Recaudo Real ({year_seleccionado})</h4>", unsafe_allow_html=True)
                 cursor.execute("""
-                    SELECT 
-                        DATE_FORMAT(p.fecha_pago, '%Y-%m') AS Mes, 
-                        SUM(p.monto_recibido) AS Total
-                    FROM Pagos p
-                    LEFT JOIN Creditos c ON p.id_credito = c.id_credito
-                    WHERE YEAR(p.fecha_pago) = %s
-                      AND p.motivo_ingreso NOT IN ('Venta de Cartera a Externo', 'Cruce Retoma Bodega')
-                      AND (c.propietario_cartera = 'DaTo' OR c.propietario_cartera IS NULL)
+                    SELECT DATE_FORMAT(p.fecha_pago, '%Y-%m') AS Mes, SUM(p.monto_recibido) AS Total
+                    FROM Pagos p LEFT JOIN Creditos c ON p.id_credito = c.id_credito
+                    WHERE YEAR(p.fecha_pago) = %s AND p.motivo_ingreso NOT IN ('Venta de Cartera a Externo', 'Cruce Retoma Bodega') AND (c.propietario_cartera = 'DaTo' OR c.propietario_cartera IS NULL)
                     GROUP BY Mes ORDER BY Mes ASC
                 """, (year_seleccionado,))
                 datos_recaudo = cursor.fetchall()
                 if datos_recaudo:
                     df_rec = pd.DataFrame(datos_recaudo)
-                    
-                    # Gráfico de Barras Premium
                     fig_rec = go.Figure(go.Bar(
-                        x=df_rec['Mes'], 
-                        y=df_rec['Total'],
-                        marker_color='#10B981', # Verde Esmeralda
-                        marker_line_color='#047857',
-                        marker_line_width=1.5,
-                        opacity=0.85,
+                        x=df_rec['Mes'], y=df_rec['Total'], marker_color='#10B981', marker_line_color='#047857', marker_line_width=1.5, opacity=0.85,
                         text=df_rec['Total'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
-                        textposition='outside',
-                        textfont=dict(color='#475569', size=11, family="Outfit"),
+                        textposition='outside', textfont=dict(color='#475569', size=11, family="Outfit"),
                         hovertemplate='<b>Mes:</b> %{x}<br><b>Recaudo:</b> $%{y:,.0f}<extra></extra>'
                     ))
-                    fig_rec.update_layout(
-                        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
-                        margin=dict(l=0, r=0, t=30, b=0), height=350,
-                        xaxis=dict(showgrid=False, title="", tickfont=dict(color='#94A3B8')),
-                        yaxis=dict(showgrid=True, gridcolor='#F8FAFC', title="", tickformat="$.2s", tickfont=dict(color='#94A3B8')),
-                        hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0")
-                    )
+                    fig_rec.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=30, b=0), height=350, xaxis=dict(showgrid=False, title="", tickfont=dict(color='#94A3B8')), yaxis=dict(showgrid=True, gridcolor='#F8FAFC', title="", tickformat="$.2s", tickfont=dict(color='#94A3B8')), hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0"))
                     st.plotly_chart(fig_rec, use_container_width=True, config={'displayModeBar': False})
-                else:
-                    st.info(f"Sin registros de recaudo para {year_seleccionado}.")
+                else: st.info(f"Sin registros de recaudo para {year_seleccionado}.")
 
             with g_col2:
                 st.markdown(f"<h4 style='color:#0F172A; font-size: 16px;'>📈 Proyección de Cobro ({year_seleccionado})</h4>", unsafe_allow_html=True)
                 cursor.execute("""
-                    SELECT 
-                        DATE_FORMAT(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH), '%Y-%m') AS Mes,
-                        SUM(c.valor_cuota) AS Total
-                    FROM Creditos c
-                    CROSS JOIN (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11) seq
-                    WHERE c.estado = 'Activo' 
-                      AND c.propietario_cartera = 'DaTo'
-                      AND seq.n < c.plazo_meses
-                      AND YEAR(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH)) = %s
+                    SELECT DATE_FORMAT(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH), '%Y-%m') AS Mes, SUM(c.valor_cuota) AS Total
+                    FROM Creditos c CROSS JOIN (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11) seq
+                    WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo' AND seq.n < c.plazo_meses AND YEAR(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH)) = %s
                     GROUP BY Mes ORDER BY Mes ASC
                 """, (year_seleccionado,))
                 datos_proy = cursor.fetchall()
                 if datos_proy:
                     df_proy = pd.DataFrame(datos_proy)
-                    
-                    # Gráfico de Área Suavizada Premium
                     fig_proy = go.Figure(go.Scatter(
-                        x=df_proy['Mes'], 
-                        y=df_proy['Total'],
-                        mode='lines+markers+text',
-                        line=dict(color='#3B82F6', width=3, shape='spline'), # Línea curva y suave
-                        marker=dict(size=8, color='#FFFFFF', line=dict(width=2, color='#3B82F6')),
-                        fill='tozeroy',
-                        fillcolor='rgba(59, 130, 246, 0.15)', # Azul transparente
+                        x=df_proy['Mes'], y=df_proy['Total'], mode='lines+markers+text', line=dict(color='#3B82F6', width=3, shape='spline'),
+                        marker=dict(size=8, color='#FFFFFF', line=dict(width=2, color='#3B82F6')), fill='tozeroy', fillcolor='rgba(59, 130, 246, 0.15)',
                         text=df_proy['Total'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
-                        textposition='top center',
-                        textfont=dict(color='#475569', size=11, family="Outfit"),
-                        hovertemplate='<b>Mes:</b> %{x}<br><b>Proyectado:</b> $%{y:,.0f}<extra></extra>'
+                        textposition='top center', textfont=dict(color='#475569', size=11, family="Outfit"), hovertemplate='<b>Mes:</b> %{x}<br><b>Proyectado:</b> $%{y:,.0f}<extra></extra>'
                     ))
-                    fig_proy.update_layout(
-                        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
-                        margin=dict(l=0, r=0, t=30, b=0), height=350,
-                        xaxis=dict(showgrid=False, title="", tickfont=dict(color='#94A3B8')),
-                        yaxis=dict(showgrid=True, gridcolor='#F8FAFC', title="", tickformat="$.2s", tickfont=dict(color='#94A3B8')),
-                        hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0")
-                    )
+                    fig_proy.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=30, b=0), height=350, xaxis=dict(showgrid=False, title="", tickfont=dict(color='#94A3B8')), yaxis=dict(showgrid=True, gridcolor='#F8FAFC', title="", tickformat="$.2s", tickfont=dict(color='#94A3B8')), hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0"))
                     st.plotly_chart(fig_proy, use_container_width=True, config={'displayModeBar': False})
-                else:
-                    st.info(f"Sin proyecciones futuras estimadas para {year_seleccionado}.")
+                else: st.info(f"Sin proyecciones estimadas para {year_seleccionado}.")
 
             st.markdown("<br>", unsafe_allow_html=True)
-
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # ==========================================
-            # 💎 EXPANSIÓN CFO: RIESGO, FLUJO Y RENTABILIDAD
-            # ==========================================
-            st.markdown("<h3 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>⚖️ Inteligencia de Riesgo y Producto</h3>", unsafe_allow_html=True)
             
             g_col3, g_col4 = st.columns(2)
 
             with g_col3:
-                # ... (todo el código del gráfico de Colocación vs Recaudo)
-                # ...
+                st.markdown(f"<h4 style='color:#0F172A; font-size: 15px;'>⚖️ Colocación vs. Recaudo ({year_seleccionado})</h4>", unsafe_allow_html=True)
+                st.markdown("<p style='font-size:12px; color:#64748B;'>Compara la plata prestada vs. la plata que regresó al banco.</p>", unsafe_allow_html=True)
+                cursor.execute("""
+                    SELECT DATE_FORMAT(fecha_inicio, '%Y-%m') AS Mes, SUM(monto_financiado) AS Colocado
+                    FROM Creditos WHERE propietario_cartera = 'DaTo' AND YEAR(fecha_inicio) = %s
+                    GROUP BY Mes ORDER BY Mes ASC
+                """, (year_seleccionado,))
+                df_colocado = pd.DataFrame(cursor.fetchall())
                 
+                if not df_colocado.empty and 'df_rec' in locals():
+                    df_flujo = pd.merge(df_colocado, df_rec, on='Mes', how='outer').fillna(0)
+                    df_flujo.rename(columns={'Total': 'Recaudado'}, inplace=True)
+                    df_flujo = df_flujo.sort_values('Mes')
+
+                    fig_flujo = go.Figure()
+                    fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Colocado'], name='Plata Prestada', marker_color='#F59E0B', opacity=0.85, hovertemplate='<b>Mes:</b> %{x}<br><b>Prestado:</b> $%{y:,.0f}<extra></extra>'))
+                    fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Recaudado'], name='Plata Recaudada', marker_color='#10B981', opacity=0.85, hovertemplate='<b>Mes:</b> %{x}<br><b>Recaudado:</b> $%{y:,.0f}<extra></extra>'))
+                    
+                    fig_flujo.update_layout(barmode='group', plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=10, b=0), height=320, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), xaxis=dict(showgrid=False, tickfont=dict(color='#94A3B8')), yaxis=dict(showgrid=True, gridcolor='#F8FAFC', tickformat="$.2s", tickfont=dict(color='#94A3B8')), hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0"))
+                    st.plotly_chart(fig_flujo, use_container_width=True, config={'displayModeBar': False})
+                else: st.info("No hay datos suficientes para comparar.")
+
             with g_col4:
-                # ... (todo el código del gráfico de Rentabilidad por Marca)
-                # ...
+                st.markdown(f"<h4 style='color:#0F172A; font-size: 15px;'>📱 Rentabilidad Neta por Marca (Top 5)</h4>", unsafe_allow_html=True)
+                st.markdown("<p style='font-size:12px; color:#64748B;'>Ganancia bruta comercial agrupada por marca.</p>", unsafe_allow_html=True)
+                cursor.execute("""
+                    SELECT i.marca AS Marca, SUM(c.precio_venta - i.costo_adquisicion) AS Margen_Bruto
+                    FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei JOIN Creditos c ON ci.id_credito = c.id_credito
+                    WHERE c.estado = 'Activo' OR c.estado = 'Pagado' GROUP BY Marca ORDER BY Margen_Bruto ASC LIMIT 5
+                """)
+                datos_marcas = cursor.fetchall()
+                if datos_marcas:
+                    df_marcas = pd.DataFrame(datos_marcas)
+                    fig_marcas = go.Figure(go.Bar(
+                        x=df_marcas['Margen_Bruto'], y=df_marcas['Marca'], orientation='h', marker_color='#8B5CF6', marker_line_color='#6D28D9', marker_line_width=1, opacity=0.85,
+                        text=df_marcas['Margen_Bruto'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
+                        textposition='auto', textfont=dict(color='#FFFFFF', size=11, family="Outfit"), hovertemplate='<b>%{y}</b><br><b>Margen:</b> $%{x:,.0f}<extra></extra>'
+                    ))
+                    fig_marcas.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=10, b=0), height=320, xaxis=dict(showgrid=True, gridcolor='#F8FAFC', tickformat="$.2s", tickfont=dict(color='#94A3B8')), yaxis=dict(showgrid=False, tickfont=dict(color='#1E293B', size=12, family="Outfit")), hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0"))
+                    st.plotly_chart(fig_marcas, use_container_width=True, config={'displayModeBar': False})
+                else: st.info("Faltan datos de inventario.")
 
             st.markdown("<br>", unsafe_allow_html=True)
+
             # 3. EXPLICACIÓN DETALLADA
             col_det1, col_det2, col_det3 = st.columns(3)
 
