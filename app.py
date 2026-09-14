@@ -559,7 +559,7 @@ try:
                     (SELECT IFNULL(SUM(costo_adquisicion), 0) FROM Inventario WHERE estado = 'Disponible' OR (estado IS NULL AND costo_adquisicion > 0)) as bodega,
                     (SELECT IFNULL(SUM(costo_adquisicion), 0) FROM Inventario WHERE costo_adquisicion > 0) as compras_totales,
                     
-                    (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)')) as g_fijos,
+                    (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)', 'Aporte a Cadena / Fondo Fijo')) as g_fijos,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Pagado') as g_comis_pagadas,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Costo Financiero (Pago a Socios)') as g_socios,
                     
@@ -577,6 +577,7 @@ try:
             """)
             auditoria = cursor.fetchone()
             
+            # --- ASIGNACIÓN DE VARIABLES ---
             cap_ini = float(auditoria['cap_ini'])
             recaudado = float(auditoria['recaudado_historico'])
             compras_totales = float(auditoria['compras_totales'])
@@ -597,82 +598,114 @@ try:
             
             cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
             
-            liquidez_banco = cap_ini + recaudado - compras_totales - gastos_totales
+            # --- MATEMÁTICA EXACTA ---
+            liquidez_banco = cap_ini + recaudado - compras_totales - gastos_totales - ahorro_cadenas
             caja_operativa = liquidez_banco + bodega
             
-            patrimonio_neto = caja_operativa + cartera_total - pasivos_totales
+            patrimonio_neto = caja_operativa + cartera_total + ahorro_cadenas - pasivos_totales
             utilidad_neta = patrimonio_neto - cap_ini
             roi_porcentaje = (utilidad_neta / cap_ini) * 100 if cap_ini > 0 else 0
             
             nombre_usuario_formateado = st.session_state['nombre_usuario'].split(" ")[0].capitalize()
 
-            color_caja_text = "#DC2626" if caja_operativa < 0 else "#059669"
-            color_caja_bg = "#FEF2F2" if caja_operativa < 0 else "#F0FDF4"
-            color_caja_border = "#FECACA" if caja_operativa < 0 else "#A7F3D0"
+            # Lógica de Colores Dinámicos
+            es_negativo = caja_operativa < 0
+            color_caja = "#EF4444" if es_negativo else "#10B981"
+            bg_badge = "rgba(239, 68, 68, 0.15)" if es_negativo else "rgba(16, 185, 129, 0.15)"
+            borde_badge = "rgba(239, 68, 68, 0.3)" if es_negativo else "rgba(16, 185, 129, 0.3)"
 
             # ==========================================
-            # 🎨 INTERFAZ GRÁFICA GERENCIAL (CFO LEVEL)
+            # 🎨 UI GERENCIAL: HERMOSA, MODERNA Y PROFESIONAL
             # ==========================================
+            
+            # 1. ENCABEZADO PRINCIPAL (HERO CARD)
             st.markdown(f"""
-            <div style="background: #FFFFFF; padding: 30px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
-                <div>
-                    <h4 style="margin: 0; color: #64748B; text-transform: uppercase; letter-spacing: 1px; font-size: 13px;">Saldo Operativo Real (Tu Caja)</h4>
-                    <h1 style="margin: 5px 0 0 0; font-size: 3.2rem; color: {color_caja_text}; font-weight: 800;">{fmt_cop(caja_operativa)}</h1>
-                    <p style="margin: 5px 0 0 0; color: #64748B; font-size: 13px;">Bancos: {fmt_cop(liquidez_banco)} | Bodega: {fmt_cop(bodega)}</p>
+            <div style="background: linear-gradient(135deg, #020617 0%, #0F172A 100%); padding: 35px 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.15); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 25px; margin-bottom: 30px; border: 1px solid #1E293B; position: relative; overflow: hidden;">
+                <!-- Fondo decorativo -->
+                <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: radial-gradient(circle, {color_caja} 0%, transparent 70%); opacity: 0.15; border-radius: 50%;"></div>
+                
+                <div style="z-index: 1;">
+                    <span style="background: {bg_badge}; color: {color_caja}; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; border: 1px solid {borde_badge};">Saldo Operativo Real (Tu Caja)</span>
+                    <h1 style="margin: 15px 0 5px 0; font-size: 4rem; color: {color_caja}; font-weight: 900; letter-spacing: -1px;">{fmt_cop(caja_operativa)}</h1>
+                    <p style="margin: 0; color: #94A3B8; font-size: 14px; font-weight: 500;">Billetes en Banco: <span style="color:#F8FAFC;">{fmt_cop(liquidez_banco)}</span> <span style="margin:0 10px; color:#334155;">|</span> Mercancía en Bodega: <span style="color:#F8FAFC;">{fmt_cop(bodega)}</span></p>
                 </div>
-                <div style="background: #F0FDF4; padding: 15px 25px; border-radius: 12px; text-align: right; border: 1px solid #A7F3D0;">
-                    <p style="margin:0; color:#047857; font-size: 12px; font-weight: bold; text-transform: uppercase;">ROI Consolidado</p>
-                    <h2 style="margin:0; color:#059669; font-size: 2.2rem; font-weight: 800;">{roi_porcentaje:.2f}%</h2>
-                    <p style="margin:5px 0 0 0; color:#047857; font-size: 11px;">Sobre capital de {fmt_cop(cap_ini)}</p>
-                </div>
-                <div style="background: #EFF6FF; padding: 15px 25px; border-radius: 12px; text-align: right; border: 1px solid #BFDBFE;">
-                    <p style="margin:0; color:#1D4ED8; font-size: 12px; font-weight: bold; text-transform: uppercase;">Proyección Este Mes</p>
-                    <h2 style="margin:0; color:#2563EB; font-size: 2.2rem; font-weight: 800;">{fmt_cop(cuotas_este_mes)}</h2>
-                    <p style="margin:5px 0 0 0; color:#1D4ED8; font-size: 11px;">Recaudo en 30 días</p>
+                
+                <div style="display: flex; gap: 15px; z-index: 1;">
+                    <div style="background: rgba(255,255,255,0.03); padding: 20px 30px; border-radius: 12px; text-align: right; border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(10px);">
+                        <p style="margin:0 0 5px 0; color:#94A3B8; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Proyección Este Mes</p>
+                        <h2 style="margin:0; color:#F8FAFC; font-size: 2rem; font-weight: 800;">{fmt_cop(cuotas_este_mes)}</h2>
+                    </div>
+                    <div style="background: rgba(16, 185, 129, 0.08); padding: 20px 30px; border-radius: 12px; text-align: right; border: 1px solid rgba(16, 185, 129, 0.2); backdrop-filter: blur(10px);">
+                        <p style="margin:0 0 5px 0; color:#34D399; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">ROI Del Negocio</p>
+                        <h2 style="margin:0; color:#10B981; font-size: 2rem; font-weight: 800;">{roi_porcentaje:.2f}%</h2>
+                    </div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            st.markdown("<h4 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>📊 Radiografía Financiera</h4>", unsafe_allow_html=True)
-            
+            # 2. RADIOGRAFÍA FINANCIERA (TARJETAS MODERNAS)
             st.markdown(f"""
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px;">
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 8px;">
-                    <p style="margin:0; font-size:12px; color:#64748B; font-weight:bold; text-transform:uppercase;">Total Invertido</p>
-                    <h2 style="margin:5px 0; color:#1E293B; font-size:1.8rem;">{fmt_cop(compras_totales)}</h2>
-                    <p style="margin:0; font-size:12px; color:#94A3B8;">Histórico comprado.</p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 35px;">
+                <div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #3B82F6; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.2s;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                        <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Inversión / Compras</span>
+                        <span style="background:#EFF6FF; color:#3B82F6; padding:4px 8px; border-radius:8px; font-size:12px;">📦</span>
+                    </div>
+                    <h2 style="margin:0; color:#0F172A; font-size:1.8rem; font-weight: 800;">{fmt_cop(compras_totales)}</h2>
                 </div>
-                <div style="background: #F0FDF4; border: 1px solid #A7F3D0; padding: 20px; border-radius: 8px;">
-                    <p style="margin:0; font-size:12px; color:#047857; font-weight:bold; text-transform:uppercase;">Plata Ingresada</p>
-                    <h2 style="margin:5px 0; color:#059669; font-size:1.8rem;">{fmt_cop(recaudado)}</h2>
-                    <p style="margin:0; font-size:12px; color:#047857;">Pagos de clientes.</p>
+                
+                <div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #10B981; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.2s;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                        <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Dinero Recaudado</span>
+                        <span style="background:#ECFDF5; color:#10B981; padding:4px 8px; border-radius:8px; font-size:12px;">💵</span>
+                    </div>
+                    <h2 style="margin:0; color:#0F172A; font-size:1.8rem; font-weight: 800;">{fmt_cop(recaudado)}</h2>
                 </div>
-                <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 20px; border-radius: 8px;">
-                    <p style="margin:0; font-size:12px; color:#1D4ED8; font-weight:bold; text-transform:uppercase;">Plata en la Calle</p>
-                    <h2 style="margin:5px 0; color:#2563EB; font-size:1.8rem;">{fmt_cop(cartera_total)}</h2>
-                    <p style="margin:0; font-size:12px; color:#1D4ED8;">Deuda por cobrar.</p>
+                
+                <div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #8B5CF6; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.2s;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                        <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Plata en la Calle</span>
+                        <span style="background:#F5F3FF; color:#8B5CF6; padding:4px 8px; border-radius:8px; font-size:12px;">🤝</span>
+                    </div>
+                    <h2 style="margin:0; color:#0F172A; font-size:1.8rem; font-weight: 800;">{fmt_cop(cartera_total)}</h2>
                 </div>
-                <div style="background: #FEF2F2; border: 1px solid #FECACA; padding: 20px; border-radius: 8px;">
-                    <p style="margin:0; font-size:12px; color:#BE123C; font-weight:bold; text-transform:uppercase;">Gastos Totales</p>
-                    <h2 style="margin:5px 0; color:#DC2626; font-size:1.8rem;">{fmt_cop(gastos_totales)}</h2>
-                    <p style="margin:0; font-size:12px; color:#BE123C;">Operación e inversores.</p>
+                
+                <div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #EF4444; box-shadow: 0 4px 20px rgba(0,0,0,0.04); transition: transform 0.2s;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                        <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Gastos Operativos</span>
+                        <span style="background:#FEF2F2; color:#EF4444; padding:4px 8px; border-radius:8px; font-size:12px;">📉</span>
+                    </div>
+                    <h2 style="margin:0; color:#0F172A; font-size:1.8rem; font-weight: 800;">{fmt_cop(gastos_totales)}</h2>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
             # ==========================================
-            # 📈 SECCIÓN DE GRÁFICOS GERENCIALES INTERACTIVOS
+            # 📈 GRÁFICOS VISUALMENTE HERMOSOS (PLOTLY)
             # ==========================================
-            st.markdown("<h3 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>📈 Analítica Visual y Proyecciones</h3>", unsafe_allow_html=True)
+            st.markdown("""
+            <div style='display:flex; justify-content:space-between; align-items:end; margin-bottom:15px; border-bottom: 2px solid #F1F5F9; padding-bottom:10px;'>
+                <h3 style='color: #0F172A; margin: 0; font-size: 20px; font-weight: 800;'>📊 Inteligencia Visual de DaTo</h3>
+            </div>
+            """, unsafe_allow_html=True)
             
-            col_filtros, _ = st.columns([1, 3])
+            col_filtros, _ = st.columns([1, 4])
             with col_filtros:
-                year_seleccionado = st.selectbox("Filtrar Análisis por Año:", [2026, 2025, 2024], index=0)
+                year_seleccionado = st.selectbox("📅 Analizar Año:", [2026, 2025, 2024], index=0)
             
             g_col1, g_col2 = st.columns(2)
             
+            # ESTILO DE GRÁFICOS PREMIUM
+            layout_premium = dict(
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                margin=dict(l=10, r=10, t=40, b=20), height=340,
+                xaxis=dict(showline=False, showgrid=False, tickfont=dict(color='#64748B', family="Outfit")),
+                yaxis=dict(showline=False, showgrid=True, gridcolor='#F1F5F9', gridwidth=1, tickformat="$.2s", tickfont=dict(color='#94A3B8', family="Outfit")),
+                hoverlabel=dict(bgcolor="#0F172A", font_size=13, font_family="Outfit", font_color="#FFFFFF", bordercolor="#0F172A")
+            )
+            
             with g_col1:
-                st.markdown(f"<h4 style='color:#0F172A; font-size: 16px;'>📥 Evolución de Recaudo Real ({year_seleccionado})</h4>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.03);'><h4 style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>💵 Dinero Recaudado Mensual</h4>", unsafe_allow_html=True)
                 cursor.execute("""
                     SELECT DATE_FORMAT(p.fecha_pago, '%Y-%m') AS Mes, SUM(p.monto_recibido) AS Total
                     FROM Pagos p LEFT JOIN Creditos c ON p.id_credito = c.id_credito
@@ -683,17 +716,19 @@ try:
                 if datos_recaudo:
                     df_rec = pd.DataFrame(datos_recaudo)
                     fig_rec = go.Figure(go.Bar(
-                        x=df_rec['Mes'], y=df_rec['Total'], marker_color='#10B981', marker_line_color='#047857', marker_line_width=1.5, opacity=0.85,
+                        x=df_rec['Mes'], y=df_rec['Total'], 
+                        marker=dict(color='#10B981', opacity=0.9, line=dict(color='#059669', width=1), corneradius=4), # Bordes redondeados en barras (Plotly >2.28)
                         text=df_rec['Total'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
                         textposition='outside', textfont=dict(color='#475569', size=11, family="Outfit"),
-                        hovertemplate='<b>Mes:</b> %{x}<br><b>Recaudo:</b> $%{y:,.0f}<extra></extra>'
+                        hovertemplate='<b>%{x}</b><br>Recaudado: $%{y:,.0f}<extra></extra>'
                     ))
-                    fig_rec.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=30, b=0), height=350, xaxis=dict(showgrid=False, title="", tickfont=dict(color='#94A3B8')), yaxis=dict(showgrid=True, gridcolor='#F8FAFC', title="", tickformat="$.2s", tickfont=dict(color='#94A3B8')), hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0"))
+                    fig_rec.update_layout(**layout_premium)
                     st.plotly_chart(fig_rec, use_container_width=True, config={'displayModeBar': False})
-                else: st.info(f"Sin registros de recaudo para {year_seleccionado}.")
+                else: st.info("No hay recaudos registrados este año.")
+                st.markdown("</div>", unsafe_allow_html=True)
 
             with g_col2:
-                st.markdown(f"<h4 style='color:#0F172A; font-size: 16px;'>📈 Proyección de Cobro ({year_seleccionado})</h4>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.03);'><h4 style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>📈 Proyección de Crecimiento (Intereses)</h4>", unsafe_allow_html=True)
                 cursor.execute("""
                     SELECT DATE_FORMAT(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH), '%Y-%m') AS Mes, SUM(c.valor_cuota) AS Total
                     FROM Creditos c CROSS JOIN (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11) seq
@@ -704,137 +739,134 @@ try:
                 if datos_proy:
                     df_proy = pd.DataFrame(datos_proy)
                     fig_proy = go.Figure(go.Scatter(
-                        x=df_proy['Mes'], y=df_proy['Total'], mode='lines+markers+text', line=dict(color='#3B82F6', width=3, shape='spline'),
-                        marker=dict(size=8, color='#FFFFFF', line=dict(width=2, color='#3B82F6')), fill='tozeroy', fillcolor='rgba(59, 130, 246, 0.15)',
-                        text=df_proy['Total'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
-                        textposition='top center', textfont=dict(color='#475569', size=11, family="Outfit"), hovertemplate='<b>Mes:</b> %{x}<br><b>Proyectado:</b> $%{y:,.0f}<extra></extra>'
+                        x=df_proy['Mes'], y=df_proy['Total'], mode='lines+markers', 
+                        line=dict(color='#3B82F6', width=4, shape='spline'), 
+                        marker=dict(size=8, color='#FFFFFF', line=dict(width=2, color='#3B82F6')),
+                        fill='tozeroy', fillcolor='rgba(59, 130, 246, 0.15)',
+                        hovertemplate='<b>%{x}</b><br>Esperado: $%{y:,.0f}<extra></extra>'
                     ))
-                    fig_proy.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=30, b=0), height=350, xaxis=dict(showgrid=False, title="", tickfont=dict(color='#94A3B8')), yaxis=dict(showgrid=True, gridcolor='#F8FAFC', title="", tickformat="$.2s", tickfont=dict(color='#94A3B8')), hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0"))
+                    fig_proy.update_layout(**layout_premium)
                     st.plotly_chart(fig_proy, use_container_width=True, config={'displayModeBar': False})
-                else: st.info(f"Sin proyecciones estimadas para {year_seleccionado}.")
+                else: st.info("No hay proyecciones futuras.")
+                st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
+
+            # GRÁFICO FULL WIDTH: RIESGO VS LIQUIDEZ
+            st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.03);'><h4 style='color:#1E293B; font-size: 16px; margin:0 0 5px 0; font-weight:800;'>⚖️ Termómetro de Riesgo: Colocación vs. Recaudo</h4><p style='color:#64748B; font-size:13px; margin-bottom:20px;'>Compara la plata que salió de la caja (riesgo) contra la plata que regresó (liquidez real).</p>", unsafe_allow_html=True)
+            cursor.execute("""
+                SELECT DATE_FORMAT(fecha_inicio, '%Y-%m') AS Mes, SUM(monto_financiado) AS Colocado
+                FROM Creditos WHERE propietario_cartera = 'DaTo' AND YEAR(fecha_inicio) = %s
+                GROUP BY Mes ORDER BY Mes ASC
+            """, (year_seleccionado,))
+            df_colocado = pd.DataFrame(cursor.fetchall())
             
-            g_col3, g_col4 = st.columns(2)
+            if not df_colocado.empty and 'df_rec' in locals():
+                df_flujo = pd.merge(df_colocado, df_rec, on='Mes', how='outer').fillna(0)
+                df_flujo.rename(columns={'Total': 'Recaudado'}, inplace=True)
+                df_flujo = df_flujo.sort_values('Mes')
 
-            with g_col3:
-                st.markdown(f"<h4 style='color:#0F172A; font-size: 15px;'>⚖️ Colocación vs. Recaudo ({year_seleccionado})</h4>", unsafe_allow_html=True)
-                st.markdown("<p style='font-size:12px; color:#64748B;'>Compara la plata prestada vs. la plata que regresó al banco.</p>", unsafe_allow_html=True)
-                cursor.execute("""
-                    SELECT DATE_FORMAT(fecha_inicio, '%Y-%m') AS Mes, SUM(monto_financiado) AS Colocado
-                    FROM Creditos WHERE propietario_cartera = 'DaTo' AND YEAR(fecha_inicio) = %s
-                    GROUP BY Mes ORDER BY Mes ASC
-                """, (year_seleccionado,))
-                df_colocado = pd.DataFrame(cursor.fetchall())
+                fig_flujo = go.Figure()
+                fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Colocado'], name='Salió a la Calle (Prestado)', marker_color='#CBD5E1', opacity=0.9)) # Gris elegante
+                fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Recaudado'], name='Volvió a Caja (Recaudado)', marker_color='#10B981', opacity=0.9)) # Verde vibrante
                 
-                if not df_colocado.empty and 'df_rec' in locals():
-                    df_flujo = pd.merge(df_colocado, df_rec, on='Mes', how='outer').fillna(0)
-                    df_flujo.rename(columns={'Total': 'Recaudado'}, inplace=True)
-                    df_flujo = df_flujo.sort_values('Mes')
+                layout_flujo = layout_premium.copy()
+                layout_flujo.update(barmode='group', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(family="Outfit")), height=380)
+                fig_flujo.update_layout(**layout_flujo)
+                st.plotly_chart(fig_flujo, use_container_width=True, config={'displayModeBar': False})
+            else: 
+                st.info("Aún no hay datos cruzados suficientes para graficar.")
+            st.markdown("</div><br><br>", unsafe_allow_html=True)
 
-                    fig_flujo = go.Figure()
-                    fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Colocado'], name='Plata Prestada', marker_color='#F59E0B', opacity=0.85, hovertemplate='<b>Mes:</b> %{x}<br><b>Prestado:</b> $%{y:,.0f}<extra></extra>'))
-                    fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Recaudado'], name='Plata Recaudada', marker_color='#10B981', opacity=0.85, hovertemplate='<b>Mes:</b> %{x}<br><b>Recaudado:</b> $%{y:,.0f}<extra></extra>'))
-                    
-                    fig_flujo.update_layout(barmode='group', plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=10, b=0), height=320, legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1), xaxis=dict(showgrid=False, tickfont=dict(color='#94A3B8')), yaxis=dict(showgrid=True, gridcolor='#F8FAFC', tickformat="$.2s", tickfont=dict(color='#94A3B8')), hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0"))
-                    st.plotly_chart(fig_flujo, use_container_width=True, config={'displayModeBar': False})
-                else: st.info("No hay datos suficientes para comparar.")
-
-            with g_col4:
-                st.markdown(f"<h4 style='color:#0F172A; font-size: 15px;'>📱 Rentabilidad Neta por Marca (Top 5)</h4>", unsafe_allow_html=True)
-                st.markdown("<p style='font-size:12px; color:#64748B;'>Ganancia bruta comercial agrupada por marca.</p>", unsafe_allow_html=True)
-                cursor.execute("""
-                    SELECT i.marca AS Marca, SUM(c.precio_venta - i.costo_adquisicion) AS Margen_Bruto
-                    FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei JOIN Creditos c ON ci.id_credito = c.id_credito
-                    WHERE c.estado = 'Activo' OR c.estado = 'Pagado' GROUP BY Marca ORDER BY Margen_Bruto ASC LIMIT 5
-                """)
-                datos_marcas = cursor.fetchall()
-                if datos_marcas:
-                    df_marcas = pd.DataFrame(datos_marcas)
-                    fig_marcas = go.Figure(go.Bar(
-                        x=df_marcas['Margen_Bruto'], y=df_marcas['Marca'], orientation='h', marker_color='#8B5CF6', marker_line_color='#6D28D9', marker_line_width=1, opacity=0.85,
-                        text=df_marcas['Margen_Bruto'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
-                        textposition='auto', textfont=dict(color='#FFFFFF', size=11, family="Outfit"), hovertemplate='<b>%{y}</b><br><b>Margen:</b> $%{x:,.0f}<extra></extra>'
-                    ))
-                    fig_marcas.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=0, r=0, t=10, b=0), height=320, xaxis=dict(showgrid=True, gridcolor='#F8FAFC', tickformat="$.2s", tickfont=dict(color='#94A3B8')), yaxis=dict(showgrid=False, tickfont=dict(color='#1E293B', size=12, family="Outfit")), hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0"))
-                    st.plotly_chart(fig_marcas, use_container_width=True, config={'displayModeBar': False})
-                else: st.info("Faltan datos de inventario.")
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # 3. EXPLICACIÓN DETALLADA
+            # 3. EXPLICACIÓN DETALLADA (3 COLUMNAS HERMOSAS)
+            st.markdown("<h3 style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>📑 Auditoría Transparente (Tus -$8.9 Millones explicados)</h3>", unsafe_allow_html=True)
             col_det1, col_det2, col_det3 = st.columns(3)
 
             with col_det1:
                 st.markdown(f"""
-                <div style="background: {color_caja_bg}; border: 1px solid {color_caja_border}; padding: 20px; border-radius: 8px; height: 100%;">
-                    <h5 style="color:{color_caja_text}; margin-top:0;">🔍 Composición de Caja</h5>
-                    <div style="font-size: 14px;">
-                        <p style="margin-bottom:5px;"><b>(+) Entradas:</b></p>
-                        <ul style="margin-top:0; padding-left:20px; color:#475569;">
-                            <li>Capital: {fmt_cop(cap_ini)}</li>
-                            <li>Ingresos: {fmt_cop(recaudado)}</li>
-                        </ul>
-                        <p style="margin-bottom:5px;"><b>(-) Salidas:</b></p>
-                        <ul style="margin-top:0; padding-left:20px; color:#475569;">
-                            <li>Celulares: {fmt_cop(compras_totales)}</li>
-                            <li>Gastos: {fmt_cop(gastos_totales)}</li>
-                        </ul>
-                        <hr style="margin: 10px 0; border-color: {color_caja_border};">
-                        <p style="margin:0;"><b>= Liquidez Pura:</b> {fmt_cop(liquidez_banco)}</p>
-                        <p style="margin:0; font-size: 12px; color:#64748B;">*(Suma Bodega: {fmt_cop(bodega)})*</p>
-                        <hr style="margin: 10px 0; border-color: {color_caja_border};">
-                        <p style="margin:0;"><b>= SALDO OPERATIVO:</b> <span style="color:{color_caja_text}; font-weight:bold; font-size:16px;">{fmt_cop(caja_operativa)}</span></p>
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; height: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display:flex; align-items:center; margin-bottom:15px; border-bottom: 2px solid #F1F5F9; padding-bottom: 10px;">
+                        <span style="background:#F1F5F9; padding:6px; border-radius:8px; margin-right:10px;">🏦</span>
+                        <h5 style="color:#0F172A; margin:0; font-size:15px; font-weight:800;">El Origen de tu Caja</h5>
+                    </div>
+                    <div style="font-size: 13px; color:#475569;">
+                        <p style="margin:0 0 5px 0; color:#10B981; font-weight:700;">(+) ENTRADAS:</p>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Inversión Base:</span><b>{fmt_cop(cap_ini)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span>Recaudos Cuotas:</span><b style="color:#10B981;">{fmt_cop(recaudado)}</b></div>
+                        
+                        <p style="margin:0 0 5px 0; color:#EF4444; font-weight:700;">(-) SALIDAS:</p>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Compra Equipos:</span><b>{fmt_cop(compras_totales)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:3px;"><span>Gastos (Comis/Arriendo):</span><b>{fmt_cop(gastos_totales)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span>Plata guardada (Cadenas):</span><b style="color:#F59E0B;">{fmt_cop(ahorro_cadenas)}</b></div>
+                        
+                        <div style="background: {bg_badge}; padding: 15px; border-radius: 12px; margin-top: 15px; border: 1px solid {borde_badge};">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Efectivo Líquido Banco:</span><b>{fmt_cop(liquidez_banco)}</b></div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span>Equipos en Estante:</span><b>{fmt_cop(bodega)}</b></div>
+                            <hr style="margin:8px 0; border-color:{borde_badge};">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="font-weight:bold; color:{color_caja}; font-size:12px; text-transform:uppercase;">SALDO FINAL:</span>
+                                <b style="color:{color_caja}; font-size:18px;">{fmt_cop(caja_operativa)}</b>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
             with col_det2:
                 st.markdown(f"""
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 8px; height: 100%;">
-                    <h5 style="color:#1E293B; margin-top:0;">📈 Desglose del Futuro</h5>
-                    <div style="font-size: 14px; color:#475569;">
-                        <ul style="padding-left:20px;">
-                            <li><b>Capital Prestado:</b> {fmt_cop(cartera_capital)}</li>
-                            <li><b>Ganancia (Intereses):</b> <span style="color:#059669; font-weight:bold;">{fmt_cop(intereses_futuros)}</span></li>
-                        </ul>
-                        <hr style="margin: 10px 0; border-color: #E2E8F0;">
-                        <p style="margin:0;"><b>Total Cartera:</b> {fmt_cop(cartera_total)}</p>
-                        <br>
-                        <p style="color:#DC2626; font-size:13px; margin:0;"><b>Deuda Total DaTo (Pasivos):</b> {fmt_cop(pasivos_totales)}</p>
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; height: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display:flex; align-items:center; margin-bottom:15px; border-bottom: 2px solid #F1F5F9; padding-bottom: 10px;">
+                        <span style="background:#EFF6FF; padding:6px; border-radius:8px; margin-right:10px;">🤝</span>
+                        <h5 style="color:#0F172A; margin:0; font-size:15px; font-weight:800;">Estructura de la Deuda</h5>
+                    </div>
+                    <div style="font-size: 13px; color:#475569;">
+                        <p style="margin:0 0 10px 0; color:#3B82F6; font-weight:700;">LO QUE NOS DEBEN (ACTIVO):</p>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Costo del Teléfono (Fiado):</span><b>{fmt_cop(cartera_capital)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><span>Tu Ganancia (Intereses):</span><b style="color:#10B981;">{fmt_cop(intereses_futuros)}</b></div>
+                        <div style="background:#F8FAFC; padding:10px; border-radius:8px; display:flex; justify-content:space-between; border: 1px solid #E2E8F0;">
+                            <span style="font-weight:800; color:#1E293B;">TOTAL EN LA CALLE:</span>
+                            <b style="color:#3B82F6; font-size:14px;">{fmt_cop(cartera_total)}</b>
+                        </div>
+                        
+                        <p style="margin:25px 0 10px 0; color:#EF4444; font-weight:700;">LO QUE DEBEMOS (PASIVO):</p>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>A Fondeadores / Socios:</span><b style="color:#EF4444;">{fmt_cop(float(auditoria['deudas_fondeo']))}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Comisiones de Vendedores:</span><b style="color:#EF4444;">{fmt_cop(float(auditoria['comis_por_pagar']))}</b></div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
             with col_det3:
                 st.markdown(f"""
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 8px; height: 100%;">
-                    <h5 style="color:#1E293B; margin-top:0;">🧾 Desglose de Gastos ({fmt_cop(gastos_totales)})</h5>
-                    <div style="font-size: 14px; color:#475569;">
-                        <ul style="padding-left:20px;">
-                            <li><b>Fijos / Cadenas:</b> {fmt_cop(g_fijos)}</li>
-                            <li><b>Comisiones:</b> {fmt_cop(g_comis)}</li>
-                            <li><b>Pagos a Socios:</b> {fmt_cop(g_socios)}</li>
-                        </ul>
-                        <hr style="margin: 10px 0; border-color: #E2E8F0;">
-                        <p style="font-size:13px; color:#1E293B; font-weight:bold; margin-bottom:5px;">Top 3 Salidas Más Costosas:</p>
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; height: 100%; box-shadow: 0 4px 15px rgba(0,0,0,0.02);">
+                    <div style="display:flex; align-items:center; margin-bottom:15px; border-bottom: 2px solid #F1F5F9; padding-bottom: 10px;">
+                        <span style="background:#FEF2F2; padding:6px; border-radius:8px; margin-right:10px;">🧾</span>
+                        <h5 style="color:#0F172A; margin:0; font-size:15px; font-weight:800;">Hacia dónde se va el gasto</h5>
+                    </div>
+                    <div style="font-size: 13px; color:#475569;">
+                        <p style="margin:0 0 10px 0; color:#64748B; font-weight:700;">POR CATEGORÍAS ({fmt_cop(gastos_totales)}):</p>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Operativos (Arriendo, Luz):</span><b>{fmt_cop(g_fijos)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>Comisiones a Asesores:</span><b>{fmt_cop(g_comis)}</b></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:20px;"><span>Pago Rendimiento Socios:</span><b>{fmt_cop(g_socios)}</b></div>
+                        
+                        <p style="margin:0 0 10px 0; color:#64748B; font-weight:700; border-top: 1px dashed #E2E8F0; padding-top:15px;">TOP 3 FUGAS MÁS COSTOSAS:</p>
                 """, unsafe_allow_html=True)
                 
-                cursor.execute("SELECT descripcion, SUM(monto) as t FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)') GROUP BY descripcion ORDER BY t DESC LIMIT 3")
+                cursor.execute("SELECT descripcion, SUM(monto) as t FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)', 'Aporte a Cadena / Fondo Fijo') GROUP BY descripcion ORDER BY t DESC LIMIT 3")
                 for fila in cursor.fetchall():
-                    st.markdown(f"<p style='margin:0; font-size:12px; color:#475569;'>• {fila['descripcion'][:25]}... : <b>{fmt_cop(fila['t'])}</b></p>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='display:flex; justify-content:space-between; margin-bottom:6px;'><span style='color:#64748B; font-size:12px;'>• {fila['descripcion'][:20]}...</span><b style='color:#0F172A; font-size:12px;'>{fmt_cop(fila['t'])}</b></div>", unsafe_allow_html=True)
                 st.markdown("</div></div>", unsafe_allow_html=True)
 
-            # 4. MÓDULO APARTE DE RENTABILIDAD Y CADENAS
-            st.markdown("<br><h4 style='color: #047857; margin-bottom: 15px; border-bottom: 2px solid #A7F3D0; padding-bottom: 10px;'>💎 Rentabilidad Extra: Auditoría de Cadenas</h4>", unsafe_allow_html=True)
+            # 4. MÓDULO DE CADENAS (VAULT DESIGN)
+            st.markdown("<br><h3 style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>💎 Bóveda de Capitalización (Cadenas)</h3>", unsafe_allow_html=True)
             
-            c_cad1, c_cad2 = st.columns([1, 2])
+            c_cad1, c_cad2 = st.columns([1, 2.5])
             with c_cad1:
                 st.markdown(f"""
-                <div style="background: #F0FDF4; border: 1px solid #10B981; padding: 25px; border-radius: 8px; text-align: center;">
-                    <p style="margin: 0; color: #065F46; font-size: 13px; font-weight: 700; text-transform: uppercase;">Total Ahorrado en Cadenas</p>
-                    <h1 style="margin: 10px 0; color: #10B981; font-size: 2.8rem; font-weight: 800;">{fmt_cop(ahorro_cadenas)}</h1>
-                    <p style="margin: 0; color: #047857; font-size: 12px;">Ganancia latente en curso.</p>
+                <div style="background: linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%); border: 1px solid #86EFAC; padding: 35px 25px; border-radius: 16px; text-align: center; height: 100%; box-shadow: 0 10px 25px rgba(16, 185, 129, 0.1);">
+                    <div style="background:#FFFFFF; width:50px; height:50px; border-radius:50%; display:flex; justify-content:center; align-items:center; margin: 0 auto 15px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.05); font-size:20px;">💰</div>
+                    <p style="margin: 0; color: #047857; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Ahorro Acumulado</p>
+                    <h1 style="margin: 10px 0; color: #065F46; font-size: 3rem; font-weight: 900;">{fmt_cop(ahorro_cadenas)}</h1>
+                    <p style="margin: 0; color: #10B981; font-size: 13px; font-weight:500;">Dinero ciego. Rentabilidad intocable.</p>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -843,9 +875,12 @@ try:
                 df_cadenas = pd.DataFrame(cursor.fetchall())
                 if not df_cadenas.empty:
                     df_cadenas['Aporte Acumulado'] = df_cadenas['Aporte Acumulado'].apply(fmt_cop)
+                    # Contenedor limpio para la tabla
+                    st.markdown("<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 16px; padding: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);'>", unsafe_allow_html=True)
                     st.dataframe(df_cadenas, hide_index=True, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
                 else:
-                    st.info("No hay pagos de cadenas registrados.")
+                    st.info("No hay aportes a cadenas registrados.")
                     
 
         elif menu_seleccionado == "simulador":
