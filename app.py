@@ -543,9 +543,11 @@ try:
             if st.sidebar.button("Cerrar Sesión", width='stretch'): st.session_state['logeado'] = False; st.rerun()
 
         if menu_seleccionado == "inicio":
-            st.markdown("<div style='height: 1vh;'></div>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
             
-            # --- CEREBRO FINANCIERO: EXTRACCIÓN DE ABSOLUTAMENTE TODOS LOS DATOS ---
+            # ==========================================
+            # 🧠 MOTOR FINANCIERO: EXTRACCIÓN MASIVA DE DATOS
+            # ==========================================
             cursor.execute("""
                 SELECT 
                     (SELECT 102080000) as cap_ini,
@@ -558,17 +560,18 @@ try:
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Por Pagar') as comis_por_pagar,
                     (SELECT IFNULL(SUM(saldo_pendiente), 0) FROM Deudas_Fondeo) as deudas_fondeo,
                     (SELECT SUM((c.valor_cuota * c.plazo_meses) - IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo') as cartera_proyectada,
-                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Vendido') as t_vendidos,
-                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Disponible') as t_stock,
-                    (SELECT COUNT(*) FROM Clientes) as t_clientes,
-                    (SELECT COUNT(*) FROM Creditos WHERE estado = 'Activo') as c_activos
+                    (SELECT SUM(c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo') as cartera_capital_pendiente,
+                    (SELECT SUM(valor_cuota) FROM Creditos WHERE estado = 'Activo' AND propietario_cartera = 'DaTo') as recaudo_esperado_mes,
+                    (SELECT COUNT(*) FROM Clientes) as total_clientes,
+                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Vendido') as total_vendidos
             """)
             auditoria = cursor.fetchone()
             
+            # --- ASIGNACIÓN DE VARIABLES ---
             cap_ini = float(auditoria['cap_ini'])
             recaudado = float(auditoria['recaudado_historico'])
-            bodega = float(auditoria['bodega'])
             compras_totales = float(auditoria['compras_totales'])
+            bodega = float(auditoria['bodega'])
             
             g_fijos = float(auditoria['g_fijos'])
             g_comis_pagadas = float(auditoria['g_comis_pagadas'])
@@ -576,100 +579,99 @@ try:
             gastos_totales = g_fijos + g_comis_pagadas + g_socios
             
             pasivos_totales = float(auditoria['comis_por_pagar']) + float(auditoria['deudas_fondeo'])
-            cartera_esperada = float(auditoria['cartera_proyectada'] or 0)
             
-            # MATEMÁTICA ESTRUCTURAL
+            # PROYECCIONES FUTURAS
+            cartera_total_esperada = float(auditoria['cartera_proyectada'] or 0)
+            cartera_capital = float(auditoria['cartera_capital_pendiente'] or 0)
+            intereses_futuros = cartera_total_esperada - cartera_capital
+            if intereses_futuros < 0: intereses_futuros = 0
+            
+            cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
+            
+            # LA MATEMÁTICA CRÍTICA (EL DESGLOSE DE TUS -$9 MILLONES)
             liquidez_banco = cap_ini + recaudado - compras_totales - gastos_totales
             saldo_operativo = liquidez_banco + bodega
-            patrimonio_bruto = liquidez_banco + bodega + cartera_esperada
+            
+            # RENTABILIDAD GLOBAL
+            patrimonio_bruto = liquidez_banco + bodega + cartera_total_esperada
             patrimonio_neto = patrimonio_bruto - pasivos_totales
             utilidad_proyectada = patrimonio_neto - cap_ini
-
-            # EXTRAER DETALLE DE LOS GASTOS FIJOS PARA MOSTRARLOS
-            cursor.execute("SELECT descripcion, SUM(monto) as total FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)') GROUP BY descripcion ORDER BY total DESC LIMIT 5")
-            top_gastos = cursor.fetchall()
-            df_gastos_top = pd.DataFrame(top_gastos)
-            if not df_gastos_top.empty:
-                df_gastos_top['total'] = df_gastos_top['total'].apply(fmt_cop)
-                df_gastos_top.rename(columns={'descripcion': 'Concepto', 'total': 'Valor Pagado'}, inplace=True)
-
+            
             nombre_usuario_formateado = st.session_state['nombre_usuario'].split(" ")[0].capitalize()
 
-            # --- UI: CENTRO DE CONTROL DENSO ---
-            st.markdown(f"""
-            <div style="background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #E2E8F0; padding-bottom: 20px; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-                    <div>
-                        <h2 style='margin: 0; color: #1E293B; font-weight: 800;'>Centro de Control | DaTo</h2>
-                        <p style='margin: 0; color: #64748B;'>Visión 360° de Operaciones, Finanzas y Deuda Activa.</p>
-                    </div>
-                    <div style="text-align: right; background: #F0FDF4; padding: 15px 25px; border-radius: 12px; border: 1px solid #A7F3D0;">
-                        <p style="margin: 0; font-size: 13px; color: #047857; font-weight: 800; text-transform: uppercase;">Ganancia Neta (Utilidad Real)</p>
-                        <h1 style="margin: 0; color: #10B981; font-size: 2.8rem; font-weight: 900;">{fmt_cop(utilidad_proyectada)}</h1>
-                    </div>
-                </div>
-                
-                <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                    <div style="flex: 1; min-width: 250px; background: #F8FAFC; padding: 20px; border-radius: 8px; border-left: 5px solid #0052D4;">
-                        <p style="margin: 0; font-size: 13px; color: #64748B; font-weight: 700; text-transform: uppercase;">Saldo Operativo Base</p>
-                        <h2 style="margin: 5px 0 0 0; color: #1E293B;">{fmt_cop(saldo_operativo)}</h2>
-                        <p style="margin: 5px 0 0 0; font-size: 12px; color: #94A3B8;">Caja compensada con el inventario físico.</p>
-                    </div>
-                    <div style="flex: 1; min-width: 250px; background: #FFFBEB; padding: 20px; border-radius: 8px; border-left: 5px solid #F59E0B;">
-                        <p style="margin: 0; font-size: 13px; color: #B45309; font-weight: 700; text-transform: uppercase;">Cartera en la Calle</p>
-                        <h2 style="margin: 5px 0 0 0; color: #92400E;">{fmt_cop(cartera_esperada)}</h2>
-                        <p style="margin: 5px 0 0 0; font-size: 12px; color: #D97706;">Dinero pendiente por cobrar a los {auditoria['c_activos']} créditos activos.</p>
-                    </div>
-                    <div style="flex: 1; min-width: 250px; background: #FEF2F2; padding: 20px; border-radius: 8px; border-left: 5px solid #DC2626;">
-                        <p style="margin: 0; font-size: 13px; color: #9F1239; font-weight: 700; text-transform: uppercase;">Efectivo Líquido Bancario</p>
-                        <h2 style="margin: 5px 0 0 0; color: #7F1D1D;">{fmt_cop(liquidez_banco)}</h2>
-                        <p style="margin: 5px 0 0 0; font-size: 12px; color: #EF4444;">Billetes puros. Es negativo por los {fmt_cop(bodega)} invertidos en mercancía.</p>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # --- DESGLOSE DETALLADO EN 3 COLUMNAS ---
-            c1, c2, c3 = st.columns(3)
+            # ==========================================
+            # 🎨 UI: TABLERO GERENCIAL DETALLADO
+            # ==========================================
             
-            with c1:
-                st.markdown("<h4 style='color:#0052D4; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>📥 Ingresos y Ventas</h4>", unsafe_allow_html=True)
-                st.markdown(f"""
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#64748B;">Capital Inicial Inyectado</span><b style="color:#1E293B;">{fmt_cop(cap_ini)}</b></div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#64748B;">Total Recaudado (Cuotas)</span><b style="color:#059669;">{fmt_cop(recaudado)}</b></div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#64748B;">Equipos Vendidos Históricos</span><b style="color:#1E293B;">{auditoria['t_vendidos']} unds</b></div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#64748B;">Base de Clientes</span><b style="color:#1E293B;">{auditoria['t_clientes']} registros</b></div>
-                </div>
-                """, unsafe_allow_html=True)
+            st.title(f"Tablero de Control DaTo 🚀")
+            st.write(f"Bienvenido {nombre_usuario_formateado}. Aquí está la radiografía exhaustiva de tu dinero.")
+            st.divider()
 
-            with c2:
-                st.markdown("<h4 style='color:#DC2626; border-bottom: 2px solid #FECACA; padding-bottom: 10px;'>🧾 Desglose Exacto de Gastos</h4>", unsafe_allow_html=True)
-                st.markdown(f"""
-                <div style="background: #FFF1F2; border: 1px solid #FECACA; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#9F1239; font-weight:bold;">Total Gastado:</span><b style="color:#BE123C; font-size:16px;">{fmt_cop(gastos_totales)}</b></div>
-                    <hr style="border-color: #FECACA; margin: 10px 0;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#7F1D1D;">1. Gastos Fijos (Cadenas, etc)</span><b style="color:#9F1239;">{fmt_cop(g_fijos)}</b></div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#7F1D1D;">2. Comisiones Vendedores</span><b style="color:#9F1239;">{fmt_cop(g_comis_pagadas)}</b></div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#7F1D1D;">3. Pagos / Rendimientos Socios</span><b style="color:#9F1239;">{fmt_cop(g_socios)}</b></div>
-                </div>
-                """, unsafe_allow_html=True)
-                if not df_gastos_top.empty:
-                    st.caption("Top Movimientos Fijos:")
-                    st.dataframe(df_gastos_top, hide_index=True, use_container_width=True)
+            # --- SECCIÓN 1: LA REALIDAD DE LA CAJA (Tus famosos -$9 Millones) ---
+            st.subheader("1. Estado Actual de Caja (El Descuadre Explicado)")
+            st.info("¿De dónde salen los saldos negativos? Aquí está la matemática exacta de cómo tu efectivo se transformó en activos (mercancía).")
+            
+            col_caja1, col_caja2, col_caja3 = st.columns(3)
+            col_caja1.metric("🏦 Billetes en Banco (Liquidez Real)", fmt_cop(liquidez_banco), "Dinero cruzado al centavo")
+            col_caja2.metric("📦 Mercancía en Bodega (Activo Físico)", fmt_cop(bodega), "Plata congelada en estantería")
+            col_caja3.metric("📉 Saldo Operativo (Lo que tienes en tu Excel)", fmt_cop(saldo_operativo), "Liquidez + Bodega")
+            
+            st.caption(f"**Explicación Matemática:** Empezaste con {fmt_cop(cap_ini)} + Recaudaste {fmt_cop(recaudado)} - Pagaste en celulares {fmt_cop(compras_totales)} - Pagaste en gastos {fmt_cop(gastos_totales)} = Tu banco quedó en **{fmt_cop(liquidez_banco)}**. Al sumarle tus celulares en bodega ({fmt_cop(bodega)}), llegas exactamente a los **{fmt_cop(saldo_operativo)}**.")
+            
+            st.divider()
 
-            with c3:
-                st.markdown("<h4 style='color:#059669; border-bottom: 2px solid #A7F3D0; padding-bottom: 10px;'>📦 Inventario y Pasivos</h4>", unsafe_allow_html=True)
-                st.markdown(f"""
-                <div style="background: #F0FDF4; border: 1px solid #A7F3D0; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#065F46;">Histórico de Compras</span><b style="color:#047857;">{fmt_cop(compras_totales)}</b></div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#065F46;">Stock Disponible</span><b style="color:#047857;">{auditoria['t_stock']} unds</b></div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#065F46;">Dinero en Bodega</span><b style="color:#047857;">{fmt_cop(bodega)}</b></div>
-                    <hr style="border-color: #A7F3D0; margin: 10px 0;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#065F46;">Deuda a Fondeadores</span><b style="color:#DC2626;">{fmt_cop(float(auditoria['deudas_fondeo']))}</b></div>
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color:#065F46;">Comisiones por Pagar</span><b style="color:#DC2626;">{fmt_cop(float(auditoria['comis_por_pagar']))}</b></div>
-                </div>
-                """, unsafe_allow_html=True)
+            # --- SECCIÓN 2: PROYECCIÓN FUTURA (El motor del negocio) ---
+            st.subheader("2. Flujo Futuro: ¿Cuánto dinero vamos a recibir?")
+            st.success("Esta es la plata viva que está trabajando en la calle. Si todos tus clientes activos pagan sus cuotas acordadas, esto es lo que ingresará a DaTo.")
+            
+            col_fut1, col_fut2, col_fut3 = st.columns(3)
+            col_fut1.metric("🤝 Capital Prestado Pendiente", fmt_cop(cartera_capital), "Costo de los celulares fiados")
+            col_fut2.metric("📈 Intereses Proyectados", fmt_cop(intereses_futuros), "Tu ganancia por fiar")
+            col_fut3.metric("💰 Total a Recibir (Cartera Global)", fmt_cop(cartera_total_esperada), "Capital + Intereses")
+
+            st.markdown(f"**📅 Pronóstico para este mes:** Si todos los clientes pagan su cuota mensual juiciosos, DaTo recibirá **{fmt_cop(cuotas_este_mes)}** en efectivo fresco en los próximos 30 días.")
+            
+            st.divider()
+
+            # --- SECCIÓN 3: RENTABILIDAD TOTAL (La Ganancia Neta) ---
+            st.subheader("3. Valoración de la Empresa y Utilidad")
+            st.warning("¿Por qué la ganancia es de 'solo' 7 millones? Porque el sistema ya le devolvió imaginariamente a tu bolsillo los $102 millones que invertiste, y ya pagó los $27 millones en gastos operativos. Es decir, cuando recojas toda la plata, tendrás tus $102M íntegros + estos $7M libres.")
+            
+            col_val1, col_val2, col_val3 = st.columns(3)
+            col_val1.metric("🏢 Valor Total de Activos", fmt_cop(patrimonio_bruto), f"Caja + Bodega + Cartera")
+            col_val2.metric("🛡️ Patrimonio Neto", fmt_cop(patrimonio_neto), f"Activos menos {fmt_cop(pasivos_totales)} en deudas")
+            col_val3.metric("💎 Ganancia Neta Libre (Utilidad)", fmt_cop(utilidad_proyectada), "Plata 100% tuya")
+
+            st.divider()
+
+            # --- SECCIÓN 4: RADIOGRAFÍA DEL NEGOCIO (Históricos de Entradas y Salidas) ---
+            st.subheader("4. Libro Mayor Histórico (Entradas y Salidas Totales)")
+            
+            r_col1, r_col2 = st.columns(2)
+            
+            with r_col1:
+                st.markdown("#### 📥 Lo que ha ENTRADO")
+                st.write(f"- **Capital Semilla Inyectado:** {fmt_cop(cap_ini)}")
+                st.write(f"- **Total Recaudado (Cuotas pagadas):** {fmt_cop(recaudado)}")
+                st.write(f"- **Total Equipos Vendidos:** {auditoria['total_vendidos']} unidades")
+                st.write(f"- **Base de Clientes:** {auditoria['total_clientes']} personas")
+                
+            with r_col2:
+                st.markdown("#### 📤 Lo que ha SALIDO")
+                st.write(f"- **Total Comprado en Mercancía:** {fmt_cop(compras_totales)}")
+                st.write(f"- **Gastos Fijos (Cadenas, Arriendo, Luz):** {fmt_cop(g_fijos)}")
+                st.write(f"- **Comisiones Pagadas a Vendedores:** {fmt_cop(g_comis_pagadas)}")
+                st.write(f"- **Rendimientos Pagados a Socios:** {fmt_cop(g_socios)}")
+                st.markdown(f"**Total Histórico de Gastos:** <span style='color:red;'>{fmt_cop(gastos_totales)}</span>", unsafe_allow_html=True)
+                
+                # Top 5 Gastos Fijos
+                st.markdown("###### Detalle de Gastos Fijos:")
+                cursor.execute("SELECT descripcion as 'Concepto', SUM(monto) as 'Total Pagado' FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)') GROUP BY descripcion ORDER BY SUM(monto) DESC LIMIT 5")
+                df_top_gastos = pd.DataFrame(cursor.fetchall())
+                if not df_top_gastos.empty:
+                    df_top_gastos['Total Pagado'] = df_top_gastos['Total Pagado'].apply(fmt_cop)
+                    st.dataframe(df_top_gastos, hide_index=True, use_container_width=True)
+                    
 
         elif menu_seleccionado == "simulador":
             st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
