@@ -578,10 +578,11 @@ try:
                     (SELECT COUNT(*) FROM Creditos WHERE estado = 'Activo') as creditos_activos,
                     (SELECT COUNT(DISTINCT c.id_credito) FROM Creditos c WHERE c.estado = 'Activo' AND c.id_credito NOT IN (SELECT p.id_credito FROM Pagos p WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as creditos_en_riesgo,
                     
+                    -- GANANCIA TOTAL HISTÓRICA (Venta de equipos + Intereses de TODOS los tiempos, activos y pagados)
                     (SELECT SUM(
                         (c.precio_venta - IFNULL((SELECT SUM(i.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = c.id_credito), 0)) + 
                         ((c.valor_cuota * c.plazo_meses) - c.monto_financiado)
-                    ) FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo') as ganancia_total_proyectada
+                    ) FROM Creditos c WHERE c.propietario_cartera = 'DaTo') as ganancia_historica_total
             """)
             auditoria = cursor.fetchone()
             
@@ -605,19 +606,21 @@ try:
             if intereses_futuros < 0: intereses_futuros = 0
             
             cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
-            ganancia_proyectada = float(auditoria['ganancia_total_proyectada'] or 0)
+            ganancia_historica = float(auditoria['ganancia_historica_total'] or 0)
             
             # --- MATEMÁTICA EXACTA Y KPIs EXTRA ---
             liquidez_banco = cap_ini + recaudado - compras_totales - gastos_totales - ahorro_cadenas
             caja_operativa = liquidez_banco + bodega
             
+            # VALOR DE LA EMPRESA (Patrimonio Neto)
             patrimonio_neto = caja_operativa + cartera_total + ahorro_cadenas - pasivos_totales
             utilidad_neta = patrimonio_neto - cap_ini
             roi_porcentaje = (utilidad_neta / cap_ini) * 100 if cap_ini > 0 else 0
             
             riesgo_mora = int(auditoria['creditos_en_riesgo'])
+            nombre_usuario_formateado = st.session_state['nombre_usuario'].split(" ")[0].capitalize()
 
-            # Variables de Diseño y Colores Dinámicos
+            # Lógica de Colores Dinámicos (Forzando estilos para evitar el tema oscuro)
             es_negativo = caja_operativa < 0
             color_caja = "#EF4444" if es_negativo else "#10B981"
             bg_hero = "linear-gradient(135deg, #FEF2F2 0%, #FFFFFF 100%)" if es_negativo else "linear-gradient(135deg, #F0FDF4 0%, #FFFFFF 100%)"
@@ -630,6 +633,7 @@ try:
             # 🎨 UI GERENCIAL: BRILLANTE Y DE ALTO CONTRASTE
             # ==========================================
             
+            # 1. ENCABEZADO PRINCIPAL (HERO CARD - LIGHT MODE OBLIGADO)
             html_hero = f"""
 <div style="background: {bg_hero}; padding: 35px 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 25px; margin-bottom: 20px; border: 1px solid {border_hero}; position: relative; overflow: hidden;">
 <div style="z-index: 1;">
@@ -651,6 +655,7 @@ try:
 """
             st.markdown(html_hero, unsafe_allow_html=True)
 
+            # 2. MINI-TARJETAS (CON GANANCIA HISTÓRICA TOTAL)
             html_mini = f"""
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 25px;">
 <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
@@ -669,14 +674,15 @@ try:
 <h3 style="margin: 0; color: #10B981; font-size: 1.4rem; font-weight: 800;">{fmt_cop(patrimonio_neto)}</h3>
 </div>
 <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 15px; border-radius: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
-<span style="font-size: 22px;">🚀</span>
-<p style="margin: 5px 0 0 0; font-size: 10px; color: #1D4ED8; font-weight: 800; text-transform: uppercase;">Ganancia Neta Esperada</p>
-<h3 style="margin: 0; color: #2563EB; font-size: 1.4rem; font-weight: 800;">{fmt_cop(ganancia_proyectada)}</h3>
+<span style="font-size: 22px;">🏆</span>
+<p style="margin: 5px 0 0 0; font-size: 10px; color: #1D4ED8; font-weight: 800; text-transform: uppercase;">Ganancia Histórica Total</p>
+<h3 style="margin: 0; color: #2563EB; font-size: 1.4rem; font-weight: 800;">{fmt_cop(ganancia_historica)}</h3>
 </div>
 </div>
 """
             st.markdown(html_mini, unsafe_allow_html=True)
 
+            # 3. RADIOGRAFÍA FINANCIERA (TARJETAS GRANDES BLANCAS)
             html_radiografia = f"""
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; margin-bottom: 35px;">
 <div style="background: #FFFFFF; border: 1px solid #F1F5F9; padding: 25px; border-radius: 16px; border-bottom: 4px solid #3B82F6; box-shadow: 0 4px 20px rgba(0,0,0,0.04);">
@@ -711,6 +717,9 @@ try:
 """
             st.markdown(html_radiografia, unsafe_allow_html=True)
 
+            # ==========================================
+            # 📈 GRÁFICOS VISUALMENTE HERMOSOS (PLOTLY)
+            # ==========================================
             st.markdown("""
 <div style='display:flex; justify-content:space-between; align-items:end; margin-bottom:15px; border-bottom: 2px solid #F1F5F9; padding-bottom:10px;'>
 <h3 style='color: #0F172A; margin: 0; font-size: 20px; font-weight: 800;'>📊 Inteligencia Visual de DaTo</h3>
