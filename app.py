@@ -546,7 +546,7 @@ try:
             st.markdown("<div style='height: 1vh;'></div>", unsafe_allow_html=True)
             
             # ==========================================
-            # 🧠 MOTOR FINANCIERO ABSOLUTO (LA VERDAD DE DATO)
+            # 🧠 MOTOR FINANCIERO Y AUDITORÍA DE DATOS
             # ==========================================
             cursor.execute("""
                 SELECT 
@@ -594,73 +594,130 @@ try:
             
             cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
             
-            # --- LA MATEMÁTICA EXACTA DE TU EXCEL ---
+            # --- MATEMÁTICA DE CAJA Y ROI ---
             liquidez_banco = cap_ini + recaudado - compras_totales - gastos_totales
             caja_operativa = liquidez_banco + bodega
-            ganancia_libre_final = caja_operativa - cap_ini + cartera_total - pasivos_totales
+            
+            patrimonio_neto = caja_operativa + cartera_total - pasivos_totales
+            utilidad_neta = patrimonio_neto - cap_ini
+            
+            # CÁLCULO DE ROI SOBRE LOS 102.080.000
+            roi_porcentaje = (utilidad_neta / cap_ini) * 100
             
             nombre_usuario_formateado = st.session_state['nombre_usuario'].split(" ")[0].capitalize()
 
-            # Lógica de colores sutiles
-            color_caja_text = "#DC2626" if caja_operativa < 0 else "#059669" # Rojo sutil o verde sutil
-            color_caja_bg = "#FEF2F2" if caja_operativa < 0 else "#F0FDF4"
-            color_caja_border = "#FECACA" if caja_operativa < 0 else "#A7F3D0"
-
             # ==========================================
-            # 🎨 INTERFAZ VISUAL: CLEAN & CORPORATE
+            # 🎨 INTERFAZ GRÁFICA GERENCIAL (CFO LEVEL)
             # ==========================================
             
-            # 1. TARJETÓN PRINCIPAL (Blanco y Limpio)
+            # 1. TARJETÓN PRINCIPAL (Caja + Proyección + ROI)
             st.markdown(f"""
             <div style="background: #FFFFFF; padding: 30px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
                 <div>
                     <h4 style="margin: 0; color: #64748B; text-transform: uppercase; letter-spacing: 1px; font-size: 13px;">Saldo Operativo Real (Tu Caja)</h4>
-                    <h1 style="margin: 5px 0 0 0; font-size: 3.2rem; color: {color_caja_text}; font-weight: 800;">{fmt_cop(caja_operativa)}</h1>
-                    <p style="margin: 5px 0 0 0; color: #64748B; font-size: 13px;">Billetes en Banco ({fmt_cop(liquidez_banco)}) + Equipos en Bodega ({fmt_cop(bodega)})</p>
+                    <h1 style="margin: 5px 0 0 0; font-size: 3rem; color: {'#DC2626' if caja_operativa < 0 else '#059669'}; font-weight: 800;">{fmt_cop(caja_operativa)}</h1>
+                    <p style="margin: 5px 0 0 0; color: #64748B; font-size: 13px;">Bancos: {fmt_cop(liquidez_banco)} | Bodega: {fmt_cop(bodega)}</p>
                 </div>
-                <div style="background: #F0FDF4; padding: 20px 30px; border-radius: 12px; text-align: right; border: 1px solid #A7F3D0; min-width: 250px;">
-                    <p style="margin:0; color:#047857; font-size: 12px; font-weight: bold; text-transform: uppercase;">Proyección de Ingresos Este Mes</p>
-                    <h2 style="margin:0; color:#059669; font-size: 2.2rem; font-weight: 800;">{fmt_cop(cuotas_este_mes)}</h2>
-                    <p style="margin:5px 0 0 0; color:#047857; font-size: 12px;">Dinero por cuotas a ingresar en 30 días</p>
+                <div style="background: #F0FDF4; padding: 15px 25px; border-radius: 12px; text-align: right; border: 1px solid #A7F3D0;">
+                    <p style="margin:0; color:#047857; font-size: 12px; font-weight: bold; text-transform: uppercase;">ROI Consolidado del Negocio</p>
+                    <h2 style="margin:0; color:#059669; font-size: 2.2rem; font-weight: 800;">{roi_porcentaje:.2f}%</h2>
+                    <p style="margin:5px 0 0 0; color:#047857; font-size: 11px;">Sobre capital base de {fmt_cop(cap_ini)}</p>
+                </div>
+                <div style="background: #EFF6FF; padding: 15px 25px; border-radius: 12px; text-align: right; border: 1px solid #BFDBFE;">
+                    <p style="margin:0; color:#1D4ED8; font-size: 12px; font-weight: bold; text-transform: uppercase;">Proyección Este Mes</p>
+                    <h2 style="margin:0; color:#2563EB; font-size: 2.2rem; font-weight: 800;">{fmt_cop(cuotas_este_mes)}</h2>
+                    <p style="margin:5px 0 0 0; color:#1D4ED8; font-size: 11px;">Recaudo estimado en 30 días</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            # 2. BLOQUE DE MÉTRICAS GLOBALES (Cajas HTML con colores sutiles)
-            st.markdown("<h4 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>📊 Radiografía del Negocio</h4>", unsafe_allow_html=True)
+            # 2. BLOQUE DE MÉTRICAS GLOBALES
+            st.markdown("<h4 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>📊 Radiografía Financiera</h4>", unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 25px;">
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 8px;">
-                    <p style="margin:0; font-size:12px; color:#64748B; font-weight:bold; text-transform:uppercase;">Total Invertido</p>
-                    <h2 style="margin:5px 0; color:#1E293B; font-size:1.8rem;">{fmt_cop(compras_totales)}</h2>
-                    <p style="margin:0; font-size:12px; color:#94A3B8;">Histórico en mercancía.</p>
-                </div>
-                <div style="background: #F0FDF4; border: 1px solid #A7F3D0; padding: 20px; border-radius: 8px;">
-                    <p style="margin:0; font-size:12px; color:#047857; font-weight:bold; text-transform:uppercase;">Plata Ingresada</p>
-                    <h2 style="margin:5px 0; color:#059669; font-size:1.8rem;">{fmt_cop(recaudado)}</h2>
-                    <p style="margin:0; font-size:12px; color:#047857;">Pagos reales de clientes.</p>
-                </div>
-                <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 20px; border-radius: 8px;">
-                    <p style="margin:0; font-size:12px; color:#1D4ED8; font-weight:bold; text-transform:uppercase;">Plata en la Calle</p>
-                    <h2 style="margin:5px 0; color:#2563EB; font-size:1.8rem;">{fmt_cop(cartera_total)}</h2>
-                    <p style="margin:0; font-size:12px; color:#1D4ED8;">Deuda total por cobrar.</p>
-                </div>
-                <div style="background: #FEF2F2; border: 1px solid #FECACA; padding: 20px; border-radius: 8px;">
-                    <p style="margin:0; font-size:12px; color:#BE123C; font-weight:bold; text-transform:uppercase;">Gastos Totales</p>
-                    <h2 style="margin:5px 0; color:#DC2626; font-size:1.8rem;">{fmt_cop(gastos_totales)}</h2>
-                    <p style="margin:0; font-size:12px; color:#BE123C;">Operación e inversores.</p>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Invertido", fmt_cop(compras_totales), "Histórico comprado")
+            c2.metric("Plata Ingresada", fmt_cop(recaudado), "Pagos de clientes")
+            c3.metric("Plata en la Calle", fmt_cop(cartera_total), "Deuda por cobrar")
+            c4.metric("Gastos Totales", fmt_cop(gastos_totales), "Operación e inversores", delta_color="inverse")
 
-            # 3. EXPLICACIÓN AL DETALLE (Usando Markdown nativo para evitar roturas)
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # ==========================================
+            # 📈 SECCIÓN DE GRÁFICOS GERENCIALES (ÚLTIMO AÑO)
+            # ==========================================
+            st.markdown("<h3 style='color: #0052D4; margin-bottom: 5px;'>📈 Analítica Visual y Proyecciones Gerenciales</h3>", unsafe_allow_html=True)
+            st.markdown("Evolución histórica de recaudo real y comportamiento del flujo futuro.")
+            
+            g_col1, g_col2 = st.columns(2)
+            
+            with g_col1:
+                st.markdown("#### 📥 Dinero Recaudado por Mes (Último Año)")
+                cursor.execute("""
+                    SELECT 
+                        DATE_FORMAT(p.fecha_pago, '%Y-%m') AS Mes, 
+                        SUM(p.monto_recibido) AS Total_Recaudado
+                    FROM Pagos p
+                    LEFT JOIN Creditos c ON p.id_credito = c.id_credito
+                    WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 1 YEAR)
+                      AND p.motivo_ingreso NOT IN ('Venta de Cartera a Externo', 'Cruce Retoma Bodega')
+                      AND (c.propietario_cartera = 'DaTo' OR c.propietario_cartera IS NULL)
+                    GROUP BY Mes
+                    ORDER BY Mes ASC
+                """)
+                df_recaudo_mes = pd.DataFrame(cursor.fetchall())
+                if not df_recaudo_mes.empty:
+                    df_recaudo_mes.set_index('Mes', inplace=True)
+                    st.bar_chart(df_recaudo_mes['Total_Recaudado'], color="#059669")
+                else:
+                    st.info("No hay suficientes registros de pagos en los últimos 12 meses para graficar.")
+
+            with g_col2:
+                st.markdown("#### 📈 Proyección de Cobro por Mes (Vencimientos Activos)")
+                cursor.execute("""
+                    SELECT 
+                        DATE_FORMAT(cp.fecha_vencimiento, '%Y-%m') AS Mes, 
+                        SUM(cp.monto_esperado) AS Total_Esperado
+                    FROM Cuotas_Programadas cp
+                    JOIN Creditos c ON cp.id_credito = c.id_credito
+                    WHERE cp.fecha_vencimiento >= CURDATE()
+                      AND cp.fecha_vencimiento <= DATE_ADD(CURDATE(), INTERVAL 1 YEAR)
+                      AND c.estado = 'Activo' 
+                      AND c.propietario_cartera = 'DaTo'
+                    GROUP BY Mes
+                    ORDER BY Mes ASC
+                """)
+                df_proyeccion = pd.DataFrame(cursor.fetchall())
+                if not df_proyeccion.empty:
+                    df_proyeccion.set_index('Mes', inplace=True)
+                    st.line_chart(df_proyeccion['Total_Esperado'], color="#2563EB")
+                else:
+                    # Alternativa si usan la tabla principal de créditos sin cuotas programadas detalladas
+                    cursor.execute("""
+                        SELECT 
+                            DATE_FORMAT(DATE_ADD(CURDATE(), INTERVAL seq.n MONTH), '%Y-%m') AS Mes,
+                            SUM(c.valor_cuota) AS Total_Esperado
+                        FROM Creditos c
+                        CROSS JOIN (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5) seq
+                        WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo'
+                        GROUP BY Mes
+                        ORDER BY Mes ASC
+                    """)
+                    df_alt = pd.DataFrame(cursor.fetchall())
+                    if not df_alt.empty:
+                        df_alt.set_index('Mes', inplace=True)
+                        st.line_chart(df_alt['Total_Esperado'], color="#2563EB")
+                    else:
+                        st.info("Sin datos suficientes para proyectar cuotas futuras.")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # 3. EXPLICACIÓN DETALLADA (3 Columnas de Control)
             col_det1, col_det2, col_det3 = st.columns(3)
 
             with col_det1:
                 st.markdown(f"""
-                <div style="background: {color_caja_bg}; border: 1px solid {color_caja_border}; padding: 20px; border-radius: 8px; height: 100%;">
-                    <h5 style="color:{color_caja_text}; margin-top:0;">🔍 ¿Por qué la caja es de {fmt_cop(caja_operativa)}?</h5>
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 8px; height: 100%;">
+                    <h5 style="color:#0F172A; margin-top:0;">🔍 Composición de Caja</h5>
                     
 **(+) Entradas:**
 * Capital: {fmt_cop(cap_ini)}
@@ -672,10 +729,10 @@ try:
 
 ---
 **= Liquidez Pura:** {fmt_cop(liquidez_banco)}
-*(Vuelve a sumar Bodega: {fmt_cop(bodega)})*
+*(Suma Bodega: {fmt_cop(bodega)})*
 
 ---
-**= SALDO OPERATIVO:** <span style="color:{color_caja_text}; font-weight:bold; font-size:18px;">{fmt_cop(caja_operativa)}</span>
+**= SALDO OPERATIVO:** <span style="color:{'#DC2626' if caja_operativa < 0 else '#059669'}; font-weight:bold; font-size:16px;">{fmt_cop(caja_operativa)}</span>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -683,7 +740,6 @@ try:
                 st.markdown(f"""
                 <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 8px; height: 100%;">
                     <h5 style="color:#1E293B; margin-top:0;">📈 Desglose del Futuro</h5>
-                    <p style="font-size:13px; color:#64748B;">Distribución de la plata en la calle:</p>
                     
 * **Capital Prestado:** {fmt_cop(cartera_capital)}
 * **Ganancia (Intereses):** <span style="color:#059669; font-weight:bold;">{fmt_cop(intereses_futuros)}</span>
@@ -716,7 +772,7 @@ try:
 
             # 4. MÓDULO APARTE DE RENTABILIDAD Y CADENAS
             st.markdown("<br><h4 style='color: #047857; margin-bottom: 15px; border-bottom: 2px solid #A7F3D0; padding-bottom: 10px;'>💎 Rentabilidad Extra: Auditoría de Cadenas</h4>", unsafe_allow_html=True)
-            st.markdown("Estos aportes se restan de la caja como gasto diario, pero a la final son una **ganancia/ahorro**. Aquí controlamos cuánto tienes guardado.")
+            st.markdown("Aportes extraídos de caja como salida diaria, pero convertidos en activos de ahorro.")
             
             c_cad1, c_cad2 = st.columns([1, 2])
             
@@ -724,7 +780,7 @@ try:
                 st.markdown(f"""
                 <div style="background: #F0FDF4; border: 1px solid #10B981; padding: 25px; border-radius: 8px; text-align: center;">
                     <p style="margin: 0; color: #065F46; font-size: 13px; font-weight: 700; text-transform: uppercase;">Total Ahorrado en Cadenas</p>
-                    <h1 style="margin: 10px 0; color: #10B981; font-size: 2.8rem; font-weight: 800;">{fmt_cop(ahorro_cadenas)}</h1>
+                    <h1 style="margin: 10px 0; color: #10B981; font-size: 2.5rem; font-weight: 800;">{fmt_cop(ahorro_cadenas)}</h1>
                     <p style="margin: 0; color: #047857; font-size: 12px;">Ganancia latente en curso.</p>
                 </div>
                 """, unsafe_allow_html=True)
