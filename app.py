@@ -546,7 +546,7 @@ try:
             st.markdown("<div style='height: 1vh;'></div>", unsafe_allow_html=True)
             
             # ==========================================
-            # 🧠 MOTOR FINANCIERO GERENCIAL (CFO DASHBOARD)
+            # 🧠 MOTOR FINANCIERO ABSOLUTO (LA VERDAD DE DATO)
             # ==========================================
             cursor.execute("""
                 SELECT 
@@ -555,24 +555,25 @@ try:
                     (SELECT IFNULL(SUM(costo_adquisicion), 0) FROM Inventario WHERE estado = 'Disponible' OR (estado IS NULL AND costo_adquisicion > 0)) as bodega,
                     (SELECT IFNULL(SUM(costo_adquisicion), 0) FROM Inventario WHERE costo_adquisicion > 0) as compras_totales,
                     
-                    -- SEPARACIÓN INTELIGENTE DE GASTOS VS AHORROS (CADENAS)
-                    (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)', 'Aporte a Cadena / Fondo Fijo')) as g_fijos_reales,
-                    (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo') as ahorro_cadenas,
-                    
+                    -- LOS GASTOS REALES (INCLUYENDO CADENAS COMO GASTO PARA QUE CUADRE TU CAJA)
+                    (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)')) as g_fijos,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Pagado') as g_comis_pagadas,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Costo Financiero (Pago a Socios)') as g_socios,
+                    
+                    -- DEUDAS
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Por Pagar') as comis_por_pagar,
                     (SELECT IFNULL(SUM(saldo_pendiente), 0) FROM Deudas_Fondeo) as deudas_fondeo,
                     
-                    -- PROYECCIONES DE CARTERA
+                    -- PROYECCIÓN Y CALLE
                     (SELECT SUM((c.valor_cuota * c.plazo_meses) - IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo') as cartera_proyectada,
                     (SELECT SUM(c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo') as cartera_capital_pendiente,
                     (SELECT SUM(valor_cuota) FROM Creditos WHERE estado = 'Activo' AND propietario_cartera = 'DaTo') as recaudo_esperado_mes,
                     
-                    -- KPIs COMERCIALES
+                    -- SEPARADOR DE CADENAS (SOLO PARA VISUALIZACIÓN, YA ESTÁN INCLUIDAS EN G_FIJOS)
+                    (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo') as total_ahorro_cadenas,
+                    
                     (SELECT COUNT(*) FROM Clientes) as total_clientes,
-                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Vendido') as total_vendidos,
-                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Disponible') as total_bodega
+                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Vendido') as total_vendidos
             """)
             auditoria = cursor.fetchone()
             
@@ -582,178 +583,119 @@ try:
             compras_totales = float(auditoria['compras_totales'])
             bodega = float(auditoria['bodega'])
             
-            g_fijos_reales = float(auditoria['g_fijos_reales'])
-            g_comis_pagadas = float(auditoria['g_comis_pagadas'])
+            g_fijos = float(auditoria['g_fijos'])
+            g_comis = float(auditoria['g_comis_pagadas'])
             g_socios = float(auditoria['g_socios'])
-            gastos_puros = g_fijos_reales + g_comis_pagadas + g_socios
+            gastos_totales = g_fijos + g_comis + g_socios
             
-            ahorro_cadenas = float(auditoria['ahorro_cadenas'])
             pasivos_totales = float(auditoria['comis_por_pagar']) + float(auditoria['deudas_fondeo'])
+            ahorro_cadenas = float(auditoria['total_ahorro_cadenas'])
             
-            cartera_total_esperada = float(auditoria['cartera_proyectada'] or 0)
+            cartera_total = float(auditoria['cartera_proyectada'] or 0)
             cartera_capital = float(auditoria['cartera_capital_pendiente'] or 0)
-            intereses_futuros = cartera_total_esperada - cartera_capital
+            intereses_futuros = cartera_total - cartera_capital
             if intereses_futuros < 0: intereses_futuros = 0
             
             cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
             
-            # --- ALGORITMOS DE VALORACIÓN EMPRESARIAL ---
-            salidas_efectivo = compras_totales + gastos_puros + ahorro_cadenas
-            liquidez_banco = cap_ini + recaudado - salidas_efectivo
-            
-            # ACTIVO TOTAL = Plata en Banco + Celulares en Bodega + Cuentas por Cobrar + Ahorros en Cadenas
-            activos_totales = liquidez_banco + bodega + cartera_total_esperada + ahorro_cadenas
-            patrimonio_neto = activos_totales - pasivos_totales
-            utilidad_proyectada = patrimonio_neto - cap_ini
+            # --- LA MATEMÁTICA EXACTA DE TU EXCEL ---
+            liquidez_banco = cap_ini + recaudado - compras_totales - gastos_totales
+            caja_operativa = liquidez_banco + bodega  # AQUI ESTÁN TUS -8.9 MILLONES
+            ganancia_libre_final = caja_operativa - cap_ini + cartera_total - pasivos_totales
             
             nombre_usuario_formateado = st.session_state['nombre_usuario'].split(" ")[0].capitalize()
 
             # ==========================================
-            # 🎨 ESTILOS CORPORATIVOS PREMIUM
+            # 🎨 INTERFAZ VISUAL ROBUSTA Y SIN ERRORES
             # ==========================================
-            st.markdown("""
-            <style>
-            .cfo-header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 16px; padding: 30px; color: white; display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; box-shadow: 0 15px 35px rgba(15, 23, 42, 0.2); flex-wrap: wrap; gap: 20px;}
-            .cfo-profit-badge { background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; padding: 15px 25px; text-align: right; backdrop-filter: blur(5px);}
-            .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 25px; }
-            .kpi-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.02); transition: all 0.3s ease; position: relative; overflow: hidden; }
-            .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.05); border-color: #cbd5e1; }
-            .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
-            .kpi-blue::before { background: #3b82f6; } .kpi-green::before { background: #10b981; } .kpi-orange::before { background: #f59e0b; } .kpi-purple::before { background: #8b5cf6; } .kpi-red::before { background: #ef4444; } .kpi-emerald::before { background: #059669; }
-            .kpi-title { font-size: 13px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px; }
-            .kpi-value { font-size: 1.9rem; font-weight: 800; margin: 0; color: #0f172a; }
-            .kpi-desc { font-size: 12px; color: #94A3B8; margin-top: 8px; font-weight: 500;}
-            .section-title { font-size: 18px; color: #1e293b; font-weight: 800; margin-bottom: 15px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
-            </style>
-            """, unsafe_allow_html=True)
             
-            # --- HEADER PRINCIPAL ---
+            # 1. TARJETÓN PRINCIPAL (La Realidad y el Futuro Inmediato)
             st.markdown(f"""
-            <div class="cfo-header">
+            <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 35px 30px; border-radius: 16px; box-shadow: 0 15px 35px rgba(15,23,42,0.2); color: white; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 25px;">
                 <div>
-                    <div style="display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 15px;">
-                        <span style="width:8px; height:8px; background:#10B981; border-radius:50%;"></span> Inteligencia de Negocios Activa
+                    <div style="display: inline-block; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.2);">
+                        📍 Estado Actual de DaTo
                     </div>
-                    <h1 style='margin: 0; font-size: 2.2rem; font-weight: 800; color: #f8fafc;'>Posición Consolidada | DaTo</h1>
-                    <p style='margin: 5px 0 0 0; color: #94a3b8; font-size: 14px;'>Dashboard Gerencial de Rentabilidad, Activos y Proyecciones.</p>
+                    <h4 style="margin: 0; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; font-size: 14px;">Saldo Operativo Real (Tu Caja)</h4>
+                    <h1 style="margin: 5px 0 0 0; font-size: 3.5rem; color: #FFFFFF; font-weight: 800;">{fmt_cop(caja_operativa)}</h1>
+                    <p style="margin: 5px 0 0 0; color: #94A3B8; font-size: 14px;">Billetes Físicos en Banco ({fmt_cop(liquidez_banco)}) + Equipos en Bodega ({fmt_cop(bodega)})</p>
                 </div>
-                <div class="cfo-profit-badge">
-                    <span style="font-size: 12px; color: #a7f3d0; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Utilidad Neta Proyectada</span>
-                    <h1 style="margin: 0; color: #34d399; font-size: 2.8rem; font-weight: 900;">{fmt_cop(utilidad_proyectada)}</h1>
-                    <span style="font-size: 11px; color: #6ee7b7;">Rentabilidad libre tras recuperar el 100% de inversión y gastos.</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # --- ROW 1: LOS 4 PILARES DE LA RIQUEZA (ACTIVOS) ---
-            st.markdown("<div class='section-title'>📊 Estructura de Activos (Dónde está el dinero)</div>", unsafe_allow_html=True)
-            
-            st.markdown(f"""
-            <div class="kpi-row">
-                <div class="kpi-card kpi-blue">
-                    <div class="kpi-title">🏦 Posición de Liquidez (Banco)</div>
-                    <div class="kpi-value">{fmt_cop(liquidez_banco)}</div>
-                    <div class="kpi-desc">Efectivo circulante. Refleja la alta reinversión en inventario y préstamos a clientes.</div>
-                </div>
-                <div class="kpi-card kpi-orange">
-                    <div class="kpi-title">📈 Cuentas por Cobrar (Cartera Viva)</div>
-                    <div class="kpi-value">{fmt_cop(cartera_total_esperada)}</div>
-                    <div class="kpi-desc">Deuda total de clientes. ({fmt_cop(cartera_capital)} Capital + {fmt_cop(intereses_futuros)} Intereses).</div>
-                </div>
-                <div class="kpi-card kpi-purple">
-                    <div class="kpi-title">📦 Valorización de Bodega</div>
-                    <div class="kpi-value">{fmt_cop(bodega)}</div>
-                    <div class="kpi-desc">Capital detenido en {auditoria['total_bodega']} equipos listos para comercializar.</div>
-                </div>
-                <div class="kpi-card kpi-emerald">
-                    <div class="kpi-title">🔄 Fondos de Capitalización (Cadenas)</div>
-                    <div class="kpi-value">{fmt_cop(ahorro_cadenas)}</div>
-                    <div class="kpi-desc">Ahorros activos en cadenas (Clasificado como Activo Diferido, NO como gasto).</div>
+                <div style="background: rgba(16, 185, 129, 0.1); padding: 20px 30px; border-radius: 12px; text-align: right; border: 1px solid rgba(16, 185, 129, 0.3); min-width: 250px;">
+                    <p style="margin:0; color:#A7F3D0; font-size: 13px; font-weight: bold; text-transform: uppercase;">Proyección Este Mes</p>
+                    <h2 style="margin:0; color:#34D399; font-size: 2.4rem; font-weight: 800;">{fmt_cop(cuotas_este_mes)}</h2>
+                    <p style="margin:5px 0 0 0; color:#6EE7B7; font-size: 12px;">Dinero por cuotas a ingresar en 30 días</p>
                 </div>
             </div>
             """, unsafe_allow_html=True)
 
-            # --- ROW 2: PULSO OPERATIVO Y PROYECCIONES ---
-            st.markdown("<div class='section-title'>⚡ Pulso Operativo Mensual y Pasivos</div>", unsafe_allow_html=True)
+            # 2. BLOQUE DE MÉTRICAS GLOBALES (Agrupadas en columnas nativas de Streamlit para no romper el diseño)
+            st.markdown("<h4 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>📊 Radiografía del Negocio</h4>", unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div class="kpi-row">
-                <div class="kpi-card kpi-green">
-                    <div class="kpi-title">🎯 Recaudo Esperado (Este Mes)</div>
-                    <div class="kpi-value">{fmt_cop(cuotas_este_mes)}</div>
-                    <div class="kpi-desc">Flujo de caja que ingresará si la cartera activa paga sus cuotas al día.</div>
-                </div>
-                <div class="kpi-card kpi-blue">
-                    <div class="kpi-title">👥 Tracción de Mercado</div>
-                    <div class="kpi-value">{auditoria['total_clientes']} Clientes</div>
-                    <div class="kpi-desc">Crecimiento histórico. {auditoria['total_vendidos']} equipos comercializados a la fecha.</div>
-                </div>
-                <div class="kpi-card kpi-red">
-                    <div class="kpi-title">🤝 Obligaciones (Pasivos)</div>
-                    <div class="kpi-value">{fmt_cop(pasivos_totales)}</div>
-                    <div class="kpi-desc">Deuda consolidada con fondeadores y comisiones pendientes por pagar a asesores.</div>
-                </div>
-                <div class="kpi-card kpi-blue">
-                    <div class="kpi-title">🏢 Patrimonio Bruto de DaTo</div>
-                    <div class="kpi-value">{fmt_cop(activos_totales)}</div>
-                    <div class="kpi-desc">Suma total de Liquidez + Cartera + Bodega + Cadenas.</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            # --- DETALLE PROFUNDO EN 3 COLUMNAS ---
-            st.markdown("<div class='section-title'>📑 Desglose de Operaciones y Auditoría de Capital</div>", unsafe_allow_html=True)
-            
-            c1, c2, c3 = st.columns(3)
-            
+            c1, c2, c3, c4 = st.columns(4)
             with c1:
-                st.markdown(f"""
-                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; height: 100%;">
-                    <h4 style="color:#0f172a; margin-top:0; font-size:15px; font-weight:800;">💸 Flujo de Capital (In/Out)</h4>
-                    <hr style="border-color:#e2e8f0; margin:10px 0;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px;"><span style="color:#64748b;">Capital Semilla Inyectado</span><b style="color:#0f172a;">{fmt_cop(cap_ini)}</b></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px;"><span style="color:#64748b;">Total Recaudado (Cuotas)</span><b style="color:#10b981;">{fmt_cop(recaudado)}</b></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px;"><span style="color:#64748b;">Compras de Mercancía</span><b style="color:#ef4444;">{fmt_cop(compras_totales)}</b></div>
-                    <div style="background:#e2e8f0; padding:8px; border-radius:6px; margin-top:15px; display:flex; justify-content:space-between; font-size:14px;">
-                        <span style="color:#334155; font-weight:bold;">Total Egresos Reales:</span>
-                        <b style="color:#b91c1c;">{fmt_cop(gastos_puros)}</b>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
+                st.info(f"**Total Invertido**\n### {fmt_cop(compras_totales)}\nHistórico comprado.")
             with c2:
+                st.success(f"**Plata Ingresada**\n### {fmt_cop(recaudado)}\nPagos de clientes.")
+            with c3:
+                st.warning(f"**Plata en la Calle**\n### {fmt_cop(cartera_total)}\nLo que nos deben.")
+            with c4:
+                st.error(f"**Gastos Totales**\n### {fmt_cop(gastos_totales)}\nOperación e inversores.")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # 3. EXPLICACIÓN AL DETALLE (3 Columnas de Control)
+            col_det1, col_det2, col_det3 = st.columns(3)
+
+            with col_det1:
+                st.markdown("<div style='background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; height: 100%;'>", unsafe_allow_html=True)
+                st.markdown(f"<h5 style='color:#0F172A; margin-top:0;'>🔍 ¿Por qué la caja es de {fmt_cop(caja_operativa)}?</h5>", unsafe_allow_html=True)
+                st.markdown(f"**(+) Entradas:**<br>• Capital: {fmt_cop(cap_ini)}<br>• Ingresos: {fmt_cop(recaudado)}<br><br>**(-) Salidas:**<br>• Celulares: {fmt_cop(compras_totales)}<br>• Gastos: {fmt_cop(gastos_totales)}<br><hr style='margin: 10px 0;'>**= Liquidez Pura: {fmt_cop(liquidez_banco)}**<br>**(Vuelve a sumar Bodega: {fmt_cop(bodega)})**<hr style='margin: 10px 0;'>**= SALDO OPERATIVO: <span style='color:#DC2626;'>{fmt_cop(caja_operativa)}</span>**", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with col_det2:
+                st.markdown("<div style='background: #FFFBEB; border: 1px solid #FEF3C7; padding: 20px; border-radius: 12px; height: 100%;'>", unsafe_allow_html=True)
+                st.markdown("<h5 style='color:#B45309; margin-top:0;'>📈 Desglose del Futuro</h5>", unsafe_allow_html=True)
+                st.markdown("Si los clientes pagan los créditos activos, así se divide la plata que está en la calle:")
+                st.metric("Capital Prestado (Costo)", fmt_cop(cartera_capital))
+                st.metric("Ganancia por Intereses", fmt_cop(intereses_futuros))
+                st.divider()
+                st.markdown(f"**Deuda Total DaTo (Pasivos):** <span style='color:red;'>{fmt_cop(pasivos_totales)}</span>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with col_det3:
+                st.markdown("<div style='background: #FEF2F2; border: 1px solid #FECACA; padding: 20px; border-radius: 12px; height: 100%;'>", unsafe_allow_html=True)
+                st.markdown(f"<h5 style='color:#9F1239; margin-top:0;'>🧾 Desglose de Gastos ({fmt_cop(gastos_totales)})</h5>", unsafe_allow_html=True)
+                st.markdown(f"• **Fijos/Cadenas:** {fmt_cop(g_fijos)}<br>• **Comisiones:** {fmt_cop(g_comis)}<br>• **Socios:** {fmt_cop(g_socios)}", unsafe_allow_html=True)
+                st.divider()
+                st.markdown("**Top 3 Salidas Más Costosas:**")
+                cursor.execute("SELECT descripcion, SUM(monto) as t FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)') GROUP BY descripcion ORDER BY t DESC LIMIT 3")
+                for fila in cursor.fetchall():
+                    st.markdown(f"- {fila['descripcion'][:25]}... : **{fmt_cop(fila['t'])}**")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            # 4. MÓDULO APARTE DE RENTABILIDAD Y CADENAS
+            st.markdown("<br><h4 style='color: #047857; margin-bottom: 15px; border-bottom: 2px solid #A7F3D0; padding-bottom: 10px;'>💎 Rentabilidad Extra: Auditoría de Cadenas</h4>", unsafe_allow_html=True)
+            st.markdown("Estos aportes se restan de la caja día a día, pero **a la final son ganancias**. Aquí controlamos cuánto tienes ahorrado en total en las cadenas activas.")
+            
+            c_cad1, c_cad2 = st.columns([1, 2])
+            
+            with c_cad1:
                 st.markdown(f"""
-                <div style="background: #F0FDF4; border: 1px solid #A7F3D0; padding: 20px; border-radius: 12px; height: 100%;">
-                    <h4 style="color:#064e3b; margin-top:0; font-size:15px; font-weight:800;">🔄 Auditoría de Cadenas (Ahorros)</h4>
-                    <hr style="border-color:#A7F3D0; margin:10px 0;">
-                    <p style="font-size:12px; color:#047857; margin-bottom:15px;">Dinero extraído de caja pero clasificado como inversión a retornar, no como gasto.</p>
+                <div style="background: #F0FDF4; border: 1px solid #10B981; padding: 25px; border-radius: 12px; text-align: center;">
+                    <p style="margin: 0; color: #065F46; font-size: 14px; font-weight: 700; text-transform: uppercase;">Total Ahorrado en Cadenas</p>
+                    <h1 style="margin: 10px 0; color: #10B981; font-size: 3rem; font-weight: 800;">{fmt_cop(ahorro_cadenas)}</h1>
+                    <p style="margin: 0; color: #047857; font-size: 12px;">Ganancia latente esperando su turno de cobro.</p>
+                </div>
                 """, unsafe_allow_html=True)
                 
-                cursor.execute("SELECT descripcion AS 'Detalle de Cadena', monto AS 'Aporte Acumulado', fecha_gasto AS 'Último Pago' FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo' ORDER BY fecha_gasto DESC LIMIT 5")
+            with c_cad2:
+                cursor.execute("SELECT descripcion AS 'Detalle de la Cadena', monto AS 'Aporte Acumulado', fecha_gasto AS 'Última Cuota Pagada' FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo' ORDER BY fecha_gasto DESC LIMIT 10")
                 df_cadenas = pd.DataFrame(cursor.fetchall())
                 if not df_cadenas.empty:
                     df_cadenas['Aporte Acumulado'] = df_cadenas['Aporte Acumulado'].apply(fmt_cop)
                     st.dataframe(df_cadenas, hide_index=True, use_container_width=True)
                 else:
-                    st.info("No hay aportes a cadenas registrados.")
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            with c3:
-                st.markdown(f"""
-                <div style="background: #FFF1F2; border: 1px solid #FECACA; padding: 20px; border-radius: 12px; height: 100%;">
-                    <h4 style="color:#9f1239; margin-top:0; font-size:15px; font-weight:800;">📉 Desglose de Gastos Puros</h4>
-                    <hr style="border-color:#FECACA; margin:10px 0;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px;"><span style="color:#881337;">1. Operativos Fijos</span><b style="color:#be123c;">{fmt_cop(g_fijos_reales)}</b></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:14px;"><span style="color:#881337;">2. Comisiones Asesores</span><b style="color:#be123c;">{fmt_cop(g_comis_pagadas)}</b></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:14px;"><span style="color:#881337;">3. Retornos a Socios</span><b style="color:#be123c;">{fmt_cop(g_socios)}</b></div>
-                """, unsafe_allow_html=True)
-                
-                cursor.execute("SELECT descripcion AS 'Concepto de Gasto', SUM(monto) AS 'Total' FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)', 'Aporte a Cadena / Fondo Fijo') GROUP BY descripcion ORDER BY SUM(monto) DESC LIMIT 3")
-                df_gastos_reales = pd.DataFrame(cursor.fetchall())
-                if not df_gastos_reales.empty:
-                    df_gastos_reales['Total'] = df_gastos_reales['Total'].apply(fmt_cop)
-                    st.dataframe(df_gastos_reales, hide_index=True, use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
+                    st.info("No hay pagos de cadenas registrados en el sistema bajo la categoría 'Aporte a Cadena / Fondo Fijo'.")
                     
 
         elif menu_seleccionado == "simulador":
