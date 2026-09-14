@@ -663,7 +663,7 @@ try:
             # ==========================================
             # 📈 SECCIÓN DE GRÁFICOS GERENCIALES INTERACTIVOS
             # ==========================================
-            st.markdown("<h3 style='color: #0052D4; margin-bottom: 15px;'>📈 Analítica Visual y Proyecciones</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>📈 Analítica Visual y Proyecciones</h3>", unsafe_allow_html=True)
             
             # Filtro global de año para los gráficos
             col_filtros, _ = st.columns([1, 3])
@@ -673,7 +673,7 @@ try:
             g_col1, g_col2 = st.columns(2)
             
             with g_col1:
-                st.markdown(f"#### 📥 Evolución de Recaudo Real ({year_seleccionado})")
+                st.markdown(f"<h4 style='color:#0F172A; font-size: 16px;'>📥 Evolución de Recaudo Real ({year_seleccionado})</h4>", unsafe_allow_html=True)
                 cursor.execute("""
                     SELECT 
                         DATE_FORMAT(p.fecha_pago, '%Y-%m') AS Mes, 
@@ -688,20 +688,33 @@ try:
                 datos_recaudo = cursor.fetchall()
                 if datos_recaudo:
                     df_rec = pd.DataFrame(datos_recaudo)
-                    # Formateo Plotly
-                    fig_rec = px.bar(df_rec, x='Mes', y='Total', text_auto='.2s',
-                                     color_discrete_sequence=['#059669'],
-                                     labels={'Total': 'Recaudo COP ($)', 'Mes': 'Mes'})
-                    fig_rec.update_traces(textfont_size=12, textangle=0, textposition="outside", cliponaxis=False)
-                    fig_rec.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
-                                          margin=dict(l=0, r=0, t=10, b=0), height=300)
-                    st.plotly_chart(fig_rec, use_container_width=True)
+                    
+                    # Gráfico de Barras Premium
+                    fig_rec = go.Figure(go.Bar(
+                        x=df_rec['Mes'], 
+                        y=df_rec['Total'],
+                        marker_color='#10B981', # Verde Esmeralda
+                        marker_line_color='#047857',
+                        marker_line_width=1.5,
+                        opacity=0.85,
+                        text=df_rec['Total'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
+                        textposition='outside',
+                        textfont=dict(color='#475569', size=11, family="Outfit"),
+                        hovertemplate='<b>Mes:</b> %{x}<br><b>Recaudo:</b> $%{y:,.0f}<extra></extra>'
+                    ))
+                    fig_rec.update_layout(
+                        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
+                        margin=dict(l=0, r=0, t=30, b=0), height=350,
+                        xaxis=dict(showgrid=False, title="", tickfont=dict(color='#94A3B8')),
+                        yaxis=dict(showgrid=True, gridcolor='#F8FAFC', title="", tickformat="$.2s", tickfont=dict(color='#94A3B8')),
+                        hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0")
+                    )
+                    st.plotly_chart(fig_rec, use_container_width=True, config={'displayModeBar': False})
                 else:
                     st.info(f"Sin registros de recaudo para {year_seleccionado}.")
 
             with g_col2:
-                st.markdown(f"#### 📈 Proyección de Cobro ({year_seleccionado})")
-                # Lógica aproximada de cuotas futuras basada en fecha de primera cuota y plazo
+                st.markdown(f"<h4 style='color:#0F172A; font-size: 16px;'>📈 Proyección de Cobro ({year_seleccionado})</h4>", unsafe_allow_html=True)
                 cursor.execute("""
                     SELECT 
                         DATE_FORMAT(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH), '%Y-%m') AS Mes,
@@ -717,14 +730,29 @@ try:
                 datos_proy = cursor.fetchall()
                 if datos_proy:
                     df_proy = pd.DataFrame(datos_proy)
-                    # Formateo Plotly Area Chart
-                    fig_proy = px.area(df_proy, x='Mes', y='Total', 
-                                       color_discrete_sequence=['#2563EB'],
-                                       labels={'Total': 'Proyección COP ($)', 'Mes': 'Mes'})
-                    fig_proy.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                                           margin=dict(l=0, r=0, t=10, b=0), height=300)
-                    fig_proy.update_yaxes(showgrid=True, gridwidth=1, gridcolor='#E2E8F0')
-                    st.plotly_chart(fig_proy, use_container_width=True)
+                    
+                    # Gráfico de Área Suavizada Premium
+                    fig_proy = go.Figure(go.Scatter(
+                        x=df_proy['Mes'], 
+                        y=df_proy['Total'],
+                        mode='lines+markers+text',
+                        line=dict(color='#3B82F6', width=3, shape='spline'), # Línea curva y suave
+                        marker=dict(size=8, color='#FFFFFF', line=dict(width=2, color='#3B82F6')),
+                        fill='tozeroy',
+                        fillcolor='rgba(59, 130, 246, 0.15)', # Azul transparente
+                        text=df_proy['Total'].apply(lambda x: f"${x/1000000:.1f}M" if x >= 1000000 else f"${x/1000:.0f}k"),
+                        textposition='top center',
+                        textfont=dict(color='#475569', size=11, family="Outfit"),
+                        hovertemplate='<b>Mes:</b> %{x}<br><b>Proyectado:</b> $%{y:,.0f}<extra></extra>'
+                    ))
+                    fig_proy.update_layout(
+                        plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", 
+                        margin=dict(l=0, r=0, t=30, b=0), height=350,
+                        xaxis=dict(showgrid=False, title="", tickfont=dict(color='#94A3B8')),
+                        yaxis=dict(showgrid=True, gridcolor='#F8FAFC', title="", tickformat="$.2s", tickfont=dict(color='#94A3B8')),
+                        hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_family="Outfit", bordercolor="#E2E8F0")
+                    )
+                    st.plotly_chart(fig_proy, use_container_width=True, config={'displayModeBar': False})
                 else:
                     st.info(f"Sin proyecciones futuras estimadas para {year_seleccionado}.")
 
