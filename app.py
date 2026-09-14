@@ -758,6 +758,25 @@ try:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # ==========================================
+            # 💎 EXPANSIÓN CFO: RIESGO, FLUJO Y RENTABILIDAD
+            # ==========================================
+            st.markdown("<h3 style='color: #1E293B; margin-bottom: 15px; border-bottom: 2px solid #E2E8F0; padding-bottom: 10px;'>⚖️ Inteligencia de Riesgo y Producto</h3>", unsafe_allow_html=True)
+            
+            g_col3, g_col4 = st.columns(2)
+
+            with g_col3:
+                # ... (todo el código del gráfico de Colocación vs Recaudo)
+                # ...
+                
+            with g_col4:
+                # ... (todo el código del gráfico de Rentabilidad por Marca)
+                # ...
+
+            st.markdown("<br>", unsafe_allow_html=True)
             # 3. EXPLICACIÓN DETALLADA
             col_det1, col_det2, col_det3 = st.columns(3)
 
