@@ -578,12 +578,13 @@ try:
                     (SELECT COUNT(*) FROM Creditos WHERE estado = 'Activo') as creditos_activos,
                     (SELECT COUNT(DISTINCT c.id_credito) FROM Creditos c WHERE c.estado = 'Activo' AND c.id_credito NOT IN (SELECT p.id_credito FROM Pagos p WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as creditos_en_riesgo,
                     
+                    -- MARGENES SEPARADOS PARA EL P&G (Solo Cartera DaTo - Histórica Total)
                     (SELECT SUM(c.precio_venta - IFNULL((SELECT SUM(i.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = c.id_credito), 0)) FROM Creditos c WHERE c.propietario_cartera = 'DaTo') as margen_comercial,
                     (SELECT SUM((c.valor_cuota * c.plazo_meses) - c.monto_financiado) FROM Creditos c WHERE c.propietario_cartera = 'DaTo') as margen_intereses
             """)
             auditoria = cursor.fetchone()
             
-            # --- ASIGNACIÓN DE VARIABLES ---
+            # --- ASIGNACIÓN DE VARIABLES BÁSICAS ---
             cap_ini = float(auditoria['cap_ini'])
             recaudado = float(auditoria['recaudado_historico'])
             compras_totales = float(auditoria['compras_totales'])
@@ -601,7 +602,6 @@ try:
             
             cartera_total = float(auditoria['cartera_proyectada'] or 0)
             cartera_capital = float(auditoria['cartera_capital_pendiente'] or 0)
-            
             cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
             
             # --- CÁLCULO DE UTILIDAD NETA ---
@@ -621,64 +621,65 @@ try:
 
             # --- COLORES DINÁMICOS ---
             es_neg_caja = caja_operativa < 0
-            c_caja_text = "#EF4444" if es_neg_caja else "#10B981"
-            c_caja_bg = "rgba(239,68,68,0.1)" if es_neg_caja else "rgba(16,185,129,0.1)"
+            c_caja_text = "#EF4444" if es_neg_caja else "#059669"
+            c_caja_bg = "#FEF2F2" if es_neg_caja else "#F0FDF4"
+            c_caja_border = "#FECACA" if es_neg_caja else "#A7F3D0"
 
             es_neg_utilidad = utilidad_neta < 0
             c_util_text = "#EF4444" if es_neg_utilidad else "#2563EB"
 
-            bg_hero = "linear-gradient(135deg, #020617 0%, #0F172A 100%)"
-            border_hero = "#1E293B"
-
             # ==========================================
-            # 🎨 UI GERENCIAL (CÓDIGO BLINDADO SIN SANGRÍAS)
+            # 🎨 UI GERENCIAL TOTALMENTE BLINDADA (CFO LEVEL)
             # ==========================================
             
-            # 1. ESTADO DE RESULTADOS (P&G)
+            # 1. ESTADO DE RESULTADOS (P&G) - HERMOSO Y UNIFICADO
             html_pg = f"""
-<div style="background: #0F172A; padding: 35px 40px; border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); margin-bottom: 30px; border: 1px solid #1E293B;">
-<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; border-bottom: 1px solid #334155; padding-bottom: 15px;">
+<div style="background: #FFFFFF; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 30px; border: 1px solid #E2E8F0;">
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; border-bottom: 2px solid #F1F5F9; padding-bottom: 15px;">
 <div>
-<h2 style="margin: 0; color: #FFFFFF; font-size: 24px; font-weight: 800; letter-spacing: -0.5px;">ESTADO DE RESULTADOS (P&G)</h2>
-<p style="margin: 5px 0 0 0; color: #94A3B8; font-size: 13px;">Rendimiento histórico de la operación de DaTo.</p>
+<div style="margin: 0; color: #0F172A; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">🏆 ESTADO DE RESULTADOS (P&G)</div>
+<div style="margin: 5px 0 0 0; color: #64748B; font-size: 13px;">Rendimiento histórico de la operación de DaTo.</div>
 </div>
-<div style="text-align: right;">
-<p style="margin:0 0 5px 0; color:#34D399; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">ROI Histórico</p>
-<h3 style="margin:0; color:#10B981; font-size: 2rem; font-weight: 800;">{roi_porcentaje:.2f}%</h3>
+<div style="text-align: right; background: #F0FDF4; padding: 10px 20px; border-radius: 12px; border: 1px solid #A7F3D0;">
+<div style="margin:0 0 5px 0; color:#047857; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ROI Histórico</div>
+<div style="margin:0; color:#10B981; font-size: 1.8rem; font-weight: 900;">{roi_porcentaje:.2f}%</div>
 </div>
 </div>
+
 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-<div style="flex: 1; min-width: 300px; background: #1E293B; border: 1px solid #334155; padding: 25px; border-radius: 12px; position: relative; overflow: hidden;">
-<div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #10B981;"></div>
-<p style="margin: 0; color: #94A3B8; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">(+) Ganancia Bruta (Antes de Gastos)</p>
-<h1 style="margin: 10px 0 15px 0; color: #FFFFFF; font-size: 3.2rem; font-weight: 900; letter-spacing: -1px;">{fmt_cop(ganancia_bruta)}</h1>
-<div style="background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px;">
-<div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-<span style="color: #CBD5E1; font-size: 13px;">Utilidad Comercial (Venta Equipos):</span>
-<b style="color: #FFFFFF; font-size: 13px;">{fmt_cop(margen_comercial)}</b>
+<!-- Ganancia Bruta -->
+<div style="flex: 1; min-width: 300px; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 25px; border-radius: 12px; border-left: 6px solid #10B981;">
+<div style="margin: 0; color: #64748B; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">(+) Ganancia Bruta (Antes de Gastos)</div>
+<div style="margin: 10px 0 15px 0; color: #0F172A; font-size: 3rem; font-weight: 900; letter-spacing: -1px;">{fmt_cop(ganancia_bruta)}</div>
+<div style="background: #FFFFFF; padding: 15px; border-radius: 8px; border: 1px solid #F1F5F9;">
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed #E2E8F0; padding-bottom: 8px;">
+<span style="color: #64748B; font-size: 13px;">Utilidad Comercial (Venta Equipos):</span>
+<b style="color: #0F172A; font-size: 13px;">{fmt_cop(margen_comercial)}</b>
 </div>
 <div style="display: flex; justify-content: space-between;">
-<span style="color: #CBD5E1; font-size: 13px;">Utilidad Financiera (Intereses Fiados):</span>
-<b style="color: #FFFFFF; font-size: 13px;">{fmt_cop(margen_intereses)}</b>
+<span style="color: #64748B; font-size: 13px;">Utilidad Financiera (Intereses Fiados):</span>
+<b style="color: #0F172A; font-size: 13px;">{fmt_cop(margen_intereses)}</b>
 </div>
 </div>
 </div>
-<div style="flex: 1; min-width: 300px; background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative;">
-<p style="margin: 0; color: #64748B; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">(=) UTILIDAD NETA (Ganancia Libre)</p>
-<h1 style="margin: 10px 0 15px 0; color: {c_util_text}; font-size: 3.2rem; font-weight: 900; letter-spacing: -1px;">{fmt_cop(utilidad_neta)}</h1>
-<div style="background: #F8FAFC; padding: 15px; border-radius: 8px; border: 1px solid #E2E8F0;">
-<p style="margin: 0 0 10px 0; color: #EF4444; font-size: 11px; font-weight: 800; text-transform: uppercase;">(-) La operación ha descontado {fmt_cop(gastos_totales)} en:</p>
-<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-<span style="color: #64748B; font-size: 12px;">Gastos Fijos (Luz, Arriendo, Admin):</span>
-<b style="color: #0F172A; font-size: 12px;">{fmt_cop(g_fijos)}</b>
+
+<!-- Utilidad Neta -->
+<div style="flex: 1; min-width: 300px; background: #FFFFFF; border: 1px solid #BFDBFE; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(37,99,235,0.05); border-left: 6px solid #3B82F6;">
+<div style="margin: 0; color: #1D4ED8; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">(=) UTILIDAD NETA (Ganancia Libre)</div>
+<div style="margin: 10px 0 15px 0; color: {c_util_text}; font-size: 3rem; font-weight: 900; letter-spacing: -1px;">{fmt_cop(utilidad_neta)}</div>
+<div style="background: #FFF1F2; padding: 15px; border-radius: 8px; border: 1px solid #FECACA;">
+<div style="margin: 0 0 10px 0; color: #BE123C; font-size: 11px; font-weight: 800; text-transform: uppercase;">(-) Descuentos Operativos ({fmt_cop(gastos_totales)}):</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed #FECACA; padding-bottom: 8px;">
+<span style="color: #9F1239; font-size: 12px;">Gastos Fijos (Luz, Arriendo):</span>
+<b style="color: #BE123C; font-size: 12px;">{fmt_cop(g_fijos)}</b>
 </div>
-<div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
-<span style="color: #64748B; font-size: 12px;">Comisiones de Ventas:</span>
-<b style="color: #0F172A; font-size: 12px;">{fmt_cop(total_comisiones)}</b>
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed #FECACA; padding-bottom: 8px;">
+<span style="color: #9F1239; font-size: 12px;">Comisiones de Ventas:</span>
+<b style="color: #BE123C; font-size: 12px;">{fmt_cop(total_comisiones)}</b>
 </div>
 <div style="display: flex; justify-content: space-between;">
-<span style="color: #64748B; font-size: 12px;">Costo Inversores (Socios):</span>
-<b style="color: #0F172A; font-size: 12px;">{fmt_cop(g_socios)}</b>
+<span style="color: #9F1239; font-size: 12px;">Costo Inversores (Socios):</span>
+<b style="color: #BE123C; font-size: 12px;">{fmt_cop(g_socios)}</b>
 </div>
 </div>
 </div>
@@ -690,21 +691,22 @@ try:
             # 2. VITAL SIGNS (CAJA Y VALOR EMPRESA)
             html_vital = f"""
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
-<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: space-between;">
+<div style="background: {c_caja_bg}; border: 1px solid {c_caja_border}; padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: space-between;">
 <div>
-<p style="margin:0; color:#64748B; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Saldo Operativo Real (Tu Caja)</p>
-<h2 style="margin:5px 0; color:{c_caja_text}; font-size:2.8rem; font-weight:900; letter-spacing:-1px;">{fmt_cop(caja_operativa)}</h2>
-<p style="margin:0; color:#94A3B8; font-size:13px; font-weight:600;">Efectivo en Bancos: <b style="color:#0F172A;">{fmt_cop(liquidez_banco)}</b></p>
+<div style="margin:0; color:{c_caja_text}; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Saldo Operativo Real (Tu Caja)</div>
+<div style="margin:5px 0; color:{c_caja_text}; font-size:2.8rem; font-weight:900; letter-spacing:-1px;">{fmt_cop(caja_operativa)}</div>
+<div style="margin:0; color:#475569; font-size:13px; font-weight:600;">Efectivo en Bancos: <b style="color:#0F172A;">{fmt_cop(liquidez_banco)}</b></div>
 </div>
-<div style="width: 60px; height: 60px; border-radius: 50%; background: {c_caja_bg}; display: flex; align-items: center; justify-content: center; font-size: 24px;">🏦</div>
+<div style="width: 60px; height: 60px; border-radius: 50%; background: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">🏦</div>
 </div>
-<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: space-between;">
+
+<div style="background: #F0FDF4; border: 1px solid #A7F3D0; padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: space-between;">
 <div>
-<p style="margin:0; color:#64748B; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Valor de la Empresa (Patrimonio)</p>
-<h2 style="margin:5px 0; color:#10B981; font-size:2.8rem; font-weight:900; letter-spacing:-1px;">{fmt_cop(patrimonio_neto)}</h2>
-<p style="margin:0; color:#94A3B8; font-size:13px; font-weight:600;">Equipos + Efectivo + Cartera + Cadenas - Deudas</p>
+<div style="margin:0; color:#047857; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Valor de la Empresa (Patrimonio)</div>
+<div style="margin:5px 0; color:#059669; font-size:2.8rem; font-weight:900; letter-spacing:-1px;">{fmt_cop(patrimonio_neto)}</div>
+<div style="margin:0; color:#475569; font-size:13px; font-weight:600;">Equipos + Efectivo + Cartera + Cadenas - Deudas</div>
 </div>
-<div style="width: 60px; height: 60px; border-radius: 50%; background: rgba(16,185,129,0.1); display: flex; align-items: center; justify-content: center; font-size: 24px;">💎</div>
+<div style="width: 60px; height: 60px; border-radius: 50%; background: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">💎</div>
 </div>
 </div>
 """
@@ -713,33 +715,33 @@ try:
             # 3. RADIOGRAFÍA OPERATIVA (4 TARJETAS)
             html_radiografia = f"""
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
-<div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px;">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
 <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Equipos Comprados</span>
 <span style="font-size:16px;">📦</span>
 </div>
-<h2 style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(compras_totales)}</h2>
+<div style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(compras_totales)}</div>
 </div>
-<div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px;">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
 <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Dinero Recaudado</span>
 <span style="font-size:16px;">💵</span>
 </div>
-<h2 style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(recaudado)}</h2>
+<div style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(recaudado)}</div>
 </div>
-<div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px;">
+<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
 <span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Plata en la Calle</span>
 <span style="font-size:16px;">🤝</span>
 </div>
-<h2 style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(cartera_total)}</h2>
+<div style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(cartera_total)}</div>
 </div>
-<div style="background: #FFF1F2; border: 1px solid #FECACA; padding: 20px; border-radius: 12px;">
+<div style="background: #FFF1F2; border: 1px solid #FECACA; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
 <span style="font-size:11px; color:#BE123C; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Mora > 30 Días</span>
 <span style="font-size:16px;">🚨</span>
 </div>
-<h2 style="margin:0; color:#E11D48; font-size:1.6rem; font-weight: 800;">{riesgo_mora} Clientes</h2>
+<div style="margin:0; color:#E11D48; font-size:1.6rem; font-weight: 800;">{riesgo_mora} Clientes</div>
 </div>
 </div>
 """
@@ -750,7 +752,7 @@ try:
             # ==========================================
             st.markdown("""
 <div style='display:flex; justify-content:space-between; align-items:end; margin-bottom:15px; border-bottom: 2px solid #E2E8F0; padding-bottom:10px;'>
-<h3 style='color: #0F172A; margin: 0; font-size: 20px; font-weight: 800;'>📊 Inteligencia Visual y Proyecciones</h3>
+<div style='color: #0F172A; margin: 0; font-size: 20px; font-weight: 800;'>📊 Inteligencia Visual y Proyecciones</div>
 </div>
 """, unsafe_allow_html=True)
             
@@ -769,11 +771,7 @@ try:
             )
             
             with g_col1:
-                html_chart1 = f"""
-<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'>
-<h4 style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>💵 Dinero Recaudado Mensual</h4>
-"""
-                st.markdown(html_chart1, unsafe_allow_html=True)
+                st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'><div style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>💵 Dinero Recaudado Mensual</div>", unsafe_allow_html=True)
                 cursor.execute("""
                     SELECT DATE_FORMAT(p.fecha_pago, '%Y-%m') AS Mes, SUM(p.monto_recibido) AS Total
                     FROM Pagos p LEFT JOIN Creditos c ON p.id_credito = c.id_credito
@@ -796,11 +794,7 @@ try:
                 st.markdown("</div>", unsafe_allow_html=True)
 
             with g_col2:
-                html_chart2 = f"""
-<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'>
-<h4 style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>📈 Proyección de Cobro ({year_seleccionado})</h4>
-"""
-                st.markdown(html_chart2, unsafe_allow_html=True)
+                st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'><div style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>📈 Proyección de Cobro ({year_seleccionado})</div>", unsafe_allow_html=True)
                 cursor.execute("""
                     SELECT DATE_FORMAT(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH), '%Y-%m') AS Mes, SUM(c.valor_cuota) AS Total
                     FROM Creditos c CROSS JOIN (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11) seq
@@ -825,13 +819,7 @@ try:
             st.markdown("<br>", unsafe_allow_html=True)
 
             # GRÁFICO FULL WIDTH: RIESGO VS LIQUIDEZ
-            html_flujo = f"""
-<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'>
-<h4 style='color:#1E293B; font-size: 16px; margin:0 0 5px 0; font-weight:800;'>⚖️ Termómetro de Riesgo: Plata Prestada vs. Plata Recaudada</h4>
-<p style='color:#64748B; font-size:13px; margin-bottom:20px;'>Compara cuánto dinero nuevo salió a la calle fiado versus cuánto dinero real regresó de las cuotas.</p>
-"""
-            st.markdown(html_flujo, unsafe_allow_html=True)
-            
+            st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'><div style='color:#1E293B; font-size: 16px; margin:0 0 5px 0; font-weight:800;'>⚖️ Termómetro de Riesgo: Plata Prestada vs. Plata Recaudada</div><p style='color:#64748B; font-size:13px; margin-bottom:20px;'>Compara cuánto dinero nuevo salió a la calle fiado versus cuánto dinero real regresó de las cuotas.</p>", unsafe_allow_html=True)
             cursor.execute("""
                 SELECT DATE_FORMAT(fecha_inicio, '%Y-%m') AS Mes, SUM(monto_financiado) AS Colocado
                 FROM Creditos WHERE propietario_cartera = 'DaTo' AND YEAR(fecha_inicio) = %s
@@ -858,7 +846,7 @@ try:
 
 
             # 5. MÓDULO DE CADENAS (VAULT DESIGN)
-            st.markdown("<h3 style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>💎 Bóveda de Capitalización (Cadenas)</h3>", unsafe_allow_html=True)
+            st.markdown("<div style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>💎 Bóveda de Capitalización (Cadenas)</div>", unsafe_allow_html=True)
             
             c_cad1, c_cad2 = st.columns([1, 2.5])
             with c_cad1:
@@ -866,7 +854,7 @@ try:
 <div style="background: linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%); border: 1px solid #86EFAC; padding: 35px 25px; border-radius: 12px; text-align: center; height: 100%; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1);">
 <div style="background:#FFFFFF; width:50px; height:50px; border-radius:50%; display:flex; justify-content:center; align-items:center; margin: 0 auto 15px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.05); font-size:20px;">💰</div>
 <p style="margin: 0; color: #047857; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Ahorro Acumulado</p>
-<h1 style="margin: 10px 0; color: #065F46; font-size: 3rem; font-weight: 900;">{fmt_cop(ahorro_cadenas)}</h1>
+<div style="margin: 10px 0; color: #065F46; font-size: 3rem; font-weight: 900;">{fmt_cop(ahorro_cadenas)}</div>
 <p style="margin: 0; color: #10B981; font-size: 13px; font-weight:500;">Dinero ciego. Rentabilidad intocable.</p>
 </div>
 """
