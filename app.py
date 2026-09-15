@@ -550,43 +550,54 @@ try:
             import plotly.graph_objects as go
             
             # ==========================================
-            # 🧠 MOTOR FINANCIERO Y AUDITORÍA DE DATOS
+            # 🧠 MOTOR FINANCIERO Y AUDITORÍA DE DATOS (REGLA ANDRÉS CFO)
             # ==========================================
             cursor.execute("""
                 SELECT 
                     (SELECT 102080000) as cap_ini,
-                    (SELECT IFNULL(SUM(p.monto_recibido), 0) FROM Pagos p LEFT JOIN Creditos c ON p.id_credito = c.id_credito WHERE p.motivo_ingreso NOT IN ('Venta de Cartera a Externo', 'Cruce Retoma Bodega') AND (c.propietario_cartera = 'DaTo' OR c.propietario_cartera IS NULL)) as recaudado_historico,
+                    
+                    -- RECAUDO TOTAL (REGLA ANDRÉS)
+                    (SELECT SUM(
+                        CASE 
+                            WHEN IFNULL(c.propietario_cartera, 'DaTo') = 'Fondo Externo' THEN 
+                                IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Venta de Cartera a Externo')), 0)
+                            ELSE 
+                                IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso != 'Venta de Cartera a Externo'), 0)
+                        END
+                    ) FROM Creditos c) as recaudo_total_operativo,
+                    
+                    -- RECAUDO SOLO DATO
+                    (SELECT SUM(IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso != 'Venta de Cartera a Externo'), 0)) 
+                     FROM Creditos c WHERE IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo') as recaudo_dato,
+                     
+                    -- RECAUDO SOLO FONDO EXTERNO
+                    (SELECT SUM(IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Venta de Cartera a Externo')), 0)) 
+                     FROM Creditos c WHERE c.propietario_cartera = 'Fondo Externo') as recaudo_fondo,
+
                     (SELECT IFNULL(SUM(costo_adquisicion), 0) FROM Inventario WHERE estado = 'Disponible' OR (estado IS NULL AND costo_adquisicion > 0)) as bodega,
                     (SELECT IFNULL(SUM(costo_adquisicion), 0) FROM Inventario WHERE costo_adquisicion > 0) as compras_totales,
                     
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)', 'Aporte a Cadena / Fondo Fijo')) as g_fijos,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Pagado') as g_comis_pagadas,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Costo Financiero (Pago a Socios)') as g_socios,
-                    
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Por Pagar') as comis_por_pagar,
                     (SELECT IFNULL(SUM(saldo_pendiente), 0) FROM Deudas_Fondeo) as deudas_fondeo,
                     
-                    (SELECT SUM((c.valor_cuota * c.plazo_meses) - IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo') as cartera_proyectada,
-                    (SELECT SUM(c.monto_financiado - IFNULL((SELECT SUM(capital_abonado) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo') as cartera_capital_pendiente,
-                    (SELECT SUM(valor_cuota) FROM Creditos WHERE estado = 'Activo' AND propietario_cartera = 'DaTo') as recaudo_esperado_mes,
+                    (SELECT SUM((c.valor_cuota * c.plazo_meses) - IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo') as cartera_proyectada,
+                    (SELECT SUM(valor_cuota) FROM Creditos WHERE estado = 'Activo' AND IFNULL(propietario_cartera, 'DaTo') = 'DaTo') as recaudo_esperado_mes,
                     
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo') as total_ahorro_cadenas,
-                    
-                    (SELECT COUNT(*) FROM Clientes) as total_clientes,
-                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Vendido') as total_vendidos,
-                    (SELECT COUNT(*) FROM Inventario WHERE estado = 'Disponible') as total_bodega,
                     (SELECT COUNT(*) FROM Creditos WHERE estado = 'Activo') as creditos_activos,
-                    (SELECT COUNT(DISTINCT c.id_credito) FROM Creditos c WHERE c.estado = 'Activo' AND c.id_credito NOT IN (SELECT p.id_credito FROM Pagos p WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as creditos_en_riesgo,
-                    
-                    -- MARGENES SEPARADOS PARA EL P&G (Solo Cartera DaTo - Histórica Total)
-                    (SELECT SUM(c.precio_venta - IFNULL((SELECT SUM(i.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = c.id_credito), 0)) FROM Creditos c WHERE c.propietario_cartera = 'DaTo') as margen_comercial,
-                    (SELECT SUM((c.valor_cuota * c.plazo_meses) - c.monto_financiado) FROM Creditos c WHERE c.propietario_cartera = 'DaTo') as margen_intereses
+                    (SELECT COUNT(DISTINCT c.id_credito) FROM Creditos c WHERE c.estado = 'Activo' AND c.id_credito NOT IN (SELECT p.id_credito FROM Pagos p WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as creditos_en_riesgo
             """)
             auditoria = cursor.fetchone()
             
             # --- ASIGNACIÓN DE VARIABLES BÁSICAS ---
             cap_ini = float(auditoria['cap_ini'])
-            recaudado = float(auditoria['recaudado_historico'])
+            recaudo_total = float(auditoria['recaudo_total_operativo'] or 0)
+            recaudo_dato = float(auditoria['recaudo_dato'] or 0)
+            recaudo_fondo = float(auditoria['recaudo_fondo'] or 0)
+            
             compras_totales = float(auditoria['compras_totales'])
             bodega = float(auditoria['bodega'])
             
@@ -599,162 +610,123 @@ try:
             gastos_totales = g_fijos + total_comisiones + g_socios
             pasivos_totales = comis_por_pagar + float(auditoria['deudas_fondeo'])
             ahorro_cadenas = float(auditoria['total_ahorro_cadenas'])
-            
             cartera_total = float(auditoria['cartera_proyectada'] or 0)
-            cartera_capital = float(auditoria['cartera_capital_pendiente'] or 0)
-            cuotas_este_mes = float(auditoria['recaudo_esperado_mes'] or 0)
-            
-            # --- CÁLCULO DE UTILIDAD NETA ---
-            margen_comercial = float(auditoria['margen_comercial'] or 0)
-            margen_intereses = float(auditoria['margen_intereses'] or 0)
-            ganancia_bruta = margen_comercial + margen_intereses
-            utilidad_neta = ganancia_bruta - gastos_totales
             
             # --- MATEMÁTICA PATRIMONIAL ---
-            liquidez_banco = cap_ini + recaudado - compras_totales - (g_fijos + g_comis_pagadas + g_socios) - ahorro_cadenas
+            caja_neta_libre = recaudo_total - gastos_totales
+            liquidez_banco = cap_ini + caja_neta_libre - compras_totales - ahorro_cadenas
             caja_operativa = liquidez_banco + bodega
-            
             patrimonio_neto = caja_operativa + cartera_total + ahorro_cadenas - pasivos_totales
-            roi_porcentaje = ((patrimonio_neto - cap_ini) / cap_ini) * 100 if cap_ini > 0 else 0
-            
             riesgo_mora = int(auditoria['creditos_en_riesgo'])
-
-            # --- COLORES DINÁMICOS ---
-            es_neg_caja = caja_operativa < 0
-            c_caja_text = "#EF4444" if es_neg_caja else "#059669"
-            c_caja_bg = "#FEF2F2" if es_neg_caja else "#F0FDF4"
-            c_caja_border = "#FECACA" if es_neg_caja else "#A7F3D0"
-
-            es_neg_utilidad = utilidad_neta < 0
-            c_util_text = "#EF4444" if es_neg_utilidad else "#2563EB"
 
             # ==========================================
             # 🎨 UI GERENCIAL TOTALMENTE BLINDADA (CFO LEVEL)
             # ==========================================
             
-            # 1. ESTADO DE RESULTADOS (P&G) - HERMOSO Y UNIFICADO
-            html_pg = f"""
-<div style="background: #FFFFFF; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); margin-bottom: 30px; border: 1px solid #E2E8F0;">
-<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; border-bottom: 2px solid #F1F5F9; padding-bottom: 15px;">
-<div>
-<div style="margin: 0; color: #0F172A; font-size: 22px; font-weight: 900; letter-spacing: -0.5px;">🏆 ESTADO DE RESULTADOS (P&G)</div>
-<div style="margin: 5px 0 0 0; color: #64748B; font-size: 13px;">Rendimiento histórico de la operación de DaTo.</div>
-</div>
-<div style="text-align: right; background: #F0FDF4; padding: 10px 20px; border-radius: 12px; border: 1px solid #A7F3D0;">
-<div style="margin:0 0 5px 0; color:#047857; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">ROI Histórico</div>
-<div style="margin:0; color:#10B981; font-size: 1.8rem; font-weight: 900;">{roi_porcentaje:.2f}%</div>
-</div>
-</div>
+            # 1. CONSOLA CENTRAL (RECAUDO Y CAJA NETA)
+            html_master = f"""
+            <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 35px; border-radius: 20px; box-shadow: 0 10px 30px rgba(15,23,42,0.2); margin-bottom: 25px; position: relative; overflow: hidden;">
+                <!-- Decorative Circle -->
+                <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(255,255,255,0.03); border-radius: 50%;"></div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px;">
+                    <div>
+                        <div style="color: #94A3B8; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px;">🏆 Recaudo Total Operativo (DaTo + Fondos)</div>
+                        <div style="color: #FFFFFF; font-size: 3.5rem; font-weight: 900; letter-spacing: -1.5px; line-height: 1;">{fmt_cop(recaudo_total)}</div>
+                        <div style="color: #38BDF8; font-size: 14px; font-weight: 600; margin-top: 10px;">Dinero real ingresado a la empresa</div>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 20px 25px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); min-width: 250px;">
+                        <div style="color: #A7F3D0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Caja Neta Libre (Libre de Gastos)</div>
+                        <div style="color: #10B981; font-size: 2.2rem; font-weight: 900; margin: 5px 0;">{fmt_cop(caja_neta_libre)}</div>
+                        <div style="color: #CBD5E1; font-size: 12px;">Gastos Descontados: <b style="color: #FDA4AF;">-{fmt_cop(gastos_totales)}</b></div>
+                    </div>
+                </div>
+            </div>
+            """
+            st.markdown(html_master, unsafe_allow_html=True)
 
-<div style="display: flex; gap: 20px; flex-wrap: wrap;">
-<!-- Ganancia Bruta -->
-<div style="flex: 1; min-width: 300px; background: #F8FAFC; border: 1px solid #E2E8F0; padding: 25px; border-radius: 12px; border-left: 6px solid #10B981;">
-<div style="margin: 0; color: #64748B; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">(+) Ganancia Bruta (Antes de Gastos)</div>
-<div style="margin: 10px 0 15px 0; color: #0F172A; font-size: 3rem; font-weight: 900; letter-spacing: -1px;">{fmt_cop(ganancia_bruta)}</div>
-<div style="background: #FFFFFF; padding: 15px; border-radius: 8px; border: 1px solid #F1F5F9;">
-<div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed #E2E8F0; padding-bottom: 8px;">
-<span style="color: #64748B; font-size: 13px;">Utilidad Comercial (Venta Equipos):</span>
-<b style="color: #0F172A; font-size: 13px;">{fmt_cop(margen_comercial)}</b>
-</div>
-<div style="display: flex; justify-content: space-between;">
-<span style="color: #64748B; font-size: 13px;">Utilidad Financiera (Intereses Fiados):</span>
-<b style="color: #0F172A; font-size: 13px;">{fmt_cop(margen_intereses)}</b>
-</div>
-</div>
-</div>
+            # 2. SPLIT DE NEGOCIOS (DATO VS FONDO)
+            html_split = f"""
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 25px;">
+                <!-- Tarjeta DaTo -->
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-left: 6px solid #3B82F6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="color: #1E293B; font-size: 18px; font-weight: 900;">Cartera Propia DaTo</div>
+                        <div style="background: #EFF6FF; color: #2563EB; padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 800;">Principal</div>
+                    </div>
+                    <div style="color: #0F172A; font-size: 2.5rem; font-weight: 900; margin: 15px 0 5px 0;">{fmt_cop(recaudo_dato)}</div>
+                    <div style="color: #64748B; font-size: 13px;">Incluye: Abonos, Cuotas y Retomas directas.</div>
+                </div>
+                
+                <!-- Tarjeta Fondo Externo -->
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border-left: 6px solid #8B5CF6;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="color: #1E293B; font-size: 18px; font-weight: 900;">Fondos Externos</div>
+                        <div style="background: #F5F3FF; color: #7C3AED; padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 800;">Fondeado</div>
+                    </div>
+                    <div style="color: #0F172A; font-size: 2.5rem; font-weight: 900; margin: 15px 0 5px 0;">{fmt_cop(recaudo_fondo)}</div>
+                    <div style="color: #64748B; font-size: 13px;">Incluye: Venta de Cartera de contado y Retomas.</div>
+                </div>
+            </div>
+            """
+            st.markdown(html_split, unsafe_allow_html=True)
 
-<!-- Utilidad Neta -->
-<div style="flex: 1; min-width: 300px; background: #FFFFFF; border: 1px solid #BFDBFE; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(37,99,235,0.05); border-left: 6px solid #3B82F6;">
-<div style="margin: 0; color: #1D4ED8; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">(=) UTILIDAD NETA (Ganancia Libre)</div>
-<div style="margin: 10px 0 15px 0; color: {c_util_text}; font-size: 3rem; font-weight: 900; letter-spacing: -1px;">{fmt_cop(utilidad_neta)}</div>
-<div style="background: #FFF1F2; padding: 15px; border-radius: 8px; border: 1px solid #FECACA;">
-<div style="margin: 0 0 10px 0; color: #BE123C; font-size: 11px; font-weight: 800; text-transform: uppercase;">(-) Descuentos Operativos ({fmt_cop(gastos_totales)}):</div>
-<div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed #FECACA; padding-bottom: 8px;">
-<span style="color: #9F1239; font-size: 12px;">Gastos Fijos (Luz, Arriendo):</span>
-<b style="color: #BE123C; font-size: 12px;">{fmt_cop(g_fijos)}</b>
-</div>
-<div style="display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dashed #FECACA; padding-bottom: 8px;">
-<span style="color: #9F1239; font-size: 12px;">Comisiones de Ventas:</span>
-<b style="color: #BE123C; font-size: 12px;">{fmt_cop(total_comisiones)}</b>
-</div>
-<div style="display: flex; justify-content: space-between;">
-<span style="color: #9F1239; font-size: 12px;">Costo Inversores (Socios):</span>
-<b style="color: #BE123C; font-size: 12px;">{fmt_cop(g_socios)}</b>
-</div>
-</div>
-</div>
-</div>
-</div>
-"""
-            st.markdown(html_pg, unsafe_allow_html=True)
-
-            # 2. VITAL SIGNS (CAJA Y VALOR EMPRESA)
+            # 3. VITAL SIGNS (PATRIMONIO Y LIQUIDEZ)
+            es_neg_caja = liquidez_banco < 0
+            c_caja_text = "#EF4444" if es_neg_caja else "#059669"
+            c_caja_bg = "#FEF2F2" if es_neg_caja else "#F0FDF4"
+            
             html_vital = f"""
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
-<div style="background: {c_caja_bg}; border: 1px solid {c_caja_border}; padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: space-between;">
-<div>
-<div style="margin:0; color:{c_caja_text}; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Saldo Operativo Real (Tu Caja)</div>
-<div style="margin:5px 0; color:{c_caja_text}; font-size:2.8rem; font-weight:900; letter-spacing:-1px;">{fmt_cop(caja_operativa)}</div>
-<div style="margin:0; color:#475569; font-size:13px; font-weight:600;">Efectivo en Bancos: <b style="color:#0F172A;">{fmt_cop(liquidez_banco)}</b></div>
-</div>
-<div style="width: 60px; height: 60px; border-radius: 50%; background: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">🏦</div>
-</div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                <div style="background: {c_caja_bg}; border: 1px solid #A7F3D0; padding: 25px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <div style="margin:0; color:#047857; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Efectivo Real en Bancos</div>
+                        <div style="margin:5px 0; color:{c_caja_text}; font-size:2.2rem; font-weight:900;">{fmt_cop(liquidez_banco)}</div>
+                        <div style="margin:0; color:#475569; font-size:13px;">Capitalización Fija: <b style="color:#0F172A;">{fmt_cop(bodega)}</b> en Bodega</div>
+                    </div>
+                    <div style="font-size: 35px;">🏦</div>
+                </div>
 
-<div style="background: #F0FDF4; border: 1px solid #A7F3D0; padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); display: flex; align-items: center; justify-content: space-between;">
-<div>
-<div style="margin:0; color:#047857; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Valor de la Empresa (Patrimonio)</div>
-<div style="margin:5px 0; color:#059669; font-size:2.8rem; font-weight:900; letter-spacing:-1px;">{fmt_cop(patrimonio_neto)}</div>
-<div style="margin:0; color:#475569; font-size:13px; font-weight:600;">Equipos + Efectivo + Cartera + Cadenas - Deudas</div>
-</div>
-<div style="width: 60px; height: 60px; border-radius: 50%; background: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">💎</div>
-</div>
-</div>
-"""
+                <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 25px; border-radius: 16px; display: flex; align-items: center; justify-content: space-between;">
+                    <div>
+                        <div style="margin:0; color:#475569; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Valor de la Empresa (Patrimonio)</div>
+                        <div style="margin:5px 0; color:#0F172A; font-size:2.2rem; font-weight:900;">{fmt_cop(patrimonio_neto)}</div>
+                        <div style="margin:0; color:#64748B; font-size:13px;">Equipos + Efectivo + Cartera + Cadenas - Deudas</div>
+                    </div>
+                    <div style="font-size: 35px;">💎</div>
+                </div>
+            </div>
+            """
             st.markdown(html_vital, unsafe_allow_html=True)
 
-            # 3. RADIOGRAFÍA OPERATIVA (4 TARJETAS)
+            # 4. RADIOGRAFÍA OPERATIVA (MÉTRICAS RÁPIDAS)
             html_radiografia = f"""
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 30px;">
-<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-<span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Equipos Comprados</span>
-<span style="font-size:16px;">📦</span>
-</div>
-<div style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(compras_totales)}</div>
-</div>
-<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-<span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Dinero Recaudado</span>
-<span style="font-size:16px;">💵</span>
-</div>
-<div style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(recaudado)}</div>
-</div>
-<div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-<span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Plata en la Calle</span>
-<span style="font-size:16px;">🤝</span>
-</div>
-<div style="margin:0; color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(cartera_total)}</div>
-</div>
-<div style="background: #FFF1F2; border: 1px solid #FECACA; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-<span style="font-size:11px; color:#BE123C; font-weight:800; text-transform:uppercase; letter-spacing:1px;">Mora > 30 Días</span>
-<span style="font-size:16px;">🚨</span>
-</div>
-<div style="margin:0; color:#E11D48; font-size:1.6rem; font-weight: 800;">{riesgo_mora} Clientes</div>
-</div>
-</div>
-"""
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 35px;">
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;"><span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase;">Plata en la Calle</span><span>🤝</span></div>
+                    <div style="color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(cartera_total)}</div>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;"><span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase;">Cadenas (Intocable)</span><span>💰</span></div>
+                    <div style="color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(ahorro_cadenas)}</div>
+                </div>
+                <div style="background: #FFFFFF; border: 1px solid #E2E8F0; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;"><span style="font-size:11px; color:#64748B; font-weight:800; text-transform:uppercase;">Compras Totales</span><span>📦</span></div>
+                    <div style="color:#0F172A; font-size:1.6rem; font-weight: 800;">{fmt_cop(compras_totales)}</div>
+                </div>
+                <div style="background: #FFF1F2; border: 1px solid #FECACA; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 5px;"><span style="font-size:11px; color:#BE123C; font-weight:800; text-transform:uppercase;">Mora > 30 Días</span><span>🚨</span></div>
+                    <div style="color:#E11D48; font-size:1.6rem; font-weight: 800;">{riesgo_mora} Clientes</div>
+                </div>
+            </div>
+            """
             st.markdown(html_radiografia, unsafe_allow_html=True)
 
             # ==========================================
             # 📈 GRÁFICOS VISUALMENTE HERMOSOS (PLOTLY)
             # ==========================================
-            st.markdown("""
-<div style='display:flex; justify-content:space-between; align-items:end; margin-bottom:15px; border-bottom: 2px solid #E2E8F0; padding-bottom:10px;'>
-<div style='color: #0F172A; margin: 0; font-size: 20px; font-weight: 800;'>📊 Inteligencia Visual y Proyecciones</div>
-</div>
-""", unsafe_allow_html=True)
+            st.markdown("<div style='color: #0F172A; margin: 0 0 15px 0; font-size: 20px; font-weight: 800; border-bottom: 2px solid #E2E8F0; padding-bottom:10px;'>📊 Inteligencia Visual y Proyecciones</div>", unsafe_allow_html=True)
             
             col_filtros, _ = st.columns([1, 4])
             with col_filtros:
@@ -771,11 +743,11 @@ try:
             )
             
             with g_col1:
-                st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'><div style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>💵 Dinero Recaudado Mensual</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'><div style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>💵 Dinero Recaudado Mensual (Solo DaTo)</div>", unsafe_allow_html=True)
                 cursor.execute("""
                     SELECT DATE_FORMAT(p.fecha_pago, '%Y-%m') AS Mes, SUM(p.monto_recibido) AS Total
                     FROM Pagos p LEFT JOIN Creditos c ON p.id_credito = c.id_credito
-                    WHERE YEAR(p.fecha_pago) = %s AND p.motivo_ingreso NOT IN ('Venta de Cartera a Externo', 'Cruce Retoma Bodega') AND (c.propietario_cartera = 'DaTo' OR c.propietario_cartera IS NULL)
+                    WHERE YEAR(p.fecha_pago) = %s AND p.motivo_ingreso NOT IN ('Venta de Cartera a Externo', 'Cruce Retoma Bodega') AND IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo'
                     GROUP BY Mes ORDER BY Mes ASC
                 """, (year_seleccionado,))
                 datos_recaudo = cursor.fetchall()
@@ -794,11 +766,11 @@ try:
                 st.markdown("</div>", unsafe_allow_html=True)
 
             with g_col2:
-                st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'><div style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>📈 Proyección de Cobro ({year_seleccionado})</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'><div style='color:#1E293B; font-size: 15px; margin:0 0 15px 0; font-weight:800;'>📈 Proyección de Cobro (Cartera DaTo)</div>", unsafe_allow_html=True)
                 cursor.execute("""
                     SELECT DATE_FORMAT(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH), '%Y-%m') AS Mes, SUM(c.valor_cuota) AS Total
                     FROM Creditos c CROSS JOIN (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9 UNION ALL SELECT 10 UNION ALL SELECT 11) seq
-                    WHERE c.estado = 'Activo' AND c.propietario_cartera = 'DaTo' AND seq.n < c.plazo_meses AND YEAR(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH)) = %s
+                    WHERE c.estado = 'Activo' AND IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo' AND seq.n < c.plazo_meses AND YEAR(DATE_ADD(c.fecha_primera_cuota, INTERVAL seq.n MONTH)) = %s
                     GROUP BY Mes ORDER BY Mes ASC
                 """, (year_seleccionado,))
                 datos_proy = cursor.fetchall()
@@ -818,58 +790,60 @@ try:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # GRÁFICO FULL WIDTH: RIESGO VS LIQUIDEZ
-            st.markdown(f"<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.02);'><div style='color:#1E293B; font-size: 16px; margin:0 0 5px 0; font-weight:800;'>⚖️ Termómetro de Riesgo: Plata Prestada vs. Plata Recaudada</div><p style='color:#64748B; font-size:13px; margin-bottom:20px;'>Compara cuánto dinero nuevo salió a la calle fiado versus cuánto dinero real regresó de las cuotas.</p>", unsafe_allow_html=True)
-            cursor.execute("""
-                SELECT DATE_FORMAT(fecha_inicio, '%Y-%m') AS Mes, SUM(monto_financiado) AS Colocado
-                FROM Creditos WHERE propietario_cartera = 'DaTo' AND YEAR(fecha_inicio) = %s
-                GROUP BY Mes ORDER BY Mes ASC
-            """, (year_seleccionado,))
-            df_colocado = pd.DataFrame(cursor.fetchall())
+        elif menu_seleccionado == "simulador":
+            st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
+            tab_sim, tab_paz = st.tabs(["📊 Simular Cuotas", "🤝 Liquidación Paz y Salvo"])
             
-            if not df_colocado.empty and 'df_rec' in locals():
-                df_flujo = pd.merge(df_colocado, df_rec, on='Mes', how='outer').fillna(0)
-                df_flujo.rename(columns={'Total': 'Recaudado'}, inplace=True)
-                df_flujo = df_flujo.sort_values('Mes')
+            with tab_sim:
+                st.markdown("<br>", unsafe_allow_html=True)
+                modo_cliente = st.toggle("📸 Activar Vista Cliente")
+                if 'tasa_simulador' not in st.session_state: st.session_state['tasa_simulador'] = 3.0
+                    
+                col_s1, col_s2 = st.columns(2)
+                with col_s1:
+                    sim_precio = st.number_input("Valor del Producto ($)", min_value=0, step=10000, value=0)
+                    render_traductor(sim_precio)
+                    sim_abono = st.number_input("Abono Inicial ($)", min_value=0, step=10000, value=0)
+                    render_traductor(sim_abono)
+                with col_s2:
+                    sim_plazo = st.number_input("Meses a Financiar", min_value=1, max_value=72, step=1, value=6)
+                    if not modo_cliente:
+                        idx_tasa = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0].index(st.session_state['tasa_simulador']) if st.session_state['tasa_simulador'] in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0] else 3
+                        sim_tasa = st.selectbox("Tasa de Interés Mensual (%)", [0.0, 1.0, 2.0, 3.0, 4.0, 5.0], index=idx_tasa)
+                        st.session_state['tasa_simulador'] = sim_tasa
+                    else: sim_tasa = st.session_state['tasa_simulador']
+                    
+                sim_capital = sim_precio - sim_abono
+                if sim_capital > 0:
+                    i_m = sim_tasa / 100.0
+                    sim_cuota = sim_capital * (i_m * (1 + i_m)**sim_plazo) / (((1 + i_m)**sim_plazo) - 1) if sim_tasa > 0 else sim_capital / sim_plazo
+                    st.success(f"🔹 **Proyección de Cuota Mensual:** {fmt_cop(int(round(sim_cuota)))}")
+                elif sim_precio > 0: st.info("El abono cubre el total del equipo.")
 
-                fig_flujo = go.Figure()
-                fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Colocado'], name='Salió a la Calle (Prestado)', marker_color='#CBD5E1', opacity=0.9))
-                fig_flujo.add_trace(go.Bar(x=df_flujo['Mes'], y=df_flujo['Recaudado'], name='Volvió a Caja (Recaudado)', marker_color='#10B981', opacity=0.9))
-                
-                layout_flujo = layout_premium.copy()
-                layout_flujo.update(barmode='group', legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(family="Outfit")), height=350)
-                fig_flujo.update_layout(**layout_flujo)
-                st.plotly_chart(fig_flujo, use_container_width=True, config={'displayModeBar': False})
-            else: 
-                st.info("Aún no hay datos cruzados suficientes para graficar.")
-            st.markdown("</div><br><br>", unsafe_allow_html=True)
-
-
-            # 5. MÓDULO DE CADENAS (VAULT DESIGN)
-            st.markdown("<div style='color: #0F172A; margin-bottom: 15px; font-size: 18px; font-weight: 800;'>💎 Bóveda de Capitalización (Cadenas)</div>", unsafe_allow_html=True)
-            
-            c_cad1, c_cad2 = st.columns([1, 2.5])
-            with c_cad1:
-                html_cadenas = f"""
-<div style="background: linear-gradient(180deg, #F0FDF4 0%, #DCFCE7 100%); border: 1px solid #86EFAC; padding: 35px 25px; border-radius: 12px; text-align: center; height: 100%; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.1);">
-<div style="background:#FFFFFF; width:50px; height:50px; border-radius:50%; display:flex; justify-content:center; align-items:center; margin: 0 auto 15px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.05); font-size:20px;">💰</div>
-<p style="margin: 0; color: #047857; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Ahorro Acumulado</p>
-<div style="margin: 10px 0; color: #065F46; font-size: 3rem; font-weight: 900;">{fmt_cop(ahorro_cadenas)}</div>
-<p style="margin: 0; color: #10B981; font-size: 13px; font-weight:500;">Dinero ciego. Rentabilidad intocable.</p>
-</div>
-"""
-                st.markdown(html_cadenas, unsafe_allow_html=True)
-                
-            with c_cad2:
-                cursor.execute("SELECT descripcion AS 'Detalle de la Cadena', monto AS 'Aporte Acumulado', fecha_gasto AS 'Última Cuota Pagada' FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo' ORDER BY fecha_gasto DESC LIMIT 10")
-                df_cadenas = pd.DataFrame(cursor.fetchall())
-                if not df_cadenas.empty:
-                    df_cadenas['Aporte Acumulado'] = df_cadenas['Aporte Acumulado'].apply(fmt_cop)
-                    st.markdown("<div style='background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; padding: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.02);'>", unsafe_allow_html=True)
-                    st.dataframe(df_cadenas, hide_index=True, use_container_width=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
+            with tab_paz:
+                st.markdown("<br>", unsafe_allow_html=True)
+                cursor.execute("SELECT c.id_credito, cl.nombre_completo, cl.documento, i.modelo, c.monto_financiado, c.tasa_interes_mensual FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei WHERE c.estado = 'Activo'")
+                creditos_act = cursor.fetchall()
+                if not creditos_act: st.info("No hay créditos activos pendientes.")
                 else:
-                    st.info("No hay aportes a cadenas registrados.")
+                    opc_paz = {f"{c['documento']} | {c['nombre_completo']} ({c['modelo']})": c for c in creditos_act}
+                    sel_paz = st.selectbox("Seleccionar Cliente:", list(opc_paz.keys()), index=None, placeholder="Buscar cliente...")
+                    
+                    if sel_paz:
+                        datos_paz = opc_paz[sel_paz]
+                        cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')", (datos_paz['id_credito'],))
+                        res = cursor.fetchone()
+                        saldo_capital = float(datos_paz['monto_financiado']) - float(res['cap'] if res and res['cap'] else 0.0)
+                        interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
+                        
+                        st.markdown(f"""
+                        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px; margin-top: 20px;">
+                            <h3 style="color:#047857; margin:0; font-weight: 600;">VALOR TOTAL (PAZ Y SALVO HOY)</h3>
+                            <h1 style="color:#10B981; font-size: 3.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1>
+                            <p style="color:#64748B; font-size: 14px; margin:0;">Saldo a Capital ({fmt_cop(saldo_capital)}) + Interés de este Mes ({fmt_cop(interes_mes)})</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        st.dataframe(generar_plan_pagos_real(datos_paz['id_credito'], cursor).style.map(color_estado_cuota, subset=['Estado Actual']), width='stretch')
                     
 
         elif menu_seleccionado == "simulador":
