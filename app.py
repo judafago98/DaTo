@@ -577,21 +577,15 @@ try:
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Por Pagar') as comis_por_pagar,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo') as total_ahorro_cadenas,
                     
-                    -- SEPARACIÓN CAJA VS P&G PARA SOCIOS
-                    -- 1. Lo que afecta la CAJA (Todo lo que salió: Capital + Ganancia)
+                    -- CORRECCIÓN MÓDULO SOCIOS: Usamos "monto_total_pagar" en lugar de retorno_acordado
                     (SELECT IFNULL(SUM(monto_total_pagar - saldo_pendiente), 0) FROM Deudas_Fondeo) as g_socios_caja,
-                    -- 2. Lo que afecta el P&G (Solo los intereses/rendimientos que les pagamos)
                     (SELECT IFNULL(SUM(monto_total_pagar - monto_prestado), 0) FROM Deudas_Fondeo) as g_socios_pg,
-                    
                     (SELECT IFNULL(SUM(saldo_pendiente), 0) FROM Deudas_Fondeo) as deudas_fondeo,
                     
-                    -- CARTERA Y MÁRGENES (SOLO DATO - IGNORANDO FONDEO)
+                    -- CARTERA Y MÁRGENES (Para el P&G)
                     (SELECT SUM((c.valor_cuota * c.plazo_meses) - IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo') as cartera_proyectada,
                     (SELECT COUNT(DISTINCT c.id_credito) FROM Creditos c WHERE c.estado = 'Activo' AND c.id_credito NOT IN (SELECT p.id_credito FROM Pagos p WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as creditos_en_riesgo,
-                    
-                    -- Margen Comercial SOLO DaTo
                     (SELECT SUM(c.precio_venta - IFNULL((SELECT SUM(i.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = c.id_credito), 0)) FROM Creditos c WHERE IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo') as margen_comercial,
-                    -- Margen Financiero SOLO DaTo
                     (SELECT SUM((c.valor_cuota * c.plazo_meses) - c.monto_financiado) FROM Creditos c WHERE IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo') as margen_intereses
             """)
             auditoria = cursor.fetchone()
@@ -601,26 +595,30 @@ try:
             recaudo_total = float(auditoria['recaudo_total_operativo'] or 0)
             recaudo_dato = float(auditoria['recaudo_dato'] or 0)
             recaudo_fondo = float(auditoria['recaudo_fondo'] or 0)
-            
             entradas_totales = cap_ini + recaudo_total
             
             compras_totales = float(auditoria['compras_totales'])
+            
+            # Lógica para replicar el Excel de Andrés (Separar compras iniciales de recompras)
+            compras_cap_ini = cap_ini if compras_totales >= cap_ini else compras_totales
+            recompras = compras_totales - compras_cap_ini if compras_totales > cap_ini else 0
+            
             g_fijos = float(auditoria['g_fijos'])
             g_comis_pagadas = float(auditoria['g_comis_pagadas'])
-            g_socios_caja = float(auditoria['g_socios_caja']) # Salida física de bancos (Capital + Intereses)
+            g_socios_caja = float(auditoria['g_socios_caja'])
             ahorro_cadenas = float(auditoria['total_ahorro_cadenas'])
             
-            salidas_totales = compras_totales + g_fijos + g_comis_pagadas + g_socios_caja + ahorro_cadenas
+            # Lógica para replicar el Excel de Andrés (Agrupar "Gastos Operativos")
+            gastos_operativos_andres = g_fijos + g_socios_caja + ahorro_cadenas
             
-            # EL MOMENTO DE LA VERDAD: CAJA EN BANCOS
+            salidas_totales = compras_totales + gastos_operativos_andres + g_comis_pagadas
             liquidez_banco = entradas_totales - salidas_totales
             
             # --- 2. MATEMÁTICA DEL NEGOCIO (P&G SOLO DATO) ---
             margen_comercial = float(auditoria['margen_comercial'] or 0)
             margen_intereses = float(auditoria['margen_intereses'] or 0)
             ganancia_bruta = margen_comercial + margen_intereses
-            
-            g_socios_pg = float(auditoria['g_socios_pg']) # Gasto real en P&G (Solo los intereses pagados)
+            g_socios_pg = float(auditoria['g_socios_pg'])
             gastos_operativos_pg = g_fijos + g_comis_pagadas + g_socios_pg
             utilidad_neta = ganancia_bruta - gastos_operativos_pg
             
@@ -629,7 +627,6 @@ try:
             cartera_total = float(auditoria['cartera_proyectada'] or 0)
             comis_por_pagar = float(auditoria['comis_por_pagar'])
             pasivos_totales = comis_por_pagar + float(auditoria['deudas_fondeo'])
-            
             patrimonio_neto = liquidez_banco + bodega + cartera_total + ahorro_cadenas - pasivos_totales
             roi_porcentaje = ((patrimonio_neto - cap_ini) / cap_ini) * 100 if cap_ini > 0 else 0
             riesgo_mora = int(auditoria['creditos_en_riesgo'])
@@ -639,7 +636,6 @@ try:
             c_caja_text = "#E11D48" if es_neg_caja else "#059669"
             c_caja_bg = "#FFF1F2" if es_neg_caja else "#F0FDF4"
             c_caja_border = "#FECACA" if es_neg_caja else "#A7F3D0"
-            
             es_neg_util = utilidad_neta < 0
             c_util_text = "#E11D48" if es_neg_util else "#2563EB"
 
@@ -647,8 +643,8 @@ try:
             # 🎨 UI GERENCIAL TOTALMENTE BLINDADA (CFO LEVEL)
             # ==========================================
             
-            # MÓDULO 1: LA TESORERÍA (Entradas vs Salidas = Banco) - DISEÑO BLANCO
-            html_tesoreria = f"""<div style="background: #FFFFFF; padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); border: 1px solid #E2E8F0; margin-bottom: 25px;"><div style="color: #0F172A; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; border-bottom: 2px solid #F1F5F9; padding-bottom: 10px;">🏦 FLUJO DE EFECTIVO (Tesorería y Bancos)</div><div style="display: flex; gap: 20px; flex-wrap: wrap;"><div style="flex: 1; background: #F8FAFC; padding: 20px; border-radius: 12px; border: 1px solid #E2E8F0;"><div style="color: #64748B; font-size: 12px; font-weight: 800; text-transform: uppercase;">(+) Entradas Acumuladas</div><div style="color: #0F172A; font-size: 2.2rem; font-weight: 900; margin: 5px 0;">{fmt_cop(entradas_totales)}</div><div style="color: #64748B; font-size: 11px;">Cap. Inicial ({fmt_cop(cap_ini)}) + Recaudo ({fmt_cop(recaudo_total)})</div></div><div style="flex: 1; background: #FFF1F2; padding: 20px; border-radius: 12px; border: 1px solid #FECACA;"><div style="color: #BE123C; font-size: 12px; font-weight: 800; text-transform: uppercase;">(-) Salidas Acumuladas</div><div style="color: #9F1239; font-size: 2.2rem; font-weight: 900; margin: 5px 0;">{fmt_cop(salidas_totales)}</div><div style="color: #BE123C; font-size: 11px;">Compras, Gastos, Socios (Cap+Int) y Cadenas</div></div><div style="flex: 1.5; background: {c_caja_bg}; padding: 20px; border-radius: 12px; border: 1px solid {c_caja_border};"><div style="color: {c_caja_text}; font-size: 13px; font-weight: 900; text-transform: uppercase;">(=) EFECTIVO REAL EN BANCOS</div><div style="color: {c_caja_text}; font-size: 3rem; font-weight: 900; margin: 5px 0; letter-spacing: -1px;">{fmt_cop(liquidez_banco)}</div><div style="color: #475569; font-size: 12px; font-weight: 600;">Saldo con los egresos registrados en sistema.</div></div></div></div>"""
+            # MÓDULO 1: LA TESORERÍA (CON LA ESTRUCTURA EXACTA DE ANDRÉS)
+            html_tesoreria = f"""<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 25px;"><div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 30px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: center;"><div style="color: #94A3B8; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">🏦 Efectivo Real en Bancos</div><div style="color: {c_caja_text}; font-size: 4rem; font-weight: 900; letter-spacing: -1.5px; line-height: 1;">{fmt_cop(liquidez_banco)}</div><div style="color: #CBD5E1; font-size: 13px; font-weight: 600; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Entradas: <b style="color: #A7F3D0;">{fmt_cop(entradas_totales)}</b> &nbsp;|&nbsp; Salidas: <b style="color: #FECACA;">{fmt_cop(salidas_totales)}</b></div></div><div style="background: #FFFFFF; padding: 25px; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.03);"><div style="color: #0F172A; font-size: 16px; font-weight: 900; text-transform: uppercase; border-bottom: 2px solid #F1F5F9; padding-bottom: 10px; margin-bottom: 15px;">📋 Detalle Flujo de Caja</div><div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color: #475569; font-size: 13px; font-weight: 600;">Capital Inicial</span><span style="color: #0F172A; font-size: 13px; font-weight: 800;">{fmt_cop(cap_ini)}</span></div><div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color: #475569; font-size: 13px; font-weight: 600;">Ingreso Total</span><span style="color: #0F172A; font-size: 13px; font-weight: 800;">{fmt_cop(recaudo_total)}</span></div><div style="border-top: 1px dashed #E2E8F0; margin: 12px 0;"></div><div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color: #475569; font-size: 13px; font-weight: 600;">Compras Capital Inicial</span><span style="color: #0F172A; font-size: 13px; font-weight: 800;">{fmt_cop(compras_cap_ini)}</span></div><div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color: #475569; font-size: 13px; font-weight: 600;">Recompras</span><span style="color: #0F172A; font-size: 13px; font-weight: 800;">{fmt_cop(recompras)}</span></div><div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color: #475569; font-size: 13px; font-weight: 600;">Gastos Operativos (Fijos + Socios)</span><span style="color: #0F172A; font-size: 13px; font-weight: 800;">{fmt_cop(gastos_operativos_andres)}</span></div><div style="display: flex; justify-content: space-between; margin-bottom: 8px;"><span style="color: #475569; font-size: 13px; font-weight: 600;">Comisiones</span><span style="color: #0F172A; font-size: 13px; font-weight: 800;">{fmt_cop(g_comis_pagadas)}</span></div><div style="border-top: 2px solid #0F172A; margin: 12px 0;"></div><div style="display: flex; justify-content: space-between; align-items: center; background: {c_caja_bg}; padding: 12px; border-radius: 8px; border: 1px solid {c_caja_border};"><span style="color: {c_caja_text}; font-size: 14px; font-weight: 900; text-transform: uppercase;">Resultado</span><span style="color: {c_caja_text}; font-size: 18px; font-weight: 900;">{fmt_cop(liquidez_banco)}</span></div></div></div>"""
             st.markdown(html_tesoreria, unsafe_allow_html=True)
 
             # MÓDULO 2: DESGLOSE DE RECAUDO (Dato vs Fondo)
@@ -784,6 +780,10 @@ try:
                         html_paz = f"""<div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px; margin-top: 20px;"><h3 style="color:#047857; margin:0; font-weight: 600;">VALOR TOTAL (PAZ Y SALVO HOY)</h3><h1 style="color:#10B981; font-size: 3.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1><p style="color:#64748B; font-size: 14px; margin:0;">Saldo a Capital ({fmt_cop(saldo_capital)}) + Interés de este Mes ({fmt_cop(interes_mes)})</p></div>"""
                         st.markdown(html_paz, unsafe_allow_html=True)
                         st.dataframe(generar_plan_pagos_real(datos_paz['id_credito'], cursor).style.map(color_estado_cuota, subset=['Estado Actual']), width='stretch')
+
+
+
+        
 
 
 
