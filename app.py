@@ -577,8 +577,8 @@ try:
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Por Pagar') as comis_por_pagar,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Aporte a Cadena / Fondo Fijo') as total_ahorro_cadenas,
                     
-                    -- CORRECCIÓN MÓDULO SOCIOS: Calculamos la plata REAL que salió para pagar las deudas (Retorno Acordado - Lo que se debe hoy)
-                    (SELECT IFNULL(SUM(retorno_acordado - saldo_pendiente), 0) FROM Deudas_Fondeo) as g_socios,
+                    -- CORRECCIÓN MÓDULO SOCIOS: Usamos "monto_total_pagar" en lugar de retorno_acordado
+                    (SELECT IFNULL(SUM(monto_total_pagar - saldo_pendiente), 0) FROM Deudas_Fondeo) as g_socios,
                     (SELECT IFNULL(SUM(saldo_pendiente), 0) FROM Deudas_Fondeo) as deudas_fondeo,
                     
                     -- CARTERA Y MÁRGENES (Para el P&G)
@@ -725,6 +725,56 @@ try:
                 st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("<br>", unsafe_allow_html=True)
+
+        elif menu_seleccionado == "simulador":
+            st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
+            tab_sim, tab_paz = st.tabs(["📊 Simular Cuotas", "🤝 Liquidación Paz y Salvo"])
+            
+            with tab_sim:
+                st.markdown("<br>", unsafe_allow_html=True)
+                modo_cliente = st.toggle("📸 Activar Vista Cliente")
+                if 'tasa_simulador' not in st.session_state: st.session_state['tasa_simulador'] = 3.0
+                    
+                col_s1, col_s2 = st.columns(2)
+                with col_s1:
+                    sim_precio = st.number_input("Valor del Producto ($)", min_value=0, step=10000, value=0)
+                    render_traductor(sim_precio)
+                    sim_abono = st.number_input("Abono Inicial ($)", min_value=0, step=10000, value=0)
+                    render_traductor(sim_abono)
+                with col_s2:
+                    sim_plazo = st.number_input("Meses a Financiar", min_value=1, max_value=72, step=1, value=6)
+                    if not modo_cliente:
+                        idx_tasa = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0].index(st.session_state['tasa_simulador']) if st.session_state['tasa_simulador'] in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0] else 3
+                        sim_tasa = st.selectbox("Tasa de Interés Mensual (%)", [0.0, 1.0, 2.0, 3.0, 4.0, 5.0], index=idx_tasa)
+                        st.session_state['tasa_simulador'] = sim_tasa
+                    else: sim_tasa = st.session_state['tasa_simulador']
+                    
+                sim_capital = sim_precio - sim_abono
+                if sim_capital > 0:
+                    i_m = sim_tasa / 100.0
+                    sim_cuota = sim_capital * (i_m * (1 + i_m)**sim_plazo) / (((1 + i_m)**sim_plazo) - 1) if sim_tasa > 0 else sim_capital / sim_plazo
+                    st.success(f"🔹 **Proyección de Cuota Mensual:** {fmt_cop(int(round(sim_cuota)))}")
+                elif sim_precio > 0: st.info("El abono cubre el total del equipo.")
+
+            with tab_paz:
+                st.markdown("<br>", unsafe_allow_html=True)
+                cursor.execute("SELECT c.id_credito, cl.nombre_completo, cl.documento, i.modelo, c.monto_financiado, c.tasa_interes_mensual FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei WHERE c.estado = 'Activo'")
+                creditos_act = cursor.fetchall()
+                if not creditos_act: st.info("No hay créditos activos pendientes.")
+                else:
+                    opc_paz = {f"{c['documento']} | {c['nombre_completo']} ({c['modelo']})": c for c in creditos_act}
+                    sel_paz = st.selectbox("Seleccionar Cliente:", list(opc_paz.keys()), index=None, placeholder="Buscar cliente...")
+                    
+                    if sel_paz:
+                        datos_paz = opc_paz[sel_paz]
+                        cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')", (datos_paz['id_credito'],))
+                        res = cursor.fetchone()
+                        saldo_capital = float(datos_paz['monto_financiado']) - float(res['cap'] if res and res['cap'] else 0.0)
+                        interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
+                        
+                        html_paz = f"""<div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px; margin-top: 20px;"><h3 style="color:#047857; margin:0; font-weight: 600;">VALOR TOTAL (PAZ Y SALVO HOY)</h3><h1 style="color:#10B981; font-size: 3.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1><p style="color:#64748B; font-size: 14px; margin:0;">Saldo a Capital ({fmt_cop(saldo_capital)}) + Interés de este Mes ({fmt_cop(interes_mes)})</p></div>"""
+                        st.markdown(html_paz, unsafe_allow_html=True)
+                        st.dataframe(generar_plan_pagos_real(datos_paz['id_credito'], cursor).style.map(color_estado_cuota, subset=['Estado Actual']), width='stretch')
 
         elif menu_seleccionado == "simulador":
             st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
