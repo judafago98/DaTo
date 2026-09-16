@@ -7,7 +7,7 @@ import uuid
 import calendar
 import os
 import base64
-import mathz
+import math
 import socket
 import plotly.express as px
 
