@@ -565,7 +565,7 @@ try:
                     (SELECT IFNULL(SUM(costo_adquisicion), 0) FROM Inventario WHERE estado = 'Disponible' OR (estado IS NULL AND costo_adquisicion > 0)) as bodega,
                     (SELECT IFNULL(SUM(costo_adquisicion), 0) FROM Inventario WHERE costo_adquisicion > 0) as compras_totales,
                     
-                    -- TOP DE GASTOS Y PASIVOS
+                    -- TOP DE GASTOS Y PASIVOS (Incluye todos los gastos de la empresa)
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto NOT IN ('Gasto Operativo', 'Costo Financiero (Pago a Socios)', 'Aporte a Cadena / Fondo Fijo')) as g_fijos,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Gasto Operativo' AND estado_pago = 'Pagado') as g_comis_pagadas,
                     (SELECT IFNULL(SUM(monto), 0) FROM Gastos_Operativos WHERE tipo_gasto = 'Costo Financiero (Pago a Socios)') as g_socios,
@@ -576,7 +576,11 @@ try:
                     -- ESTADO DE CARTERA Y MÁRGENES (Para P&G)
                     (SELECT SUM((c.valor_cuota * c.plazo_meses) - IFNULL((SELECT SUM(monto_recibido) FROM Pagos p WHERE p.id_credito = c.id_credito AND p.motivo_ingreso NOT IN ('Abono Inicial (Factura)', 'Cruce Retoma Bodega', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')), 0)) FROM Creditos c WHERE c.estado = 'Activo' AND IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo') as cartera_proyectada,
                     (SELECT COUNT(DISTINCT c.id_credito) FROM Creditos c WHERE c.estado = 'Activo' AND c.id_credito NOT IN (SELECT p.id_credito FROM Pagos p WHERE p.fecha_pago >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))) as creditos_en_riesgo,
-                    (SELECT SUM(c.precio_venta - IFNULL((SELECT SUM(i.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = c.id_credito), 0)) FROM Creditos c WHERE IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo') as margen_comercial,
+                    
+                    -- CORRECCIÓN: Margen comercial aplica a TODAS las ventas (DaTo + Fondos)
+                    (SELECT SUM(c.precio_venta - IFNULL((SELECT SUM(i.costo_adquisicion) FROM Creditos_Items ci JOIN Inventario i ON ci.imei = i.imei WHERE ci.id_credito = c.id_credito), 0)) FROM Creditos c) as margen_comercial,
+                    
+                    -- CORRECCIÓN: Margen intereses aplica SOLO a DaTo
                     (SELECT SUM((c.valor_cuota * c.plazo_meses) - c.monto_financiado) FROM Creditos c WHERE IFNULL(c.propietario_cartera, 'DaTo') = 'DaTo') as margen_intereses
             """)
             auditoria = cursor.fetchone()
@@ -625,8 +629,8 @@ try:
             # 🎨 UI GERENCIAL TOTALMENTE BLINDADA (CFO LEVEL)
             # ==========================================
             
-            # 1. CONSOLA CENTRAL (RECAUDO Y CAJA NETA)
-            html_master = f"""<div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 35px; border-radius: 20px; box-shadow: 0 10px 30px rgba(15,23,42,0.2); margin-bottom: 25px; position: relative; overflow: hidden;"><div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; background: rgba(255,255,255,0.03); border-radius: 50%;"></div><div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px;"><div><div style="color: #94A3B8; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px;">🏆 Recaudo Total Operativo (DaTo + Fondos)</div><div style="color: #FFFFFF; font-size: 3.5rem; font-weight: 900; letter-spacing: -1.5px; line-height: 1;">{fmt_cop(recaudo_total)}</div><div style="color: #38BDF8; font-size: 14px; font-weight: 600; margin-top: 10px;">Dinero real ingresado a la empresa</div></div><div style="background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); padding: 20px 25px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); min-width: 250px;"><div style="color: #A7F3D0; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Caja Neta Libre (Libre de Gastos)</div><div style="color: #10B981; font-size: 2.2rem; font-weight: 900; margin: 5px 0;">{fmt_cop(caja_neta_libre)}</div><div style="color: #CBD5E1; font-size: 12px;">Gastos Descontados: <b style="color: #FDA4AF;">-{fmt_cop(gastos_totales)}</b></div></div></div></div>"""
+            # 1. CONSOLA CENTRAL (DISEÑO BLANCO PREMIUM)
+            html_master = f"""<div style="background: #FFFFFF; padding: 35px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.04); margin-bottom: 25px; border: 1px solid #E2E8F0; position: relative; overflow: hidden;"><div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px;"><div><div style="color: #64748B; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 5px;">🏆 Recaudo Total Operativo (DaTo + Fondos)</div><div style="color: #0F172A; font-size: 3.5rem; font-weight: 900; letter-spacing: -1.5px; line-height: 1;">{fmt_cop(recaudo_total)}</div><div style="color: #3B82F6; font-size: 14px; font-weight: 600; margin-top: 10px;">Dinero real ingresado a la empresa</div></div><div style="background: #F0FDF4; padding: 20px 25px; border-radius: 16px; border: 1px solid #A7F3D0; min-width: 250px;"><div style="color: #047857; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Caja Neta Libre (Libre de Gastos)</div><div style="color: #10B981; font-size: 2.2rem; font-weight: 900; margin: 5px 0;">{fmt_cop(caja_neta_libre)}</div><div style="color: #64748B; font-size: 12px;">Gastos Descontados: <b style="color: #E11D48;">-{fmt_cop(gastos_totales)}</b></div></div></div></div>"""
             st.markdown(html_master, unsafe_allow_html=True)
 
             # 2. SPLIT DE NEGOCIOS (DATO VS FONDO)
@@ -761,62 +765,10 @@ try:
                         html_paz = f"""<div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px; margin-top: 20px;"><h3 style="color:#047857; margin:0; font-weight: 600;">VALOR TOTAL (PAZ Y SALVO HOY)</h3><h1 style="color:#10B981; font-size: 3.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1><p style="color:#64748B; font-size: 14px; margin:0;">Saldo a Capital ({fmt_cop(saldo_capital)}) + Interés de este Mes ({fmt_cop(interes_mes)})</p></div>"""
                         st.markdown(html_paz, unsafe_allow_html=True)
                         st.dataframe(generar_plan_pagos_real(datos_paz['id_credito'], cursor).style.map(color_estado_cuota, subset=['Estado Actual']), width='stretch')
-                    
 
-        elif menu_seleccionado == "simulador":
-            st.markdown("<h2>🔮 Cotizador y Simulación</h2>", unsafe_allow_html=True)
-            tab_sim, tab_paz = st.tabs(["📊 Simular Cuotas", "🤝 Liquidación Paz y Salvo"])
-            
-            with tab_sim:
-                st.markdown("<br>", unsafe_allow_html=True)
-                modo_cliente = st.toggle("📸 Activar Vista Cliente")
-                if 'tasa_simulador' not in st.session_state: st.session_state['tasa_simulador'] = 3.0
-                    
-                col_s1, col_s2 = st.columns(2)
-                with col_s1:
-                    sim_precio = st.number_input("Valor del Producto ($)", min_value=0, step=10000, value=0)
-                    render_traductor(sim_precio)
-                    sim_abono = st.number_input("Abono Inicial ($)", min_value=0, step=10000, value=0)
-                    render_traductor(sim_abono)
-                with col_s2:
-                    sim_plazo = st.number_input("Meses a Financiar", min_value=1, max_value=72, step=1, value=6)
-                    if not modo_cliente:
-                        idx_tasa = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0].index(st.session_state['tasa_simulador']) if st.session_state['tasa_simulador'] in [0.0, 1.0, 2.0, 3.0, 4.0, 5.0] else 3
-                        sim_tasa = st.selectbox("Tasa de Interés Mensual (%)", [0.0, 1.0, 2.0, 3.0, 4.0, 5.0], index=idx_tasa)
-                        st.session_state['tasa_simulador'] = sim_tasa
-                    else: sim_tasa = st.session_state['tasa_simulador']
-                    
-                sim_capital = sim_precio - sim_abono
-                if sim_capital > 0:
-                    i_m = sim_tasa / 100.0
-                    sim_cuota = sim_capital * (i_m * (1 + i_m)**sim_plazo) / (((1 + i_m)**sim_plazo) - 1) if sim_tasa > 0 else sim_capital / sim_plazo
-                    st.success(f"🔹 **Proyección de Cuota Mensual:** {fmt_cop(int(round(sim_cuota)))}")
-                elif sim_precio > 0: st.info("El abono cubre el total del equipo.")
 
-            with tab_paz:
-                st.markdown("<br>", unsafe_allow_html=True)
-                cursor.execute("SELECT c.id_credito, cl.nombre_completo, cl.documento, i.modelo, c.monto_financiado, c.tasa_interes_mensual FROM Creditos c JOIN Clientes cl ON c.id_cliente = cl.id_cliente JOIN Inventario i ON c.imei = i.imei WHERE c.estado = 'Activo'")
-                creditos_act = cursor.fetchall()
-                if not creditos_act: st.info("No hay créditos activos pendientes.")
-                else:
-                    opc_paz = {f"{c['documento']} | {c['nombre_completo']} ({c['modelo']})": c for c in creditos_act}
-                    sel_paz = st.selectbox("Seleccionar Cliente:", list(opc_paz.keys()), index=None, placeholder="Buscar cliente...")
-                    
-                    if sel_paz:
-                        datos_paz = opc_paz[sel_paz]
-                        cursor.execute("SELECT SUM(capital_abonado) as cap FROM Pagos WHERE id_credito = %s AND motivo_ingreso NOT IN ('Cruce Retoma Bodega', 'Abono Inicial (Factura)', 'Ingreso Retoma Bodega', 'Venta de Cartera a Externo')", (datos_paz['id_credito'],))
-                        res = cursor.fetchone()
-                        saldo_capital = float(datos_paz['monto_financiado']) - float(res['cap'] if res and res['cap'] else 0.0)
-                        interes_mes = saldo_capital * float(datos_paz['tasa_interes_mensual'])
-                        
-                        st.markdown(f"""
-                        <div style="background: #ECFDF5; border: 1px solid #A7F3D0; border-radius: 12px; padding: 25px; text-align: center; margin-bottom: 20px; margin-top: 20px;">
-                            <h3 style="color:#047857; margin:0; font-weight: 600;">VALOR TOTAL (PAZ Y SALVO HOY)</h3>
-                            <h1 style="color:#10B981; font-size: 3.5rem; font-weight: 800; margin: 10px 0;">{fmt_cop(saldo_capital + interes_mes)}</h1>
-                            <p style="color:#64748B; font-size: 14px; margin:0;">Saldo a Capital ({fmt_cop(saldo_capital)}) + Interés de este Mes ({fmt_cop(interes_mes)})</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        st.dataframe(generar_plan_pagos_real(datos_paz['id_credito'], cursor).style.map(color_estado_cuota, subset=['Estado Actual']), width='stretch')
+
+        
 
         elif menu_seleccionado == "inventario":
             st.markdown("<h2>Gestión de Inventario 📦</h2>", unsafe_allow_html=True)
